@@ -112,6 +112,25 @@ export class ExercisePerformance {
     this.replaceCurrentSet('ABANDONED', values, at);
   }
 
+  /**
+   * Corriger la saisie d'une série déjà terminée.
+   *
+   * Nécessaire parce qu'on valide la série avec les valeurs prévues puis on
+   * corrige pendant le repos : la performance reste ce que l'utilisateur
+   * confirme, il faut donc pouvoir revenir sur une valeur supposée.
+   * Ne change pas l'état de la série : une série abandonnée le reste.
+   */
+  correctSetValues(setIndex: number, values: SetValues): void {
+    const set = this._sets[setIndex];
+    if (!set) {
+      throw new Error("Cette série n'existe pas.");
+    }
+    if (set.status === 'IN_PROGRESS') {
+      throw new Error("Cette série est encore en cours : termine-la d'abord.");
+    }
+    this._sets[setIndex] = { ...set, values: this.checkValues(values) };
+  }
+
   private replaceCurrentSet(status: PerformanceSetStatus, values: SetValues, at: Date): void {
     const current = this.currentSet;
     if (!current) {

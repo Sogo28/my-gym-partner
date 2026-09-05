@@ -25,6 +25,12 @@ export type Activity = {
    * performances n'existent : toute nouvelle activité en a une.
    */
   readonly performanceId: ExercisePerformanceId | null;
+  /**
+   * D'où vient cet exercice : sa position dans le PlannedWorkout, ou null
+   * s'il a été ajouté librement (§9). Le même exercice pouvant figurer deux
+   * fois dans un plan, l'identifiant seul ne suffirait pas à le retrouver.
+   */
+  readonly plannedPosition: number | null;
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
 };
@@ -150,12 +156,23 @@ export class WorkoutSession {
    * L'exercice peut être planifié ou ajouté librement (§30) : la séance ne
    * consulte pas le plan pour l'autoriser. Dévier fait partie du métier.
    */
-  startActivity(exerciseId: ExerciseId, performanceId: ExercisePerformanceId, at: Date): void {
+  startActivity(
+    exerciseId: ExerciseId,
+    performanceId: ExercisePerformanceId,
+    at: Date,
+    plannedPosition: number | null = null,
+  ): void {
     this.requireActive();
     if (this.currentActivity) {
       throw new Error("Termine l'exercice en cours avant d'en commencer un autre.");
     }
-    this._activities.push({ exerciseId, performanceId, startedAt: at, finishedAt: null });
+    this._activities.push({
+      exerciseId,
+      performanceId,
+      plannedPosition,
+      startedAt: at,
+      finishedAt: null,
+    });
   }
 
   finishCurrentActivity(at: Date): void {

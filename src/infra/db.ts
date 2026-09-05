@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -169,6 +169,13 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         ended_at TEXT,
         PRIMARY KEY (session_id, position)
       );
+    `);
+  }
+
+  // Migration 6 : lien entre une activité et l'exercice planifié dont elle vient.
+  if (version < 6) {
+    await db.execAsync(`
+      ALTER TABLE session_activities ADD COLUMN planned_position INTEGER;
     `);
   }
 

@@ -92,6 +92,46 @@ describe('ExercisePerformance', () => {
     expect(() => performance.completeCurrentSet({ weight: 10 }, t(2))).toThrow(/ne se mesure pas/);
   });
 
+  it('corrige la saisie d une série déjà validée', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.completeCurrentSet({ reps: 8, weight: 10 }, t(2));
+
+    // Cas réel : la série est validée avec les valeurs prévues, puis corrigée
+    // pendant le repos parce qu'on n'a fait que 6 répétitions.
+    performance.correctSetValues(0, { reps: 6, weight: 10 });
+
+    expect(performance.completedSets[0].values).toEqual({ reps: 6, weight: 10 });
+    expect(performance.completedSets[0].status).toBe('COMPLETED');
+  });
+
+  it('ne change pas l état d une série abandonnée qu on corrige', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.abandonCurrentSet(t(2));
+
+    performance.correctSetValues(0, { reps: 3 });
+
+    expect(performance.sets[0].status).toBe('ABANDONED');
+    expect(performance.completedSets).toHaveLength(0);
+  });
+
+  it('refuse de corriger une série encore en cours ou inexistante', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+
+    expect(() => performance.correctSetValues(0, { reps: 8 })).toThrow(/encore en cours/);
+    expect(() => performance.correctSetValues(9, { reps: 8 })).toThrow(/n'existe pas/);
+  });
+
+  it('refuse une correction avec une valeur hors mesures de l exercice', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.completeCurrentSet({ reps: 8 }, t(2));
+
+    expect(() => performance.correctSetValues(0, { duration: 30 })).toThrow(/ne se mesure pas/);
+  });
+
   it('enchaîne plusieurs séries avec des valeurs différentes', () => {
     const performance = pullUp();
     performance.startSet(t(1));
