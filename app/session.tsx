@@ -235,12 +235,13 @@ export default function SessionScreen() {
 
           {showDetail ? (
             <ScrollView
+              key={activity.performanceId ?? 'none'}
               className="max-h-[40%] shrink grow-0"
               contentContainerClassName="gap-2 px-1 pb-1 pt-0.5"
             >
               {sets.map((set, index) => (
                 <SetRow
-                  key={index}
+                  key={`${activity.performanceId}-${index}`}
                   index={index + 1}
                   status={statusOf(set.status)}
                   values={format(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
@@ -248,7 +249,7 @@ export default function SessionScreen() {
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
                 <SetRow
-                  key={`planned-${index}`}
+                  key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
                   status="planned"
                   values={format(set.targets)}
@@ -257,6 +258,7 @@ export default function SessionScreen() {
             </ScrollView>
           ) : (
             <ScrollView
+              key={activity.performanceId ?? 'none'}
               horizontal
               showsHorizontalScrollIndicator={false}
               className="max-h-12 grow-0"
@@ -264,7 +266,7 @@ export default function SessionScreen() {
             >
               {sets.map((set, index) => (
                 <SetChip
-                  key={index}
+                  key={`${activity.performanceId}-${index}`}
                   index={index + 1}
                   status={statusOf(set.status)}
                   // La série ajustée montre la valeur en cours, sans attendre
@@ -274,7 +276,7 @@ export default function SessionScreen() {
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
                 <SetChip
-                  key={`planned-${index}`}
+                  key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
                   status="planned"
                   values={formatShort(set.targets)}
