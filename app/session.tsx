@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
@@ -10,17 +10,26 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { findById as findPerformanceById } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { findActive } from '../src/infra/workout-session-repository';
+import { Button } from '../src/ui/button';
+import { EmptyState } from '../src/ui/empty-state';
+import { BusinessNotice } from '../src/ui/notice';
+import { SessionHeader } from '../src/ui/screen-header';
+import { SetRow, type SetRowStatus } from '../src/ui/set-row';
+import { NumberField } from '../src/ui/number-field';
+import { Timer } from '../src/ui/timer';
 import {
+  abandonPerformanceSet,
   cancelWorkoutSession,
+  completePerformanceSet,
   correctSet,
   finishWorkoutSession,
   goToNextExercise,
-  startActivity,
   startPerformanceSet,
-  completePerformanceSet,
   startWorkoutSession,
-  stopRest,
 } from '../src/use-cases/workout-session-actions';
+
+/** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
+const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 export default function SessionScreen() {
   const router = useRouter();
@@ -29,8 +38,7 @@ export default function SessionScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [showFreeExercises, setShowFreeExercises] = useState(false);
+  const [values, setValues] = useState<Record<string, number>>({});
   const [showSets, setShowSets] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,12 +74,23 @@ export default function SessionScreen() {
     }
   }
 
-  const nameOf = (exerciseId: string) =>
-    exercises.find((e) => e.id === exerciseId)?.name ?? exerciseId;
-  const unitOf = (measurementId: string) =>
-    measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
+  const plan = plans.find((p) => p.id === session?.plannedWorkoutId);
+  const activity = session?.currentActivity;
+  const plannedExercise =
+    activity?.plannedPosition != null ? plan?.exercises[activity.plannedPosition] : undefined;
 
-  // --- Le chronomètre de repos : un rendu par seconde, uniquement pendant le repos.
+  const sets = performance?.sets ?? [];
+  const nextSetIndex = sets.length;
+  const lastSetIndex = nextSetIndex - 1;
+  const lastSet = lastSetIndex >= 0 ? sets[lastSetIndex] : undefined;
+  const resting = Boolean(session?.currentRest);
+
+  // Pendant le repos, les champs affichent ce qui vient d'être enregistré.
+  useEffect(() => {
+    if (resting && lastSet) setValues({ ...lastSet.values });
+  }, [resting, lastSetIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Un rendu par seconde, et seulement pendant le repos.
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -81,335 +100,192 @@ export default function SessionScreen() {
   }, [restStartedAt]);
   const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
+  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
+  const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
+  const format = (v: Record<string, number>) =>
+    Object.entries(v)
+      .map(([id, value]) => `${value} ${unitOf(id)}`)
+      .join(' · ');
+
+  const diverges =
+    lastSet !== undefined &&
+    Object.entries(values).some(([id, value]) => lastSet.values[id] !== value);
+
+  function beginSet() {
+    run(async () => {
+      await startPerformanceSet();
+      setValues({ ...(plannedExercise?.sets[nextSetIndex]?.targets ?? {}) });
+    });
+  }
+
+  function openMenu() {
+    const options: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
+      { text: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
+    ];
+    if (performance?.currentSet) {
+      options.push({ text: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) });
+    }
+    if (activity) {
+      options.push({ text: "Passer l'exercice", onPress: () => run(goToNextExercise) });
+    }
+    options.push({
+      text: 'Annuler la séance',
+      style: 'destructive',
+      onPress: () =>
+        Alert.alert('Annuler la séance ?', 'Les séries déjà validées seront conservées.', [
+          { text: 'Continuer', style: 'cancel' },
+          { text: 'Annuler la séance', style: 'destructive', onPress: () => run(cancelWorkoutSession) },
+        ]),
+    });
+    options.push({ text: 'Fermer', style: 'cancel' });
+
+    Alert.alert('Séance', undefined, options);
+  }
+
   if (!session) {
     return (
-      <View style={styles.screen}>
-        <Text style={styles.muted}>Aucune séance en cours.</Text>
-        <Pressable style={styles.button} onPress={() => router.push('/workouts')}>
-          <Text style={styles.buttonText}>Choisir un entraînement</Text>
-        </Pressable>
-        <Pressable style={styles.buttonOutline} onPress={() => run(() => startWorkoutSession())}>
-          <Text style={styles.buttonOutlineText}>Séance libre</Text>
-        </Pressable>
-        {error && <Text style={styles.error}>{error}</Text>}
+      <View className="flex-1 justify-center gap-4 bg-background p-5 dark:bg-background-dark">
+        <EmptyState
+          title="Aucune séance en cours"
+          description="Choisis un entraînement pour démarrer, ou lance une séance libre."
+          actionLabel="Choisir un entraînement"
+          onAction={() => router.push('/workouts')}
+        />
+        <Button
+          label="Séance libre"
+          variant="ghost"
+          size="md"
+          onPress={() => run(() => startWorkoutSession())}
+        />
+        {error && <BusinessNotice message={error} />}
       </View>
     );
   }
 
-  const plan = plans.find((p) => p.id === session.plannedWorkoutId);
-  const activity = session.currentActivity;
-  const plannedExercise =
-    activity?.plannedPosition != null ? plan?.exercises[activity.plannedPosition] : undefined;
-
-  const doneSets = performance?.sets ?? [];
-  const nextSetIndex = doneSets.length;
-  const plannedSet = plannedExercise?.sets[nextSetIndex];
-  const lastSetIndex = nextSetIndex - 1;
-
-  /** Démarrer une série pré-remplit les champs avec ce qui était prévu. */
-  function beginSet() {
-    run(async () => {
-      await startPerformanceSet();
-      const targets = plannedSet?.targets ?? {};
-      setValues(
-        Object.fromEntries(Object.entries(targets).map(([id, value]) => [id, String(value)])),
-      );
-    });
-  }
-
-  function parsedValues(): Record<string, number> {
-    const parsed: Record<string, number> = {};
-    for (const [measurementId, raw] of Object.entries(values)) {
-      if (raw.trim() !== '') parsed[measurementId] = Number(raw.replace(',', '.'));
-    }
-    return parsed;
-  }
-
-  function confirmCancel() {
-    Alert.alert('Annuler la séance ?', 'Les séries déjà validées seront conservées.', [
-      { text: 'Continuer la séance', style: 'cancel' },
-      { text: 'Annuler la séance', style: 'destructive', onPress: () => run(cancelWorkoutSession) },
-    ]);
-  }
-
-  const position = activity?.plannedPosition;
-  const totalExercises = plan?.exercises.length ?? 0;
-  const completedCount = doneSets.filter((set) => set.status === 'COMPLETED').length;
-  const totalSets = Math.max(doneSets.length, plannedExercise?.sets.length ?? 0);
-
-  // Le bouton "Corriger" n'apparaît que si les champs diffèrent de ce qui est
-  // enregistré : proposer une correction qui ne corrige rien est du bruit.
-  const lastSet = lastSetIndex >= 0 ? doneSets[lastSetIndex] : undefined;
-  const isCorrected =
-    lastSet !== undefined &&
-    Object.entries(parsedValues()).some(([id, value]) => lastSet.values[id] !== value);
-
-  /** Le menu de fin de séance : deux actions rares, sorties de l'écran principal. */
-  function openSessionMenu() {
-    Alert.alert('Séance', undefined, [
-      { text: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
-      { text: 'Annuler la séance', style: 'destructive', onPress: confirmCancel },
-      { text: 'Continuer', style: 'cancel' },
-    ]);
-  }
+  const position =
+    activity?.plannedPosition != null && plan
+      ? `exercice ${activity.plannedPosition + 1}/${plan.exercises.length} · série ${nextSetIndex + (performance?.currentSet ? 0 : 1)} sur ${plannedExercise?.sets.length ?? '—'}`
+      : 'séance libre';
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.muted} numberOfLines={1}>
-          {plan ? plan.name : 'Séance libre'}
-          {position != null && totalExercises > 0
-            ? ` · exercice ${position + 1}/${totalExercises}`
-            : ''}
-        </Text>
-        <Pressable style={styles.menuButton} onPress={openSessionMenu} hitSlop={12}>
-          <Text style={styles.menuButtonText}>•••</Text>
-        </Pressable>
-      </View>
+    <View className="flex-1 bg-background px-5 pb-2 pt-2 dark:bg-background-dark">
+      <SessionHeader
+        workoutName={plan ? plan.name : 'Séance libre'}
+        position={position}
+        onMenu={openMenu}
+      />
 
       {activity ? (
         <>
-          <Text style={styles.exerciseTitle}>{nameOf(activity.exerciseId)}</Text>
+          <Text
+            className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
+            numberOfLines={2}
+          >
+            {nameOf(activity.exerciseId)}
+          </Text>
+          <Text className="mt-2 font-mono text-[13px] text-muted dark:text-muted-dark">
+            {(performance?.measurementIds ?? []).map(unitOf).join(' · ')}
+          </Text>
 
-          {/* Les séries se replient : pendant l'effort, seul compte ce qui vient. */}
-          <Pressable style={styles.setsHeader} onPress={() => setShowSets((value) => !value)}>
-            <Text style={styles.setsSummary}>
-              {completedCount}/{totalSets || '—'} séries
+          <Pressable
+            onPress={() => setShowSets((v) => !v)}
+            className="mt-6 flex-row items-center justify-between py-2"
+          >
+            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+              Séries
             </Text>
-            <Text style={styles.muted}>{showSets ? 'masquer' : 'voir'}</Text>
+            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+              {showSets ? 'replier ⌃' : 'déplier ⌄'}
+            </Text>
           </Pressable>
 
           {showSets && (
-            <ScrollView style={styles.setsList} contentContainerStyle={styles.setsListContent}>
-              {doneSets.map((set, index) => (
-                <Text
+            <ScrollView className="shrink" contentContainerClassName="gap-2 pb-1">
+              {sets.map((set, index) => (
+                <SetRow
                   key={index}
-                  style={set.status === 'COMPLETED' ? styles.setDone : styles.setOther}
-                >
-                  {index + 1}.{' '}
-                  {set.status === 'IN_PROGRESS'
-                    ? 'en cours'
-                    : Object.entries(set.values)
-                        .map(([id, value]) => `${value} ${unitOf(id)}`)
-                        .join(' · ') || '—'}
-                  {set.status === 'ABANDONED' ? '  abandonnée' : ''}
-                </Text>
+                  index={index + 1}
+                  status={statusOf(set.status)}
+                  values={format(set.values) || '—'}
+                />
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
-                <Text key={`planned-${index}`} style={styles.setPlanned}>
-                  {nextSetIndex + index + 1}.{' '}
-                  {Object.entries(set.targets)
-                    .map(([id, value]) => `${value} ${unitOf(id)}`)
-                    .join(' · ')}
-                </Text>
+                <SetRow
+                  key={`planned-${index}`}
+                  index={nextSetIndex + index + 1}
+                  status="planned"
+                  values={format(set.targets)}
+                />
               ))}
             </ScrollView>
           )}
 
-          <View style={styles.spacer} />
+          <View className="mt-auto gap-3 pt-4">
+            {error && <BusinessNotice message={error} />}
 
-          {/* --- Zone d'action, ancrée en bas : un seul état à la fois. --- */}
-
-          {performance?.currentSet ? (
-            // Série en cours : rien d'autre à faire que la finir.
-            <>
-              {!plannedSet && (
-                <View style={styles.inputRow}>
-                  {(performance?.measurementIds ?? []).map((measurementId) => (
-                    <Field
-                      key={measurementId}
-                      label={unitOf(measurementId)}
-                      value={values[measurementId] ?? ''}
-                      onChange={(text) =>
-                        setValues((current) => ({ ...current, [measurementId]: text }))
-                      }
-                    />
-                  ))}
-                </View>
-              )}
-              <Pressable
-                style={styles.buttonBig}
-                onPress={() => run(() => completePerformanceSet(parsedValues()))}
-              >
-                <Text style={styles.buttonText}>Terminer la série {nextSetIndex}</Text>
-              </Pressable>
-            </>
-          ) : session.currentRest ? (
-            // Repos : le chrono et la saisie côte à côte, puis la suite.
-            <View style={styles.restCard}>
-              <View style={styles.restTop}>
-                <View style={styles.restTimerBox}>
-                  <Text style={styles.restTimer}>
-                    {Math.floor(restElapsed / 60)}:{String(restElapsed % 60).padStart(2, '0')}
-                  </Text>
-                  <Text style={styles.restLabel}>repos</Text>
-                </View>
-
-                <View style={styles.restFields}>
-                  {(performance?.measurementIds ?? []).map((measurementId) => (
-                    <Field
-                      key={measurementId}
-                      label={unitOf(measurementId)}
-                      value={values[measurementId] ?? ''}
-                      onChange={(text) =>
-                        setValues((current) => ({ ...current, [measurementId]: text }))
-                      }
+            {resting && (
+              <View className="flex-row items-start gap-4">
+                <Timer seconds={restElapsed} />
+                <View className="flex-1 flex-row gap-3">
+                  {(performance?.measurementIds ?? []).map((id) => (
+                    <NumberField
+                      key={id}
+                      unit={unitOf(id)}
+                      value={values[id] ?? 0}
+                      planned={plannedExercise?.sets[lastSetIndex]?.targets[id]}
+                      step={STEPS[id] ?? 1}
+                      onChange={(value) => setValues((current) => ({ ...current, [id]: value }))}
                     />
                   ))}
                 </View>
               </View>
+            )}
 
-              {isCorrected && (
-                <Pressable
-                  style={styles.buttonOutline}
-                  onPress={() => run(() => correctSet(lastSetIndex, parsedValues()))}
-                >
-                  <Text style={styles.buttonOutlineText}>
-                    Corriger la série {lastSetIndex + 1}
-                  </Text>
-                </Pressable>
-              )}
+            {resting && diverges && (
+              <Button
+                label={`Corriger la série ${lastSetIndex + 1}`}
+                variant="secondary"
+                size="md"
+                onPress={() => run(() => correctSet(lastSetIndex, values))}
+              />
+            )}
 
-              <View style={styles.buttonRow}>
-                <Pressable style={[styles.buttonBig, styles.grow]} onPress={beginSet}>
-                  <Text style={styles.buttonText}>Série suivante</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.buttonOutline, styles.grow]}
+            {performance?.currentSet ? (
+              <Button
+                label={`Terminer la série ${nextSetIndex}`}
+                size="2xl"
+                onPress={() => run(() => completePerformanceSet(values))}
+              />
+            ) : (
+              <>
+                <Button
+                  label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
+                  size="xl"
+                  onPress={beginSet}
+                />
+                <Button
+                  label="Exercice suivant"
+                  variant="secondary"
+                  size="md"
                   onPress={() => run(goToNextExercise)}
-                >
-                  <Text style={styles.buttonOutlineText}>Exercice suivant</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            // Prêt : démarrer la série, ou passer à l'exercice suivant.
-            <View style={styles.buttonRow}>
-              <Pressable style={[styles.buttonBig, styles.grow]} onPress={beginSet}>
-                <Text style={styles.buttonText}>Série {nextSetIndex + 1}</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.buttonOutline, styles.grow]}
-                onPress={() => run(goToNextExercise)}
-              >
-                <Text style={styles.buttonOutlineText}>Exercice suivant</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {error && <Text style={styles.error}>{error}</Text>}
+                />
+              </>
+            )}
+          </View>
         </>
       ) : (
-        <>
-          <View style={styles.spacer} />
-          <Text style={styles.muted}>Aucun exercice en cours.</Text>
-          {error && <Text style={styles.error}>{error}</Text>}
-          <Pressable style={styles.link} onPress={() => setShowFreeExercises((value) => !value)}>
-            <Text style={styles.linkText}>
-              {showFreeExercises ? 'Masquer' : 'Choisir un exercice'}
-            </Text>
-          </Pressable>
-          {showFreeExercises && (
-            <View style={styles.chips}>
-              {exercises.map((exercise) => (
-                <Pressable
-                  key={exercise.id}
-                  style={styles.chip}
-                  onPress={() => run(() => startActivity(exercise.id))}
-                >
-                  <Text style={styles.chipText}>{exercise.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </>
+        <View className="mt-auto gap-3">
+          {error && <BusinessNotice message={error} />}
+          <Text className="text-muted dark:text-muted-dark">Aucun exercice en cours.</Text>
+          <Button label="Terminer la séance" size="lg" onPress={() => run(finishWorkoutSession)} />
+        </View>
       )}
     </View>
   );
 }
 
-/** Un champ de saisie avec son unité : réutilisé pendant la série et le repos. */
-function Field({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (text: string) => void;
-}) {
-  return (
-    <View style={styles.field}>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={value}
-        onChangeText={onChange}
-      />
-      <Text style={styles.fieldLabel}>{label}</Text>
-    </View>
-  );
+function statusOf(status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED'): SetRowStatus {
+  if (status === 'COMPLETED') return 'completed';
+  if (status === 'ABANDONED') return 'abandoned';
+  return 'in-progress';
 }
-
-const styles = StyleSheet.create({
-  // Pas de ScrollView global : l'écran tient dans la hauteur, seule la liste
-  // des séries défile si elle déborde.
-  screen: { flex: 1, backgroundColor: '#fff', padding: 20, paddingTop: 8, gap: 10 },
-
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  menuButton: { paddingHorizontal: 10, paddingVertical: 4 },
-  menuButtonText: { fontSize: 18, color: '#71717a', letterSpacing: 1 },
-
-  exerciseTitle: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-
-  setsHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f4f4f5',
-  },
-  setsSummary: { fontSize: 15, fontWeight: '600', color: '#3f3f46' },
-  setsList: { flexShrink: 1 },
-  setsListContent: { paddingVertical: 6, gap: 4 },
-  setDone: { color: '#15803d', fontSize: 16 },
-  setOther: { color: '#a1a1aa', fontSize: 16 },
-  setPlanned: { color: '#d4d4d8', fontSize: 16 },
-
-  // Pousse la zone d'action vers le bas de l'écran, à portée du pouce.
-  spacer: { flexGrow: 1, minHeight: 12 },
-
-  restCard: { backgroundColor: '#f4f4f5', borderRadius: 16, padding: 16, gap: 12 },
-  restTop: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  restTimerBox: { alignItems: 'center', minWidth: 110 },
-  restTimer: { fontSize: 44, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 48 },
-  restLabel: { color: '#71717a', fontSize: 13 },
-  restFields: { flex: 1, flexDirection: 'row', gap: 10 },
-
-  inputRow: { flexDirection: 'row', gap: 10 },
-  field: { flex: 1, alignItems: 'center' },
-  input: {
-    borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, backgroundColor: '#fff',
-    paddingVertical: 12, fontSize: 22, fontWeight: '600', textAlign: 'center', width: '100%',
-  },
-  fieldLabel: { color: '#71717a', fontSize: 12, marginTop: 2 },
-
-  buttonRow: { flexDirection: 'row', gap: 10 },
-  grow: { flex: 1 },
-  buttonBig: {
-    backgroundColor: '#2563eb', borderRadius: 14, paddingVertical: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  buttonOutline: {
-    borderWidth: 1, borderColor: '#c7d2fe', backgroundColor: '#fff', borderRadius: 14,
-    paddingVertical: 20, alignItems: 'center', justifyContent: 'center',
-  },
-  buttonOutlineText: { color: '#2563eb', fontWeight: '600', fontSize: 16 },
-
-  button: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
-  link: { paddingVertical: 12, alignItems: 'center' },
-  linkText: { color: '#71717a', fontWeight: '600' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16 },
-  chipText: { color: '#3f3f46' },
-  muted: { color: '#71717a', flexShrink: 1 },
-  error: { color: '#dc2626' },
-});
