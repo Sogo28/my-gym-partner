@@ -4,11 +4,39 @@ import { cn } from './cn';
 
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
 
+/**
+ * Chaque état déclare les MÊMES propriétés, y compris le côté gauche.
+ *
+ * Android ne réinitialise pas toujours une propriété de bordure par côté
+ * quand le nouveau style ne la mentionne pas : une ligne passant de "prévue"
+ * (bordure transparente) à "en cours" gardait un borderLeftColor transparent,
+ * d'où un cadre à trois côtés jusqu'au prochain remontage.
+ */
 const BORDERS: Record<SetRowStatus, ViewStyle> = {
-  completed: { borderWidth: 1, borderColor: '#DDE0D6', borderLeftWidth: 3, borderLeftColor: '#1B7A45' },
-  abandoned: { borderWidth: 1, borderColor: '#DDE0D6' },
-  planned: { borderWidth: 1, borderColor: 'transparent' },
-  'in-progress': { borderWidth: 2, borderColor: '#46600F' },
+  completed: {
+    borderWidth: 1,
+    borderColor: '#DDE0D6',
+    borderLeftWidth: 3,
+    borderLeftColor: '#1B7A45',
+  },
+  abandoned: {
+    borderWidth: 1,
+    borderColor: '#DDE0D6',
+    borderLeftWidth: 1,
+    borderLeftColor: '#DDE0D6',
+  },
+  planned: {
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderLeftWidth: 1,
+    borderLeftColor: 'transparent',
+  },
+  'in-progress': {
+    borderWidth: 2,
+    borderColor: '#46600F',
+    borderLeftWidth: 2,
+    borderLeftColor: '#46600F',
+  },
 };
 
 type SetRowProps = {
