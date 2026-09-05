@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -176,6 +176,42 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   if (version < 6) {
     await db.execAsync(`
       ALTER TABLE session_activities ADD COLUMN planned_position INTEGER;
+    `);
+  }
+
+  // Migration 7 : objectifs et progressions (Slice 6).
+  if (version < 7) {
+    await db.execAsync(`
+      CREATE TABLE goals (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        current_step INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'ARCHIVED'))
+      );
+
+      CREATE TABLE goal_steps (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        exercise_id TEXT NOT NULL REFERENCES exercises(id),
+        PRIMARY KEY (goal_id, position)
+      );
+
+      -- Pas de table pour les requirements : leur seul rôle est de regrouper
+      -- des conditions, ce qu'un index suffit à exprimer.
+      CREATE TABLE goal_conditions (
+        goal_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        requirement_index INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        metric_type TEXT NOT NULL
+          CHECK (metric_type IN ('average', 'max', 'min', 'total', 'setCount')),
+        measurement_id TEXT REFERENCES measurements(id),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        value REAL NOT NULL,
+        PRIMARY KEY (goal_id, position, requirement_index, condition_index),
+        FOREIGN KEY (goal_id, position)
+          REFERENCES goal_steps(goal_id, position) ON DELETE CASCADE
+      );
     `);
   }
 
