@@ -76,11 +76,39 @@ export async function startActivity(exerciseId: ExerciseId): Promise<WorkoutSess
   return onActiveSession((session) => session.startActivity(exerciseId, performance.id, now));
 }
 
-/** StartPerformanceSet / CompletePerformanceSet / AbandonPerformanceSet (§29). */
-export const startPerformanceSet = () => onCurrentPerformance((p, now) => p.startSet(now));
+/**
+ * StartPerformanceSet (§29). Démarrer une série interrompt le repos en cours :
+ * c'est le comportement décrit au §13, "l'utilisateur peut interrompre un
+ * repos en démarrant la série suivante".
+ *
+ * L'enchaînement est ici et non dans le domaine : ni la séance ni la
+ * performance ne peuvent le décider seules, elles ne se connaissent pas.
+ */
+export async function startPerformanceSet(): Promise<ExercisePerformance> {
+  await stopRestIfAny();
+  return onCurrentPerformance((p, now) => p.startSet(now));
+}
 
-export const completePerformanceSet = (values: SetValues) =>
-  onCurrentPerformance((p, now) => p.completeCurrentSet(values, now));
+/** CompletePerformanceSet (§29), suivi du repos qui s'enchaîne (§13). */
+export async function completePerformanceSet(values: SetValues): Promise<ExercisePerformance> {
+  const performance = await onCurrentPerformance((p, now) => p.completeCurrentSet(values, now));
+  await onActiveSession((session, now) => {
+    if (!session.currentRest) session.startRest(now);
+  });
+  return performance;
+}
+
+/** StartRest / StopRest (§29), quand l'utilisateur les commande lui-même. */
+export const startRest = () => onActiveSession((session, now) => session.startRest(now));
+
+export const stopRest = () => onActiveSession((session, now) => session.stopRest(now));
+
+async function stopRestIfAny(): Promise<void> {
+  const session = await findActive();
+  if (session?.currentRest) {
+    await onActiveSession((current, now) => current.stopRest(now));
+  }
+}
 
 export const abandonPerformanceSet = () =>
   onCurrentPerformance((p, now) => p.abandonCurrentSet(now));

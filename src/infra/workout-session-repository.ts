@@ -1,6 +1,7 @@
 import {
   WorkoutSession,
   type Activity,
+  type Rest,
   type WorkoutSessionStatus,
 } from '../domain/workout-session/workout-session';
 import { getDatabase } from './db';
@@ -21,6 +22,12 @@ type ActivityRow = {
   finished_at: string | null;
 };
 
+type RestRow = {
+  session_id: string;
+  started_at: string;
+  ended_at: string | null;
+};
+
 export async function save(session: WorkoutSession): Promise<void> {
   const db = await getDatabase();
 
@@ -37,6 +44,17 @@ export async function save(session: WorkoutSession): Promise<void> {
     );
 
     await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', session.id);
+    await db.runAsync('DELETE FROM session_rests WHERE session_id = ?;', session.id);
+
+    for (const [position, rest] of session.rests.entries()) {
+      await db.runAsync(
+        'INSERT INTO session_rests (session_id, position, started_at, ended_at) VALUES (?, ?, ?, ?);',
+        session.id,
+        position,
+        rest.startedAt.toISOString(),
+        rest.endedAt?.toISOString() ?? null,
+      );
+    }
 
     for (const [position, activity] of session.activities.entries()) {
       await db.runAsync(
@@ -75,6 +93,9 @@ export async function findAll(): Promise<WorkoutSession[]> {
   const activityRows = await db.getAllAsync<ActivityRow>(
     'SELECT * FROM session_activities ORDER BY session_id, position;',
   );
+  const restRows = await db.getAllAsync<RestRow>(
+    'SELECT * FROM session_rests ORDER BY session_id, position;',
+  );
 
   const bySession = new Map<string, Activity[]>();
   for (const row of activityRows) {
@@ -83,7 +104,16 @@ export async function findAll(): Promise<WorkoutSession[]> {
     bySession.set(row.session_id, list);
   }
 
-  return rows.map((row) => restore(row, bySession.get(row.id) ?? []));
+  const restsBySession = new Map<string, Rest[]>();
+  for (const row of restRows) {
+    const list = restsBySession.get(row.session_id) ?? [];
+    list.push(toRest(row));
+    restsBySession.set(row.session_id, list);
+  }
+
+  return rows.map((row) =>
+    restore(row, bySession.get(row.id) ?? [], restsBySession.get(row.id) ?? []),
+  );
 }
 
 function toActivity(row: ActivityRow): Activity {
@@ -100,7 +130,14 @@ function toActivity(row: ActivityRow): Activity {
  * séance qui commence. Le domaine doit pouvoir revenir à un état
  * intermédiaire sans rejouer son histoire.
  */
-function restore(row: SessionRow, activities: Activity[]): WorkoutSession {
+function toRest(row: RestRow): Rest {
+  return {
+    startedAt: new Date(row.started_at),
+    endedAt: row.ended_at ? new Date(row.ended_at) : null,
+  };
+}
+
+function restore(row: SessionRow, activities: Activity[], rests: Rest[]): WorkoutSession {
   return WorkoutSession.restore({
     id: row.id,
     plannedWorkoutId: row.planned_workout_id,
@@ -108,6 +145,7 @@ function restore(row: SessionRow, activities: Activity[]): WorkoutSession {
     status: row.status,
     endedAt: row.ended_at ? new Date(row.ended_at) : null,
     activities,
+    rests,
   });
 }
 
@@ -119,5 +157,9 @@ async function hydrate(
     'SELECT * FROM session_activities WHERE session_id = ? ORDER BY position;',
     row.id,
   );
-  return restore(row, activities.map(toActivity));
+  const rests = await db.getAllAsync<RestRow>(
+    'SELECT * FROM session_rests WHERE session_id = ? ORDER BY position;',
+    row.id,
+  );
+  return restore(row, activities.map(toActivity), rests.map(toRest));
 }

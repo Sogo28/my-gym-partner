@@ -5,6 +5,11 @@ import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import {
+  restBeforeEachSet,
+  sessionDuration,
+  totalRest,
+} from '../src/domain/workout-session/session-metrics';
 import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findByIds } from '../src/infra/performance-repository';
@@ -16,6 +21,12 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'terminée',
   CANCELLED: 'annulée',
 };
+
+/** 135 -> "2:15", 840 -> "14 min". Le formatage est de l'affichage, pas du domaine. */
+function formatDuration(seconds: number): string {
+  if (seconds >= 600) return `${Math.round(seconds / 60)} min`;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
 
 export default function HistoryScreen() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
@@ -64,6 +75,8 @@ export default function HistoryScreen() {
       {sessions.map((session) => {
         const plan = plans.find((p) => p.id === session.plannedWorkoutId);
         const date = session.startedAt;
+        const duration = sessionDuration(session);
+        const rest = totalRest(session);
 
         return (
           <View key={session.id} style={styles.card}>
@@ -73,6 +86,12 @@ export default function HistoryScreen() {
               {String(date.getMinutes()).padStart(2, '0')} ·{' '}
               {STATUS_LABEL[session.status] ?? session.status}
             </Text>
+            {duration !== null && (
+              <Text style={styles.muted}>
+                {formatDuration(duration)}
+                {rest > 0 ? ` · dont ${formatDuration(rest)} de repos` : ''}
+              </Text>
+            )}
 
             {session.activities.map((activity, index) => {
               const performance = activity.performanceId
@@ -80,6 +99,9 @@ export default function HistoryScreen() {
                 : undefined;
               // Seules les séries COMPLETED comptent comme performance (n°18).
               const done = performance?.completedSets ?? [];
+              // Repos et séries n'ont aucun lien direct : on les rapproche
+              // par les instants (voir session-metrics).
+              const restsBefore = restBeforeEachSet(done, session.rests);
 
               return (
                 <View key={index} style={styles.activity}>
@@ -88,12 +110,21 @@ export default function HistoryScreen() {
                     <Text style={styles.muted}>aucune série complétée</Text>
                   ) : (
                     done.map((set, setIndex) => (
-                      <Text key={setIndex} style={styles.setLine}>
-                        Série {setIndex + 1} ·{' '}
-                        {Object.entries(set.values)
-                          .map(([id, value]) => `${value} ${unitOf(id)}`)
-                          .join(' · ')}
-                      </Text>
+                      <View key={setIndex}>
+                        {/* Le repos s'intercale entre les deux séries qu'il sépare :
+                            sa place à l'écran suit la chronologie réelle. */}
+                        {restsBefore[setIndex] ? (
+                          <Text style={styles.restLine}>
+                            repos {formatDuration(restsBefore[setIndex]!)}
+                          </Text>
+                        ) : null}
+                        <Text style={styles.setLine}>
+                          Série {setIndex + 1} ·{' '}
+                          {Object.entries(set.values)
+                            .map(([id, value]) => `${value} ${unitOf(id)}`)
+                            .join(' · ')}
+                        </Text>
+                      </View>
                     ))
                   )}
                 </View>
@@ -115,5 +146,6 @@ const styles = StyleSheet.create({
   activity: { marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: '#e4e4e7' },
   activityTitle: { fontWeight: '600' },
   setLine: { color: '#3f3f46' },
+  restLine: { color: '#a1a1aa', fontSize: 13, paddingVertical: 2 },
   error: { color: '#dc2626' },
 });

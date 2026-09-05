@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -155,6 +155,19 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         PRIMARY KEY (performance_id, set_index, measurement_id),
         FOREIGN KEY (performance_id, set_index)
           REFERENCES performance_sets(performance_id, set_index) ON DELETE CASCADE
+      );
+    `);
+  }
+
+  // Migration 5 : périodes de repos (§13).
+  if (version < 5) {
+    await db.execAsync(`
+      CREATE TABLE session_rests (
+        session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        PRIMARY KEY (session_id, position)
       );
     `);
   }

@@ -1,9 +1,10 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
+  stopRest,
   completePerformanceSet,
   finishActivity,
   finishWorkoutSession,
@@ -63,6 +64,22 @@ export default function SessionScreen() {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
+
+  // Le chronomètre : React ne se redessine pas tout seul quand le temps passe.
+  // On force donc un rendu par seconde, et UNIQUEMENT pendant un repos.
+  const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (restStartedAt === null) return;
+    const interval = setInterval(() => setTick((value) => value + 1), 1000);
+    // Sans ce nettoyage, le minuteur continuerait à tourner après la fin du
+    // repos ou le départ de l'écran : c'est la fuite classique des timers.
+    return () => clearInterval(interval);
+  }, [restStartedAt]);
+
+  const restElapsed =
+    restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   function submitSet() {
     const parsed: Record<string, number> = {};
@@ -124,6 +141,18 @@ export default function SessionScreen() {
           {String(session.startedAt.getMinutes()).padStart(2, '0')}
         </Text>
       </View>
+
+      {session.currentRest && (
+        <View style={styles.restBlock}>
+          <Text style={styles.muted}>Repos</Text>
+          <Text style={styles.restTimer}>
+            {Math.floor(restElapsed / 60)}:{String(restElapsed % 60).padStart(2, '0')}
+          </Text>
+          <Pressable style={styles.buttonOutline} onPress={() => run(stopRest)}>
+            <Text style={styles.buttonOutlineText}>Passer le repos</Text>
+          </Pressable>
+        </View>
+      )}
 
       {current ? (
         <View style={styles.currentBlock}>
@@ -260,4 +289,9 @@ const styles = StyleSheet.create({
   },
   buttonOutline: { borderWidth: 1, borderColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   buttonOutlineText: { color: '#2563eb', fontWeight: '600' },
+  restBlock: {
+    backgroundColor: '#f4f4f5', borderRadius: 10, padding: 14,
+    alignItems: 'center', gap: 6,
+  },
+  restTimer: { fontSize: 40, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });
