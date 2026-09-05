@@ -23,7 +23,9 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-router"
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen"
     ],
     "scheme": "mygympartner"
   }
