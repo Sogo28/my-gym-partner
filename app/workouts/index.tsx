@@ -1,6 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 import { findAll } from '../../src/infra/planned-workout-repository';
 
@@ -17,7 +18,8 @@ export default function WorkoutsScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <Text style={styles.screenTitle}>Entraînements</Text>
       <Link href="/workouts/new" style={styles.button}>
         <Text style={styles.buttonText}>+ Nouvel entraînement</Text>
       </Link>
@@ -44,12 +46,13 @@ export default function WorkoutsScreen() {
           );
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16 },
+  screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: 12 },
   button: { backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 14, textAlign: 'center', marginBottom: 20 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   error: { color: '#dc2626', marginBottom: 12 },

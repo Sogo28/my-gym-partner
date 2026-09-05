@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
@@ -8,6 +9,7 @@ import { findAll as findAllExercises, findAllMeasurements } from '../../src/infr
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
 import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
+import { BackHeader } from '../../src/ui/screen-header';
 import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 
 /**
@@ -52,24 +54,27 @@ export default function WorkoutDetailScreen() {
 
   if (!plan) {
     return (
-      <View className="flex-1 bg-white p-5">
-        <Text className="text-muted-foreground">{error ?? 'Entraînement introuvable.'}</Text>
-      </View>
+      <SafeAreaView edges={['top']} className="flex-1 bg-background p-5 dark:bg-background-dark">
+        <BackHeader title="Entraînement" onBack={() => router.back()} />
+        <Text className="text-muted dark:text-muted-dark">
+          {error ?? 'Entraînement introuvable.'}
+        </Text>
+      </SafeAreaView>
     );
   }
 
   const totalSets = plan.exercises.reduce((total, e) => total + e.sets.length, 0);
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+      <View className="px-5 pt-2">
+        <BackHeader
+          title={plan.name}
+          subtitle={`${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''} prévue${totalSets > 1 ? 's' : ''}`}
+          onBack={() => router.back()}
+        />
+      </View>
       <ScrollView contentContainerClassName="gap-3 p-5 pb-8">
-        <View>
-          <Text className="text-2xl font-extrabold">{plan.name}</Text>
-          <Text className="text-muted-foreground">
-            {plan.exercises.length} exercice{plan.exercises.length > 1 ? 's' : ''} · {totalSets}{' '}
-            série{totalSets > 1 ? 's' : ''}
-          </Text>
-        </View>
 
         {plan.exercises.map((planned, position) => (
           <Collapsible
@@ -78,10 +83,10 @@ export default function WorkoutDetailScreen() {
             summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
           >
             {planned.sets.length === 0 ? (
-              <Text className="text-muted-foreground">aucune série prévue</Text>
+              <Text className="text-muted dark:text-muted-dark">aucune série prévue</Text>
             ) : (
               planned.sets.map((set, index) => (
-                <Text key={index} className="text-zinc-700">
+                <Text key={index} className="font-mono text-[15px] text-planned">
                   Série {index + 1} ·{' '}
                   {Object.entries(set.targets)
                     .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
@@ -92,13 +97,13 @@ export default function WorkoutDetailScreen() {
           </Collapsible>
         ))}
 
-        {error && <Text className="text-destructive">{error}</Text>}
+        {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
       </ScrollView>
 
       {/* Action principale ancrée en bas, hors du défilement. */}
-      <View className="border-t border-border bg-white p-5">
-        <Button label="Démarrer la séance" size="lg" onPress={start} />
+      <View className="border-t border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark">
+        <Button label="Démarrer la séance" size="xl" onPress={start} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

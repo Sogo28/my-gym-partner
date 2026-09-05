@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createExercise } from '../src/use-cases/create-exercise';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -41,7 +42,8 @@ export default function ExercisesScreen() {
   const measurementName = (id: string) => measurements.find((m) => m.id === id)?.name ?? id;
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <Text style={styles.screenTitle}>Exercices</Text>
       <View style={styles.form}>
         <TextInput
           style={styles.input}
@@ -95,12 +97,13 @@ export default function ExercisesScreen() {
           </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16 },
+  screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: 12 },
   form: { gap: 12, marginBottom: 24 },
   input: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, padding: 12, fontSize: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

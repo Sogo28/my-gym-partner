@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createPlannedWorkout } from '../../src/use-cases/create-planned-workout';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -64,7 +65,14 @@ export default function NewWorkoutScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <View style={styles.topBar}>
+        <Text style={styles.screenTitle}>Nouvel entraînement</Text>
+        <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Text style={styles.close}>Fermer</Text>
+        </Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
       <TextInput
         style={styles.input}
         placeholder="Nom de l'entraînement (ex. Pull day)"
@@ -122,12 +130,16 @@ export default function NewWorkoutScreen() {
       <Pressable style={styles.button} onPress={submit}>
         <Text style={styles.buttonText}>Enregistrer l'entraînement</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8 },
+  screenTitle: { fontSize: 22, fontWeight: '800' },
+  close: { color: '#71717a', fontWeight: '600' },
   content: { padding: 20, gap: 16, paddingBottom: 60 },
   input: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, padding: 12, fontSize: 16 },
   block: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 12, gap: 8 },

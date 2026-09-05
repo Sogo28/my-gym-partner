@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
@@ -144,7 +145,7 @@ export default function SessionScreen() {
 
   if (!session) {
     return (
-      <View className="flex-1 justify-center gap-4 bg-background p-5 dark:bg-background-dark">
+      <SafeAreaView edges={['top']} className="flex-1 justify-center gap-4 bg-background p-5 dark:bg-background-dark">
         <EmptyState
           title="Aucune séance en cours"
           description="Choisis un entraînement pour démarrer, ou lance une séance libre."
@@ -158,7 +159,7 @@ export default function SessionScreen() {
           onPress={() => run(() => startWorkoutSession())}
         />
         {error && <BusinessNotice message={error} />}
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -168,7 +169,7 @@ export default function SessionScreen() {
       : 'séance libre';
 
   return (
-    <View className="flex-1 bg-background px-5 pb-2 pt-2 dark:bg-background-dark">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 dark:bg-background-dark">
       <SessionHeader
         workoutName={plan ? plan.name : 'Séance libre'}
         position={position}
@@ -280,7 +281,7 @@ export default function SessionScreen() {
           <Button label="Terminer la séance" size="lg" onPress={() => run(finishWorkoutSession)} />
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

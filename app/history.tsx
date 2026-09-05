@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
@@ -68,7 +69,9 @@ export default function HistoryScreen() {
     measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <Text style={styles.screenTitle}>Historique</Text>
+      <ScrollView contentContainerStyle={styles.content}>
       {error && <Text style={styles.error}>{error}</Text>}
       {sessions.length === 0 && <Text style={styles.muted}>Aucune séance enregistrée.</Text>}
 
@@ -133,12 +136,14 @@ export default function HistoryScreen() {
           </View>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff' },
+  screenTitle: { fontSize: 26, fontWeight: '800', paddingHorizontal: 20, paddingTop: 8 },
   content: { padding: 20, gap: 14, paddingBottom: 60 },
   card: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 14, gap: 6 },
   cardTitle: { fontSize: 17, fontWeight: '700' },
