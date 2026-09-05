@@ -1,4 +1,5 @@
 import type { ExerciseId } from '../exercise/exercise';
+import type { ExercisePerformanceId } from '../performance/exercise-performance';
 import type { PlannedWorkoutId } from '../planned-workout/planned-workout';
 
 export type WorkoutSessionId = string;
@@ -16,6 +17,14 @@ export type WorkoutSessionStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
  */
 export type Activity = {
   readonly exerciseId: ExerciseId;
+  /**
+   * Un LIEN vers la performance, pas la performance elle-même : elle vit dans
+   * son propre agrégat et survivra à l'annulation de cette séance.
+   *
+   * Nullable uniquement pour les activités enregistrées avant que les
+   * performances n'existent : toute nouvelle activité en a une.
+   */
+  readonly performanceId: ExercisePerformanceId | null;
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
 };
@@ -89,12 +98,12 @@ export class WorkoutSession {
    * L'exercice peut être planifié ou ajouté librement (§30) : la séance ne
    * consulte pas le plan pour l'autoriser. Dévier fait partie du métier.
    */
-  startActivity(exerciseId: ExerciseId, at: Date): void {
+  startActivity(exerciseId: ExerciseId, performanceId: ExercisePerformanceId, at: Date): void {
     this.requireActive();
     if (this.currentActivity) {
       throw new Error("Termine l'exercice en cours avant d'en commencer un autre.");
     }
-    this._activities.push({ exerciseId, startedAt: at, finishedAt: null });
+    this._activities.push({ exerciseId, performanceId, startedAt: at, finishedAt: null });
   }
 
   finishCurrentActivity(at: Date): void {

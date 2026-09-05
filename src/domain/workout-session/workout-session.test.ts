@@ -24,7 +24,7 @@ describe('WorkoutSession', () => {
 
   it('conserve les activités déjà enregistrées quand la séance est annulée', () => {
     const session = startSession();
-    session.startActivity('pull-up', t(2));
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
     session.finishCurrentActivity(t(15));
 
     session.cancel(t(20));
@@ -40,7 +40,7 @@ describe('WorkoutSession', () => {
 
     expect(() => completed.finish(t(50))).toThrow(/déjà terminée/);
     expect(() => completed.cancel(t(50))).toThrow(/déjà terminée/);
-    expect(() => completed.startActivity('dip', t(50))).toThrow(/déjà terminée/);
+    expect(() => completed.startActivity('dip', 'perf-dip', t(50))).toThrow(/déjà terminée/);
 
     const cancelled = startSession();
     cancelled.cancel(t(10));
@@ -49,16 +49,16 @@ describe('WorkoutSession', () => {
 
   it('interdit deux exercices en cours en même temps', () => {
     const session = startSession();
-    session.startActivity('pull-up', t(2));
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
 
-    expect(() => session.startActivity('row', t(5))).toThrow(/en cours/);
+    expect(() => session.startActivity('row', 'perf-row', t(5))).toThrow(/en cours/);
   });
 
   it('enchaîne un exercice après l autre : finir puis démarrer', () => {
     const session = startSession();
-    session.startActivity('pull-up', t(2));
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
     session.finishCurrentActivity(t(15));
-    session.startActivity('row', t(16));
+    session.startActivity('row', 'perf-row', t(16));
 
     expect(session.activities.map((a) => a.exerciseId)).toEqual(['pull-up', 'row']);
     expect(session.currentActivity?.exerciseId).toBe('row');
@@ -67,12 +67,12 @@ describe('WorkoutSession', () => {
   it('accepte un exercice qui n était pas prévu au plan', () => {
     const session = WorkoutSession.start({ id: 'ws-3', plannedWorkoutId: 'pw-1', at: t(0) });
 
-    expect(() => session.startActivity('exercice-improvisé', t(5))).not.toThrow();
+    expect(() => session.startActivity('exercice-improvisé', 'perf-exercice-improvisé', t(5))).not.toThrow();
   });
 
   it('clôt l exercice en cours quand la séance se termine', () => {
     const session = startSession();
-    session.startActivity('pull-up', t(2));
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
 
     session.finish(t(30));
 
