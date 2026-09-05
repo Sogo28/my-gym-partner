@@ -44,7 +44,7 @@ export default function SessionScreen() {
   const [values, setValues] = useState<Record<string, number>>({});
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
-  const [showDetail, setShowDetail] = useState(false);
+  const [showDetail, setShowDetail] = useState(true);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-cancel'>('none');
   const [error, setError] = useState<string | null>(null);
 
@@ -221,10 +221,6 @@ export default function SessionScreen() {
           >
             {nameOf(activity.exerciseId)}
           </Text>
-          <Text className="mt-2 font-mono text-[13px] text-muted dark:text-muted-dark">
-            {(performance?.measurementIds ?? []).map(unitOf).join(' · ')}
-          </Text>
-
           <Pressable
             onPress={() => setShowDetail((v) => !v)}
             className="mt-6 flex-row items-center justify-between py-2"
@@ -284,19 +280,9 @@ export default function SessionScreen() {
             </ScrollView>
           )}
 
-          {/* L'action du moment occupe le centre de l'écran, à portée de pouce
-              et sans rien d'autre autour. */}
-          <View className="flex-1 items-center justify-center gap-4">
+          {/* Le chrono occupe le centre de l'écran pendant la récupération. */}
+          <View className="flex-1 items-center justify-center">
             {resting && <Timer seconds={restElapsed} large />}
-
-            {performance?.currentSet && (
-              <Pressable
-                onPress={() => run(() => completePerformanceSet(shown))}
-                className="h-64 w-64 items-center justify-center rounded-full bg-primary active:bg-primary-pressed"
-              >
-                <Text className="font-black text-[28px] tracking-tight text-ink">Terminer</Text>
-              </Pressable>
-            )}
           </View>
 
           <View className="gap-3 pb-2">
@@ -316,6 +302,14 @@ export default function SessionScreen() {
               </View>
             )}
 
+            {performance?.currentSet && (
+              <Button
+                label="Terminer"
+                size="2xl"
+                onPress={() => run(() => completePerformanceSet(shown))}
+              />
+            )}
+
             {!performance?.currentSet &&
               (plannedDone ? (
                 // Le plan est honoré : continuer devient un choix entre
@@ -329,7 +323,7 @@ export default function SessionScreen() {
                     onPress={beginSet}
                   />
                   <Button
-                    label="Exercice suivant"
+                    label="Suivant"
                     size="lg"
                     className="flex-1"
                     onPress={nextExercise}

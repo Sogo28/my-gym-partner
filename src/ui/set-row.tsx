@@ -33,7 +33,7 @@ export function SetRow({ index, status, values }: SetRowProps) {
       <Badge status={status} />
 
       <Text
-        className="w-4 font-mono text-[13px] text-muted dark:text-muted-dark"
+        className="w-4 shrink-0 font-mono text-[13px] text-muted dark:text-muted-dark"
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {index}
@@ -42,7 +42,9 @@ export function SetRow({ index, status, values }: SetRowProps) {
       <Text
         className={cn(
           'flex-1 font-mono-bold',
-          status === 'completed' && 'text-value text-ink dark:text-ink-dark',
+          // 18 et non 22 : "12 reps · 22.5 kg" ne tient pas à côté de la
+          // pastille et de l'index.
+          status === 'completed' && 'text-[18px] text-ink dark:text-ink-dark',
           status !== 'completed' && 'text-[17px] text-muted dark:text-muted-dark',
           status === 'abandoned' && 'line-through',
         )}
@@ -52,14 +54,17 @@ export function SetRow({ index, status, values }: SetRowProps) {
         {values}
       </Text>
 
+      {/* shrink-0 : ces mentions ne doivent jamais rogner la valeur. */}
       {status === 'abandoned' && (
-        <Text className="font-bold text-[12px] text-danger dark:text-danger-dark">abandonnée</Text>
+        <Text className="shrink-0 font-bold text-[12px] text-danger dark:text-danger-dark">
+          abandonnée
+        </Text>
       )}
       {status === 'planned' && (
-        <Text className="font-bold uppercase text-label text-planned">prévu</Text>
+        <Text className="shrink-0 font-bold uppercase text-label text-planned">prévu</Text>
       )}
       {status === 'in-progress' && (
-        <Text className="font-bold text-[12px] text-primary-ink dark:text-primary-ink-dark">
+        <Text className="shrink-0 font-bold text-[12px] text-primary-ink dark:text-primary-ink-dark">
           en cours
         </Text>
       )}
