@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -15,6 +15,7 @@ import { Button } from '../src/ui/button';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
 import { SessionHeader } from '../src/ui/screen-header';
+import { Sheet, type SheetAction } from '../src/ui/sheet';
 import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
 import { NumberField } from '../src/ui/number-field';
@@ -44,6 +45,7 @@ export default function SessionScreen() {
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(false);
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-cancel'>('none');
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -142,29 +144,14 @@ export default function SessionScreen() {
     });
   }
 
-  function openMenu() {
-    const options: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
-      { text: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
-    ];
-    if (performance?.currentSet) {
-      options.push({ text: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) });
-    }
-    if (activity) {
-      options.push({ text: "Passer l'exercice", onPress: () => run(goToNextExercise) });
-    }
-    options.push({
-      text: 'Annuler la séance',
-      style: 'destructive',
-      onPress: () =>
-        Alert.alert('Annuler la séance ?', 'Les séries déjà validées seront conservées.', [
-          { text: 'Continuer', style: 'cancel' },
-          { text: 'Annuler la séance', style: 'destructive', onPress: () => run(cancelWorkoutSession) },
-        ]),
-    });
-    options.push({ text: 'Fermer', style: 'cancel' });
-
-    Alert.alert('Séance', undefined, options);
-  }
+  const menuActions: SheetAction[] = [
+    { label: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
+    ...(performance?.currentSet
+      ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
+      : []),
+    ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: () => run(goToNextExercise) }] : []),
+    { label: 'Annuler la séance', tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
+  ];
 
   if (!session) {
     return (
@@ -196,7 +183,7 @@ export default function SessionScreen() {
       <SessionHeader
         workoutName={plan ? plan.name : 'Séance libre'}
         position={position}
-        onMenu={openMenu}
+        onMenu={() => setSheet('menu')}
       />
 
       {activity ? (
@@ -269,48 +256,44 @@ export default function SessionScreen() {
             </ScrollView>
           )}
 
-          <View className="mt-auto gap-3 pt-4">
+          {/* L'action du moment occupe le centre de l'écran, à portée de pouce
+              et sans rien d'autre autour. */}
+          <View className="flex-1 items-center justify-center gap-4">
+            {resting && <Timer seconds={restElapsed} large />}
+
+            {performance?.currentSet && (
+              <Pressable
+                onPress={() => run(() => completePerformanceSet(shown))}
+                className="h-44 w-44 items-center justify-center rounded-full bg-primary active:bg-primary-pressed"
+              >
+                <Text className="font-black uppercase text-[22px] text-ink">Terminer</Text>
+              </Pressable>
+            )}
+          </View>
+
+          <View className="gap-3 pb-2">
             {error && <BusinessNotice message={error} />}
 
             {resting && (
-              <>
-                <Timer seconds={restElapsed} />
-                {/* Pleine largeur : avec deux mesures ou plus, les champs
-                    seraient trop étroits à côté du chrono. */}
-                <View className="flex-row gap-3">
-                  {(performance?.measurementIds ?? []).map((id) => (
-                    <NumberField
-                      key={id}
-                      unit={unitOf(id)}
-                      value={shown[id] ?? 0}
-                      step={STEPS[id] ?? 1}
-                      onChange={(value) => adjust(id, value)}
-                    />
-                  ))}
-                </View>
-              </>
+              <View className="flex-row gap-3">
+                {(performance?.measurementIds ?? []).map((id) => (
+                  <NumberField
+                    key={id}
+                    unit={unitOf(id)}
+                    value={shown[id] ?? 0}
+                    step={STEPS[id] ?? 1}
+                    onChange={(value) => adjust(id, value)}
+                  />
+                ))}
+              </View>
             )}
 
-            {performance?.currentSet ? (
+            {!performance?.currentSet && (
               <Button
-                label={`Terminer la série ${nextSetIndex}`}
-                size="2xl"
-                onPress={() => run(() => completePerformanceSet(shown))}
+                label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
+                size="xl"
+                onPress={beginSet}
               />
-            ) : (
-              <>
-                <Button
-                  label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
-                  size="xl"
-                  onPress={beginSet}
-                />
-                <Button
-                  label="Exercice suivant"
-                  variant="secondary"
-                  size="md"
-                  onPress={() => run(goToNextExercise)}
-                />
-              </>
             )}
           </View>
         </>
@@ -321,6 +304,25 @@ export default function SessionScreen() {
           <Button label="Terminer la séance" size="lg" onPress={() => run(finishWorkoutSession)} />
         </View>
       )}
+      <Sheet
+        visible={sheet === 'menu'}
+        title="Séance"
+        actions={menuActions}
+        onClose={() => setSheet('none')}
+      />
+      <Sheet
+        visible={sheet === 'confirm-cancel'}
+        title="Annuler la séance ?"
+        description="Les séries déjà validées seront conservées dans ton historique."
+        actions={[
+          {
+            label: 'Annuler la séance',
+            tone: 'danger',
+            onPress: () => run(cancelWorkoutSession),
+          },
+        ]}
+        onClose={() => setSheet('none')}
+      />
     </SafeAreaView>
   );
 }
