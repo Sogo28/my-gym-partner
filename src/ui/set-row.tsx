@@ -60,9 +60,6 @@ export function SetRow({ index, status, values }: SetRowProps) {
           abandonnée
         </Text>
       )}
-      {status === 'planned' && (
-        <Text className="shrink-0 font-bold uppercase text-label text-planned">prévu</Text>
-      )}
       {status === 'in-progress' && (
         <Text className="shrink-0 font-bold text-[12px] text-primary-ink dark:text-primary-ink-dark">
           en cours

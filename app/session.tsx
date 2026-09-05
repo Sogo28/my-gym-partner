@@ -234,13 +234,16 @@ export default function SessionScreen() {
           </Pressable>
 
           {showDetail ? (
-            <ScrollView className="max-h-[40%] shrink grow-0" contentContainerClassName="gap-2 pb-1">
+            <ScrollView
+              className="max-h-[40%] shrink grow-0"
+              contentContainerClassName="gap-2 px-1 pb-1 pt-0.5"
+            >
               {sets.map((set, index) => (
                 <SetRow
                   key={index}
                   index={index + 1}
                   status={statusOf(set.status)}
-                  values={format(index === lastSetIndex && resting ? shown : set.values) || '—'}
+                  values={format(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
                 />
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
@@ -257,7 +260,7 @@ export default function SessionScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               className="max-h-12 grow-0"
-              contentContainerClassName="gap-2 pr-4"
+              contentContainerClassName="gap-2 px-1 pr-4"
             >
               {sets.map((set, index) => (
                 <SetChip
@@ -266,7 +269,7 @@ export default function SessionScreen() {
                   status={statusOf(set.status)}
                   // La série ajustée montre la valeur en cours, sans attendre
                   // le prochain rechargement.
-                  values={formatShort(index === lastSetIndex && resting ? shown : set.values) || '—'}
+                  values={formatShort(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
                 />
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
@@ -366,6 +369,11 @@ export default function SessionScreen() {
       />
     </SafeAreaView>
   );
+}
+
+/** Une série close et non ajustée : ses valeurs enregistrées font foi. */
+function isPast(set: { status: string }): boolean {
+  return set.status === 'ABANDONED';
 }
 
 function statusOf(status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED'): SetRowStatus {
