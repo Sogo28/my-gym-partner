@@ -1,6 +1,6 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 import { findAll } from '../../src/infra/planned-workout-repository';
 
@@ -31,12 +31,16 @@ export default function WorkoutsScreen() {
         renderItem={({ item }) => {
           const setCount = item.exercises.reduce((total, e) => total + e.sets.length, 0);
           return (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardSubtitle}>
-                {item.exercises.length} exercice(s) · {setCount} série(s)
-              </Text>
-            </View>
+            // asChild : le Link ne rend pas de texte lui-même, il donne son
+            // comportement de navigation au composant qu'on lui confie.
+            <Link href={`/workouts/${item.id}`} asChild>
+              <Pressable style={styles.card}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardSubtitle}>
+                  {item.exercises.length} exercice(s) · {setCount} série(s)
+                </Text>
+              </Pressable>
+            </Link>
           );
         }}
       />
