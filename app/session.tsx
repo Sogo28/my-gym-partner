@@ -15,6 +15,7 @@ import { Button } from '../src/ui/button';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
 import { SessionHeader } from '../src/ui/screen-header';
+import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
 import { NumberField } from '../src/ui/number-field';
 import { Timer } from '../src/ui/timer';
@@ -40,7 +41,9 @@ export default function SessionScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
-  const [showSets, setShowSets] = useState(true);
+  // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
+  // retrouve la liste détaillée.
+  const [showDetail, setShowDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -85,6 +88,8 @@ export default function SessionScreen() {
   const lastSetIndex = nextSetIndex - 1;
   const lastSet = lastSetIndex >= 0 ? sets[lastSetIndex] : undefined;
   const resting = Boolean(session?.currentRest);
+  const completedCount = sets.filter((set) => set.status === 'COMPLETED').length;
+  const totalSets = Math.max(sets.length, plannedExercise?.sets.length ?? 0);
 
   // Un rendu par seconde, et seulement pendant le repos.
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
@@ -102,6 +107,11 @@ export default function SessionScreen() {
     Object.entries(v)
       .map(([id, value]) => `${value} ${unitOf(id)}`)
       .join(' · ');
+  /** Version courte pour les pastilles : "12s", "8reps·20kg". */
+  const formatShort = (v: Record<string, number>) =>
+    Object.entries(v)
+      .map(([id, value]) => `${value}${unitOf(id)}`)
+      .join('·');
 
   // Ce qu'on affiche vient d'abord de la série enregistrée : la saisie locale
   // ne fait que la recouvrir, le temps que l'écriture aboutisse.
@@ -202,26 +212,24 @@ export default function SessionScreen() {
           </Text>
 
           <Pressable
-            onPress={() => setShowSets((v) => !v)}
+            onPress={() => setShowDetail((v) => !v)}
             className="mt-6 flex-row items-center justify-between py-2"
           >
             <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-              Séries
+              Séries {completedCount}/{totalSets || '—'}
             </Text>
             <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-              {showSets ? 'replier ⌃' : 'déplier ⌄'}
+              {showDetail ? 'réduire ⌃' : 'détail ⌄'}
             </Text>
           </Pressable>
 
-          {showSets && (
+          {showDetail ? (
             <ScrollView className="shrink" contentContainerClassName="gap-2 pb-1">
               {sets.map((set, index) => (
                 <SetRow
                   key={index}
                   index={index + 1}
                   status={statusOf(set.status)}
-                  // La série qu'on est en train d'ajuster affiche la valeur en
-                  // cours, sans attendre le prochain rechargement.
                   values={format(index === lastSetIndex && resting ? shown : set.values) || '—'}
                 />
               ))}
@@ -234,19 +242,42 @@ export default function SessionScreen() {
                 />
               ))}
             </ScrollView>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2 pr-4"
+            >
+              {sets.map((set, index) => (
+                <SetChip
+                  key={index}
+                  index={index + 1}
+                  status={statusOf(set.status)}
+                  // La série ajustée montre la valeur en cours, sans attendre
+                  // le prochain rechargement.
+                  values={formatShort(index === lastSetIndex && resting ? shown : set.values) || '—'}
+                />
+              ))}
+              {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
+                <SetChip
+                  key={`planned-${index}`}
+                  index={nextSetIndex + index + 1}
+                  status="planned"
+                  values={formatShort(set.targets)}
+                />
+              ))}
+            </ScrollView>
           )}
 
           <View className="mt-auto gap-3 pt-4">
             {error && <BusinessNotice message={error} />}
 
             {resting && (
-              <View className="flex-row items-end gap-4">
+              <>
                 <Timer seconds={restElapsed} />
-                <View className="flex-1 gap-1">
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    Série {lastSetIndex + 1} réalisée
-                  </Text>
-                  <View className="flex-row gap-3">
+                {/* Pleine largeur : avec deux mesures ou plus, les champs
+                    seraient trop étroits à côté du chrono. */}
+                <View className="flex-row gap-3">
                   {(performance?.measurementIds ?? []).map((id) => (
                     <NumberField
                       key={id}
@@ -255,10 +286,9 @@ export default function SessionScreen() {
                       step={STEPS[id] ?? 1}
                       onChange={(value) => adjust(id, value)}
                     />
-                    ))}
-                  </View>
+                  ))}
                 </View>
-              </View>
+              </>
             )}
 
             {performance?.currentSet ? (
