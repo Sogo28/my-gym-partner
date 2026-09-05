@@ -377,7 +377,7 @@ export default function SessionScreen() {
             {performance?.currentSet && (
               <Button
                 label="Terminer"
-                size="2xl"
+                size="lg"
                 onPress={() => run(() => completePerformanceSet(shown))}
               />
             )}
