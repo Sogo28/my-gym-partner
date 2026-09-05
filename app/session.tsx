@@ -24,9 +24,11 @@ import {
   abandonPerformanceSet,
   cancelWorkoutSession,
   completePerformanceSet,
+  finishActivity,
   correctSet,
   finishWorkoutSession,
   goToNextExercise,
+  startActivity,
   startPerformanceSet,
   startWorkoutSession,
 } from '../src/use-cases/workout-session-actions';
@@ -45,7 +47,9 @@ export default function SessionScreen() {
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(true);
-  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-cancel'>('none');
+  const [sheet, setSheet] = useState<
+    'none' | 'menu' | 'confirm-cancel' | 'end-of-plan' | 'pick-exercise'
+  >('none');
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -94,6 +98,11 @@ export default function SessionScreen() {
   // Toutes les séries prévues sont faites : la suivante serait une série en
   // plus du plan. Un exercice hors programme est dans ce cas dès le départ.
   const plannedDone = !plannedExercise || nextSetIndex >= plannedExercise.sets.length;
+  // Reste-t-il un exercice après celui-ci dans le programme ?
+  const hasNextExercise =
+    activity?.plannedPosition != null &&
+    plan !== undefined &&
+    activity.plannedPosition + 1 < plan.exercises.length;
   const totalSets = Math.max(sets.length, plannedExercise?.sets.length ?? 0);
 
   // Un rendu par seconde, et seulement pendant le repos.
@@ -164,9 +173,25 @@ export default function SessionScreen() {
    * le repos en cours est interrompu par le démarrage de la série (§13).
    */
   function nextExercise() {
+    // Dernier exercice du programme : plutôt que d'échouer sur un exercice
+    // qui n'existe pas, on demande ce qu'on fait de la séance.
+    if (!hasNextExercise) {
+      setSheet('end-of-plan');
+      return;
+    }
     run(async () => {
       setValues({});
       await goToNextExercise();
+      await startPerformanceSet();
+    });
+  }
+
+  /** Démarre un exercice hors programme et sa première série. */
+  function addExercise(exerciseId: string) {
+    run(async () => {
+      setValues({});
+      if (activity) await finishActivity();
+      await startActivity(exerciseId);
       await startPerformanceSet();
     });
   }
@@ -354,6 +379,26 @@ export default function SessionScreen() {
         visible={sheet === 'menu'}
         title="Séance"
         actions={menuActions}
+        onClose={() => setSheet('none')}
+      />
+      <Sheet
+        visible={sheet === 'end-of-plan'}
+        title="Programme terminé"
+        description="Tous les exercices prévus sont faits. Tu peux t'arrêter là ou continuer librement."
+        actions={[
+          { label: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
+          { label: 'Ajouter un exercice', onPress: () => setSheet('pick-exercise') },
+        ]}
+        onClose={() => setSheet('none')}
+      />
+      <Sheet
+        visible={sheet === 'pick-exercise'}
+        title="Ajouter un exercice"
+        description="Hors programme : ses séries seront enregistrées normalement."
+        actions={exercises.map((exercise) => ({
+          label: exercise.name,
+          onPress: () => addExercise(exercise.id),
+        }))}
         onClose={() => setSheet('none')}
       />
       <Sheet
