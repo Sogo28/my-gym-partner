@@ -166,10 +166,20 @@ export default function SessionScreen() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
 
-  /** Ouvre ou referme l'ajustement d'une série déjà enregistrée. */
+  /**
+   * Ouvre ou referme l'ajustement d'une série.
+   *
+   * En refermant, on relit la performance : les valeurs ont bien été écrites
+   * à chaque ajustement, mais la copie gardée en mémoire, elle, date d'avant.
+   */
   function toggleEditing(index: number) {
     setValues({});
-    setEditing((current) => (current === index ? null : index));
+    if (editing === index) {
+      setEditing(null);
+      reload().catch((e) => setError(String(e)));
+    } else {
+      setEditing(index);
+    }
   }
 
   function closeEditing() {
