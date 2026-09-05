@@ -118,9 +118,26 @@ export default function SessionScreen() {
       .map(([id, value]) => `${value}${unitOf(id)}`)
       .join('·');
 
-  // Ce qu'on affiche vient d'abord de la série enregistrée : la saisie locale
-  // ne fait que la recouvrir, le temps que l'écriture aboutisse.
-  const shown = { ...(lastSet?.values ?? {}), ...values };
+  /**
+   * Le socle de ce qu'on affiche : pendant une série, ce que le plan prévoit
+   * pour elle ; pendant le repos, ce qui a été enregistré. La saisie locale ne
+   * fait que le recouvrir, le temps que l'écriture aboutisse.
+   */
+  function baseline(): Record<string, number> {
+    if (!performance?.currentSet) return lastSet?.values ?? {};
+
+    const targets = plannedExercise?.sets[sets.length - 1]?.targets;
+    if (targets && Object.keys(targets).length > 0) return targets;
+
+    // Hors programme : on reprend la dernière série faite, sinon zéro.
+    const previous = [...sets].reverse().find((set) => set.status === 'COMPLETED');
+    return (
+      previous?.values ??
+      Object.fromEntries((performance.measurementIds ?? []).map((id) => [id, 0]))
+    );
+  }
+
+  const shown = { ...baseline(), ...values };
 
   /** Ajuster une valeur pendant le repos l'enregistre aussitôt. */
   function adjust(measurementId: string, value: number) {
@@ -134,16 +151,23 @@ export default function SessionScreen() {
   }
 
   function beginSet() {
-    // La série démarre avec les valeurs prévues. À défaut de plan, on reprend
-    // la dernière série faite, sinon zéro : une série complétée doit toujours
-    // porter une valeur.
-    const targets = plannedExercise?.sets[nextSetIndex]?.targets;
-    const fallback = Object.fromEntries(
-      (performance?.measurementIds ?? []).map((id) => [id, lastSet?.values[id] ?? 0]),
-    );
+    // Aucune valeur à mémoriser : le socle les fournit, la saisie locale
+    // repart donc de zéro à chaque série.
     run(async () => {
+      setValues({});
       await startPerformanceSet();
-      setValues({ ...fallback, ...(targets ?? {}) });
+    });
+  }
+
+  /**
+   * Passer à l'exercice suivant enchaîne directement sur sa première série :
+   * le repos en cours est interrompu par le démarrage de la série (§13).
+   */
+  function nextExercise() {
+    run(async () => {
+      setValues({});
+      await goToNextExercise();
+      await startPerformanceSet();
     });
   }
 
@@ -152,7 +176,7 @@ export default function SessionScreen() {
     ...(performance?.currentSet
       ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
       : []),
-    ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: () => run(goToNextExercise) }] : []),
+    ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: nextExercise }] : []),
     { label: 'Annuler la séance', tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
   ];
 
@@ -270,9 +294,7 @@ export default function SessionScreen() {
                 onPress={() => run(() => completePerformanceSet(shown))}
                 className="h-64 w-64 items-center justify-center rounded-full bg-primary active:bg-primary-pressed"
               >
-                <Text className="font-black uppercase text-[28px] tracking-tight text-ink">
-                  Terminer
-                </Text>
+                <Text className="font-black text-[28px] tracking-tight text-ink">Terminer</Text>
               </Pressable>
             )}
           </View>
@@ -300,17 +322,17 @@ export default function SessionScreen() {
                 // ajouter une série et passer à la suite.
                 <View className="flex-row gap-3">
                   <Button
-                    label="Ajouter une série"
+                    label="Nouvelle série"
+                    variant="secondary"
                     size="lg"
                     className="flex-1"
                     onPress={beginSet}
                   />
                   <Button
                     label="Exercice suivant"
-                    variant="secondary"
                     size="lg"
                     className="flex-1"
-                    onPress={() => run(goToNextExercise)}
+                    onPress={nextExercise}
                   />
                 </View>
               ) : (

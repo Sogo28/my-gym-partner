@@ -112,7 +112,7 @@ export default function NewExerciseScreen() {
         {error && <BusinessNotice message={error} />}
       </ScrollView>
 
-      <View className="gap-2 border-t border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark">
+      <View className="gap-2 p-5 pt-2">
         <Button label="Créer l'exercice" size="lg" onPress={submit} />
         <Button label="Annuler" variant="ghost" size="md" onPress={() => router.back()} />
       </View>

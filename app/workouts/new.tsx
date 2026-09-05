@@ -151,7 +151,7 @@ export default function NewWorkoutScreen() {
         {error && <BusinessNotice message={error} />}
       </ScrollView>
 
-      <View className="border-t border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark">
+      <View className="p-5 pt-2">
         <Button label="Enregistrer" size="lg" onPress={submit} />
       </View>
     </SafeAreaView>

@@ -101,7 +101,7 @@ export default function WorkoutDetailScreen() {
       </ScrollView>
 
       {/* Action principale ancrée en bas, hors du défilement. */}
-      <View className="border-t border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark">
+      <View className="p-5 pt-2">
         <Button label="Démarrer la séance" size="xl" onPress={start} />
       </View>
     </SafeAreaView>

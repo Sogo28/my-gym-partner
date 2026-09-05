@@ -34,7 +34,7 @@ const button = cva('flex-row items-center justify-center px-4', {
 const label = cva('text-center', {
   variants: {
     variant: {
-      primary: 'text-ink font-black uppercase',
+      primary: 'text-ink font-black',
       secondary: 'text-ink dark:text-ink-dark font-bold',
       ghost: 'text-muted dark:text-muted-dark font-medium',
       danger: 'text-danger dark:text-danger-dark font-bold',
