@@ -1,6 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
 
 type CollapsibleProps = {
@@ -15,10 +14,13 @@ type CollapsibleProps = {
 /**
  * Un bloc dépliable.
  *
- * L'animation passe par Reanimated et non par LayoutAnimation : cette
- * dernière n'a plus d'effet avec la New Architecture, activée par défaut
- * depuis Expo 54. `layout` anime le changement de hauteur du conteneur,
- * `entering`/`exiting` le contenu qui apparaît et disparaît.
+ * L'animation utilise l'API Animated intégrée à React Native, et non
+ * Reanimated : ce dernier embarque du code natif qui doit correspondre trait
+ * pour trait à celui d'Expo Go, ce qui casse dès que les versions divergent.
+ * LayoutAnimation, de son côté, n'a plus d'effet avec la New Architecture.
+ *
+ * On anime l'opacité et un léger glissement plutôt que la hauteur, qu'il
+ * faudrait mesurer avant de pouvoir l'interpoler.
  */
 export function Collapsible({
   title,
@@ -28,12 +30,21 @@ export function Collapsible({
   className,
 }: CollapsibleProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const progress = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: open ? 1 : 0,
+      duration: 160,
+      // useNativeDriver : l'animation tourne côté natif, sans repasser par le
+      // fil JavaScript à chaque image. Possible ici car opacité et translation
+      // font partie des propriétés qu'il sait traiter.
+      useNativeDriver: true,
+    }).start();
+  }, [open, progress]);
 
   return (
-    <Animated.View
-      layout={LinearTransition.duration(180)}
-      className={cn('overflow-hidden rounded-2xl border border-border', className)}
-    >
+    <View className={cn('overflow-hidden rounded-2xl border border-border', className)}>
       <Pressable
         onPress={() => setOpen((value) => !value)}
         className="flex-row items-center justify-between gap-3 p-4 active:bg-muted"
@@ -57,13 +68,17 @@ export function Collapsible({
 
       {open && (
         <Animated.View
-          entering={FadeIn.duration(160)}
-          exiting={FadeOut.duration(120)}
           className="gap-1 px-4 pb-4"
+          style={{
+            opacity: progress,
+            transform: [
+              { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) },
+            ],
+          }}
         >
           {children}
         </Animated.View>
       )}
-    </Animated.View>
+    </View>
   );
 }
