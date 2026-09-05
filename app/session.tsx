@@ -91,6 +91,9 @@ export default function SessionScreen() {
   const lastSet = lastSetIndex >= 0 ? sets[lastSetIndex] : undefined;
   const resting = Boolean(session?.currentRest);
   const completedCount = sets.filter((set) => set.status === 'COMPLETED').length;
+  // Toutes les séries prévues sont faites : la suivante serait une série en
+  // plus du plan. Un exercice hors programme est dans ce cas dès le départ.
+  const plannedDone = !plannedExercise || nextSetIndex >= plannedExercise.sets.length;
   const totalSets = Math.max(sets.length, plannedExercise?.sets.length ?? 0);
 
   // Un rendu par seconde, et seulement pendant le repos.
@@ -291,13 +294,32 @@ export default function SessionScreen() {
               </View>
             )}
 
-            {!performance?.currentSet && (
-              <Button
-                label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
-                size="xl"
-                onPress={beginSet}
-              />
-            )}
+            {!performance?.currentSet &&
+              (plannedDone ? (
+                // Le plan est honoré : continuer devient un choix entre
+                // ajouter une série et passer à la suite.
+                <View className="flex-row gap-3">
+                  <Button
+                    label="Ajouter une série"
+                    size="lg"
+                    className="flex-1"
+                    onPress={beginSet}
+                  />
+                  <Button
+                    label="Exercice suivant"
+                    variant="secondary"
+                    size="lg"
+                    className="flex-1"
+                    onPress={() => run(goToNextExercise)}
+                  />
+                </View>
+              ) : (
+                <Button
+                  label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
+                  size="xl"
+                  onPress={beginSet}
+                />
+              ))}
           </View>
         </>
       ) : (
