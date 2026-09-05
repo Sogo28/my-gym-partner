@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Text, View, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import { cn } from './cn';
 
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
@@ -44,6 +44,9 @@ type SetRowProps = {
   status: SetRowStatus;
   /** Déjà formaté : "8 reps · 20 kg". */
   values: string;
+  /** Rend la ligne tapable, pour ouvrir l'ajustement de cette série. */
+  onPress?: () => void;
+  selected?: boolean;
 };
 
 /**
@@ -51,19 +54,25 @@ type SetRowProps = {
  * l'étiquette -- jamais par la seule luminance du texte, qui tomberait sous
  * le seuil de contraste lisible en salle.
  */
-export function SetRow({ index, status, values }: SetRowProps) {
+export function SetRow({ index, status, values, onPress, selected = false }: SetRowProps) {
+  // Une ligne tapable est un Pressable, sinon une simple vue : pas de zone
+  // interactive là où il n'y a rien à ouvrir.
+  const Row = onPress ? Pressable : View;
+
   return (
-    <View
+    <Row
+      onPress={onPress}
       className={cn(
         'min-h-[56px] flex-row items-center gap-3 rounded-lg px-3',
         status === 'completed' && 'bg-surface dark:bg-surface-dark',
         status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
         status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
+        selected && 'bg-primary-soft dark:bg-primary-soft-dark',
       )}
       // La bordure passe en style direct : appliquée par la feuille de styles,
       // elle pouvait manquer au premier tracé d'une ligne qui vient
       // d'apparaître, et ne revenir qu'au remontage de la liste.
-      style={BORDERS[status]}
+      style={selected ? BORDERS['in-progress'] : BORDERS[status]}
     >
       <Badge status={status} />
 
@@ -100,7 +109,7 @@ export function SetRow({ index, status, values }: SetRowProps) {
           en cours
         </Text>
       )}
-    </View>
+    </Row>
   );
 }
 

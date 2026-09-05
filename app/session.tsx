@@ -44,6 +44,8 @@ export default function SessionScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
+  // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
+  const [editing, setEditing] = useState<number | null>(null);
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(true);
@@ -146,24 +148,40 @@ export default function SessionScreen() {
     );
   }
 
-  const shown = { ...baseline(), ...values };
+  // La série en cours n'est plus recouverte par la saisie locale : celle-ci
+  // appartient désormais à la série ouverte à l'ajustement, qui est une autre.
+  const shown = baseline();
 
-  /** Ajuster une valeur pendant le repos l'enregistre aussitôt. */
+  /** Les valeurs de la série ouverte, recouvertes par la saisie en cours. */
+  const editedSet = editing !== null ? sets[editing] : undefined;
+  const editedValues = { ...(editedSet?.values ?? {}), ...values };
+
+  /** Ajuster une valeur l'enregistre aussitôt sur la série ouverte. */
   function adjust(measurementId: string, value: number) {
-    const next = { ...shown, [measurementId]: value };
+    if (editing === null) return;
+    const next = { ...editedValues, [measurementId]: value };
     setValues(next);
-    if (lastSetIndex >= 0) {
-      correctSet(lastSetIndex, next)
-        .then(() => setError(null))
-        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    }
+    correctSet(editing, next)
+      .then(() => setError(null))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }
+
+  /** Ouvre ou referme l'ajustement d'une série déjà enregistrée. */
+  function toggleEditing(index: number) {
+    setValues({});
+    setEditing((current) => (current === index ? null : index));
+  }
+
+  function closeEditing() {
+    setEditing(null);
+    setValues({});
   }
 
   function beginSet() {
     // Aucune valeur à mémoriser : le socle les fournit, la saisie locale
     // repart donc de zéro à chaque série.
     run(async () => {
-      setValues({});
+      closeEditing();
       await startPerformanceSet();
     });
   }
@@ -180,7 +198,7 @@ export default function SessionScreen() {
       return;
     }
     run(async () => {
-      setValues({});
+      closeEditing();
       await goToNextExercise();
     });
   }
@@ -191,7 +209,7 @@ export default function SessionScreen() {
    */
   function addExercise(exerciseId: string) {
     run(async () => {
-      setValues({});
+      closeEditing();
       if (activity) await finishActivity();
       await startActivity(exerciseId);
     });
@@ -270,7 +288,19 @@ export default function SessionScreen() {
                   key={`${activity.performanceId}-${index}`}
                   index={index + 1}
                   status={statusOf(set.status)}
-                  values={format(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
+                  // Une série déjà enregistrée peut être rouverte pour
+                  // corriger ce qu'on a réellement fait.
+                  onPress={set.status === 'IN_PROGRESS' ? undefined : () => toggleEditing(index)}
+                  selected={editing === index}
+                  values={
+                    format(
+                      editing === index
+                        ? editedValues
+                        : index === lastSetIndex && !isPast(set)
+                          ? shown
+                          : set.values,
+                    ) || '—'
+                  }
                 />
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
@@ -319,16 +349,14 @@ export default function SessionScreen() {
           <View className="gap-3 pb-2">
             {error && <BusinessNotice message={error} />}
 
-            {/* Les champs n'ont de sens que s'il y a une série à ajuster :
-                après un changement d'exercice, le repos continue mais il n'y
-                a encore rien à corriger. */}
-            {resting && lastSet && (
+            {/* Les champs n'apparaissent que pour la série qu'on a ouverte. */}
+            {editing !== null && editedSet && (
               <View className="flex-row gap-3">
                 {(performance?.measurementIds ?? []).map((id) => (
                   <NumberField
                     key={id}
                     unit={unitOf(id)}
-                    value={shown[id] ?? 0}
+                    value={editedValues[id] ?? 0}
                     step={STEPS[id] ?? 1}
                     onChange={(value) => adjust(id, value)}
                   />
