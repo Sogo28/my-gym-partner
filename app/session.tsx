@@ -182,17 +182,18 @@ export default function SessionScreen() {
     run(async () => {
       setValues({});
       await goToNextExercise();
-      await startPerformanceSet();
     });
   }
 
-  /** Démarre un exercice hors programme et sa première série. */
+  /**
+   * Démarre un exercice hors programme. Comme pour l'exercice suivant, la
+   * première série reste un geste explicite.
+   */
   function addExercise(exerciseId: string) {
     run(async () => {
       setValues({});
       if (activity) await finishActivity();
       await startActivity(exerciseId);
-      await startPerformanceSet();
     });
   }
 
