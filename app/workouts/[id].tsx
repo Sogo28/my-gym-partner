@@ -22,6 +22,9 @@ export default function WorkoutDetailScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Replié par défaut : le résumé sert à voir l'enchaînement des exercices
+  // d'un coup d'oeil, le détail des séries est à la demande.
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
@@ -52,7 +55,7 @@ export default function WorkoutDetailScreen() {
   if (!plan) {
     return (
       <View style={styles.screen}>
-        <Text style={styles.muted}>{error ?? 'Entraînement introuvable.'}</Text>
+        <Text style={[styles.muted, { padding: 20 }]}>{error ?? 'Entraînement introuvable.'}</Text>
       </View>
     );
   }
@@ -61,25 +64,39 @@ export default function WorkoutDetailScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{plan.name}</Text>
 
-      {plan.exercises.map((planned, position) => (
-        <View key={`${planned.exerciseId}-${position}`} style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {position + 1}. {nameOf(planned.exerciseId)}
-          </Text>
-          {planned.sets.length === 0 ? (
-            <Text style={styles.muted}>aucune série prévue</Text>
-          ) : (
-            planned.sets.map((set, index) => (
-              <Text key={index} style={styles.setLine}>
-                Série {index + 1} ·{' '}
-                {Object.entries(set.targets)
-                  .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
-                  .join(' · ')}
+      {plan.exercises.map((planned, position) => {
+        const isOpen = expanded === position;
+        return (
+          <Pressable
+            key={`${planned.exerciseId}-${position}`}
+            style={styles.card}
+            onPress={() => setExpanded(isOpen ? null : position)}
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {position + 1}. {nameOf(planned.exerciseId)}
               </Text>
-            ))
-          )}
-        </View>
-      ))}
+              <Text style={styles.muted}>
+                {planned.sets.length} série{planned.sets.length > 1 ? 's' : ''}
+              </Text>
+            </View>
+
+            {isOpen &&
+              (planned.sets.length === 0 ? (
+                <Text style={styles.muted}>aucune série prévue</Text>
+              ) : (
+                planned.sets.map((set, index) => (
+                  <Text key={index} style={styles.setLine}>
+                    Série {index + 1} ·{' '}
+                    {Object.entries(set.targets)
+                      .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
+                      .join(' · ')}
+                  </Text>
+                ))
+              ))}
+          </Pressable>
+        );
+      })}
 
       {error && <Text style={styles.error}>{error}</Text>}
 
@@ -95,9 +112,10 @@ const styles = StyleSheet.create({
   content: { padding: 20, gap: 12, paddingBottom: 60 },
   title: { fontSize: 24, fontWeight: '700' },
   card: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 14, gap: 4 },
-  cardTitle: { fontSize: 16, fontWeight: '600' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
   setLine: { color: '#3f3f46' },
-  muted: { color: '#71717a', padding: 20 },
+  muted: { color: '#71717a' },
   error: { color: '#dc2626' },
   button: { backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
