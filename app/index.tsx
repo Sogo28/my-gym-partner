@@ -1,20 +1,11 @@
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { createExercise } from './src/app/create-exercise';
-import type { Exercise } from './src/domain/exercise/exercise';
-import type { Measurement } from './src/domain/exercise/measurement';
-import { findAll, findAllMeasurements } from './src/infra/exercise-repository';
+import { FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { createExercise } from '../src/app/create-exercise';
+import type { Exercise } from '../src/domain/exercise/exercise';
+import type { Measurement } from '../src/domain/exercise/measurement';
+import { findAll, findAllMeasurements } from '../src/infra/exercise-repository';
 
-export default function App() {
+export default function ExercisesScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [name, setName] = useState('');
@@ -22,7 +13,6 @@ export default function App() {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Au démarrage : ouverture de la base, migration si besoin, puis lecture.
   useEffect(() => {
     findAllMeasurements().then(setMeasurements).catch((e) => setError(String(e)));
     findAll().then(setExercises).catch((e) => setError(String(e)));
@@ -37,7 +27,6 @@ export default function App() {
   async function submit() {
     try {
       // Aucune validation ici : les règles appartiennent au domaine.
-      // L'écran se contente d'afficher le message d'erreur qu'il reçoit.
       await createExercise({ name, isUnilateral, measurementIds: selected });
       setExercises(await findAll());
       setName('');
@@ -53,9 +42,6 @@ export default function App() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="auto" />
-      <Text style={styles.title}>Mes exercices</Text>
-
       <View style={styles.form}>
         <TextInput
           style={styles.input}
@@ -114,8 +100,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 70 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 16 },
+  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16 },
   form: { gap: 12, marginBottom: 24 },
   input: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, padding: 12, fontSize: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
