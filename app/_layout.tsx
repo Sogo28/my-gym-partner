@@ -1,4 +1,6 @@
 import { Tabs } from 'expo-router';
+// Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
+import '../global.css';
 
 /**
  * Layout racine : avec expo-router, l'ARBORESCENCE DES FICHIERS définit la
