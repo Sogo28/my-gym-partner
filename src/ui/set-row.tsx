@@ -1,8 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Text, View } from 'react-native';
+import { Text, View, type ViewStyle } from 'react-native';
 import { cn } from './cn';
 
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
+
+const BORDERS: Record<SetRowStatus, ViewStyle> = {
+  completed: { borderWidth: 1, borderColor: '#DDE0D6', borderLeftWidth: 3, borderLeftColor: '#1B7A45' },
+  abandoned: { borderWidth: 1, borderColor: '#DDE0D6' },
+  planned: { borderWidth: 1, borderColor: 'transparent' },
+  'in-progress': { borderWidth: 2, borderColor: '#46600F' },
+};
 
 type SetRowProps = {
   index: number;
@@ -20,15 +27,15 @@ export function SetRow({ index, status, values }: SetRowProps) {
   return (
     <View
       className={cn(
-        'min-h-[56px] flex-row items-center gap-3 rounded-lg border px-3',
-        status === 'completed' &&
-          'border-border dark:border-border-dark bg-surface dark:bg-surface-dark border-l-[3px] border-l-success dark:border-l-success-dark',
-        status === 'abandoned' &&
-          'border-border dark:border-border-dark bg-surface-alt dark:bg-surface-alt-dark',
-        status === 'planned' && 'border-transparent bg-transparent',
-        status === 'in-progress' &&
-          'border-2 border-primary-ink dark:border-primary-ink-dark bg-surface dark:bg-surface-dark',
+        'min-h-[56px] flex-row items-center gap-3 rounded-lg px-3',
+        status === 'completed' && 'bg-surface dark:bg-surface-dark',
+        status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
+        status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
       )}
+      // La bordure passe en style direct : appliquée par la feuille de styles,
+      // elle pouvait manquer au premier tracé d'une ligne qui vient
+      // d'apparaître, et ne revenir qu'au remontage de la liste.
+      style={BORDERS[status]}
     >
       <Badge status={status} />
 
