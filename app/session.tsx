@@ -220,7 +220,9 @@ export default function SessionScreen() {
                   key={index}
                   index={index + 1}
                   status={statusOf(set.status)}
-                  values={format(set.values) || '—'}
+                  // La série qu'on est en train d'ajuster affiche la valeur en
+                  // cours, sans attendre le prochain rechargement.
+                  values={format(index === lastSetIndex && resting ? shown : set.values) || '—'}
                 />
               ))}
               {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
@@ -238,9 +240,13 @@ export default function SessionScreen() {
             {error && <BusinessNotice message={error} />}
 
             {resting && (
-              <View className="flex-row items-start gap-4">
+              <View className="flex-row items-end gap-4">
                 <Timer seconds={restElapsed} />
-                <View className="flex-1 flex-row gap-3">
+                <View className="flex-1 gap-1">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    Série {lastSetIndex + 1} réalisée
+                  </Text>
+                  <View className="flex-row gap-3">
                   {(performance?.measurementIds ?? []).map((id) => (
                     <NumberField
                       key={id}
@@ -249,7 +255,8 @@ export default function SessionScreen() {
                       step={STEPS[id] ?? 1}
                       onChange={(value) => adjust(id, value)}
                     />
-                  ))}
+                    ))}
+                  </View>
                 </View>
               </View>
             )}
