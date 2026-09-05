@@ -92,6 +92,41 @@ describe('ExercisePerformance', () => {
     expect(() => performance.completeCurrentSet({ weight: 10 }, t(2))).toThrow(/ne se mesure pas/);
   });
 
+  it('abandonne les séries prévues qui n ont pas été faites', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.completeCurrentSet({ reps: 8 }, t(2));
+
+    // Le plan en prévoyait 3, on passe à l'exercice suivant après la première.
+    performance.abandonRemainingPlannedSets(3, t(3));
+
+    expect(performance.sets.map((s) => s.status)).toEqual([
+      'COMPLETED',
+      'ABANDONED',
+      'ABANDONED',
+    ]);
+    expect(performance.completedSets).toHaveLength(1);
+  });
+
+  it('abandonne aussi la série en cours quand on passe à la suite', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+
+    performance.abandonRemainingPlannedSets(2, t(2));
+
+    expect(performance.sets.map((s) => s.status)).toEqual(['ABANDONED', 'ABANDONED']);
+  });
+
+  it('n ajoute rien quand toutes les séries prévues ont été faites', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.completeCurrentSet({ reps: 8 }, t(2));
+
+    performance.abandonRemainingPlannedSets(1, t(3));
+
+    expect(performance.sets).toHaveLength(1);
+  });
+
   it('corrige la saisie d une série déjà validée', () => {
     const performance = pullUp();
     performance.startSet(t(1));

@@ -113,6 +113,23 @@ export class ExercisePerformance {
   }
 
   /**
+   * Marque comme ABANDONNÉES les séries prévues qui n'ont pas été faites.
+   *
+   * Appelé quand on passe à l'exercice suivant sans terminer le programme :
+   * l'historique garde la trace de ce qui était prévu, sans jamais compter
+   * ces séries comme des performances (n°18).
+   */
+  abandonRemainingPlannedSets(plannedCount: number, at: Date): void {
+    if (this.currentSet) {
+      this.abandonCurrentSet(at);
+    }
+    for (let index = this._sets.length; index < plannedCount; index += 1) {
+      this.startSet(at);
+      this.abandonCurrentSet(at);
+    }
+  }
+
+  /**
    * Corriger la saisie d'une série déjà terminée.
    *
    * Nécessaire parce qu'on valide la série avec les valeurs prévues puis on
