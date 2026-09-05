@@ -102,7 +102,7 @@ export default function ExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16 },
+  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 24 },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: 12 },
   form: { gap: 12, marginBottom: 24 },
   input: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, padding: 12, fontSize: 16 },

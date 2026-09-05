@@ -9,8 +9,6 @@ type NumberFieldProps = {
   unit: string;
   /** Titre au-dessus du champ (« Côté gauche », « Poids »...). */
   label?: string;
-  /** La valeur prévue : sert à signaler une divergence. */
-  planned?: number;
   step?: number;
 };
 
@@ -18,19 +16,10 @@ type NumberFieldProps = {
  * Saisie par pas plutôt qu'au clavier : en salle, on ajuste de quelques
  * répétitions ou de quelques kilos, on ne tape pas un nombre.
  *
- * La bordure et la valeur passent à l'accent dès que la valeur diffère du
- * prévu. C'est ce même signal qui fait apparaître le bouton « Corriger ».
+ * Le champ affiche la valeur RÉELLEMENT enregistrée et l'écrit à chaque
+ * ajustement : il n'y a rien à confirmer, donc rien à oublier de confirmer.
  */
-export function NumberField({
-  value,
-  onChange,
-  unit,
-  label,
-  planned,
-  step = 1,
-}: NumberFieldProps) {
-  const diverges = planned !== undefined && value !== planned;
-
+export function NumberField({ value, onChange, unit, label, step = 1 }: NumberFieldProps) {
   return (
     <View className="flex-1 gap-1">
       {label && (
@@ -41,10 +30,8 @@ export function NumberField({
 
       <View
         className={cn(
-          'h-[56px] flex-row items-center justify-between rounded-lg border-[1.5px] bg-surface px-3 dark:bg-surface-dark',
-          diverges
-            ? 'border-primary-ink dark:border-primary-ink-dark'
-            : 'border-border dark:border-border-dark',
+          'h-[56px] flex-row items-center justify-between rounded-lg border-[1.5px]',
+          'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
         )}
       >
         <Pressable
@@ -56,10 +43,7 @@ export function NumberField({
         </Pressable>
 
         <Text
-          className={cn(
-            'font-mono-bold text-[20px]',
-            diverges ? 'text-primary-ink dark:text-primary-ink-dark' : 'text-ink dark:text-ink-dark',
-          )}
+          className="font-mono-bold text-[20px] text-ink dark:text-ink-dark"
           style={{ fontVariant: ['tabular-nums'] }}
           numberOfLines={1}
         >
@@ -76,11 +60,6 @@ export function NumberField({
         </Pressable>
       </View>
 
-      {planned !== undefined && (
-        <Text className="font-mono text-[12px] text-planned">
-          prévu {planned} {unit}
-        </Text>
-      )}
     </View>
   );
 }

@@ -143,7 +143,7 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff' },
-  screenTitle: { fontSize: 26, fontWeight: '800', paddingHorizontal: 20, paddingTop: 8 },
+  screenTitle: { fontSize: 26, fontWeight: '800', paddingHorizontal: 20, paddingTop: 16 },
   content: { padding: 20, gap: 14, paddingBottom: 60 },
   card: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 14, gap: 6 },
   cardTitle: { fontSize: 17, fontWeight: '700' },

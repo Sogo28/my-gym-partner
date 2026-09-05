@@ -51,7 +51,7 @@ export default function WorkoutsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16 },
+  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 24 },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: 12 },
   button: { backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 14, textAlign: 'center', marginBottom: 20 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },

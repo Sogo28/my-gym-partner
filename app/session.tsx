@@ -86,11 +86,6 @@ export default function SessionScreen() {
   const lastSet = lastSetIndex >= 0 ? sets[lastSetIndex] : undefined;
   const resting = Boolean(session?.currentRest);
 
-  // Pendant le repos, les champs affichent ce qui vient d'être enregistré.
-  useEffect(() => {
-    if (resting && lastSet) setValues({ ...lastSet.values });
-  }, [resting, lastSetIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Un rendu par seconde, et seulement pendant le repos.
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   const [, setTick] = useState(0);
@@ -108,14 +103,32 @@ export default function SessionScreen() {
       .map(([id, value]) => `${value} ${unitOf(id)}`)
       .join(' · ');
 
-  const diverges =
-    lastSet !== undefined &&
-    Object.entries(values).some(([id, value]) => lastSet.values[id] !== value);
+  // Ce qu'on affiche vient d'abord de la série enregistrée : la saisie locale
+  // ne fait que la recouvrir, le temps que l'écriture aboutisse.
+  const shown = { ...(lastSet?.values ?? {}), ...values };
+
+  /** Ajuster une valeur pendant le repos l'enregistre aussitôt. */
+  function adjust(measurementId: string, value: number) {
+    const next = { ...shown, [measurementId]: value };
+    setValues(next);
+    if (lastSetIndex >= 0) {
+      correctSet(lastSetIndex, next)
+        .then(() => setError(null))
+        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    }
+  }
 
   function beginSet() {
+    // La série démarre avec les valeurs prévues. À défaut de plan, on reprend
+    // la dernière série faite, sinon zéro : une série complétée doit toujours
+    // porter une valeur.
+    const targets = plannedExercise?.sets[nextSetIndex]?.targets;
+    const fallback = Object.fromEntries(
+      (performance?.measurementIds ?? []).map((id) => [id, lastSet?.values[id] ?? 0]),
+    );
     run(async () => {
       await startPerformanceSet();
-      setValues({ ...(plannedExercise?.sets[nextSetIndex]?.targets ?? {}) });
+      setValues({ ...fallback, ...(targets ?? {}) });
     });
   }
 
@@ -169,7 +182,7 @@ export default function SessionScreen() {
       : 'séance libre';
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 dark:bg-background-dark">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
       <SessionHeader
         workoutName={plan ? plan.name : 'Séance libre'}
         position={position}
@@ -232,30 +245,20 @@ export default function SessionScreen() {
                     <NumberField
                       key={id}
                       unit={unitOf(id)}
-                      value={values[id] ?? 0}
-                      planned={plannedExercise?.sets[lastSetIndex]?.targets[id]}
+                      value={shown[id] ?? 0}
                       step={STEPS[id] ?? 1}
-                      onChange={(value) => setValues((current) => ({ ...current, [id]: value }))}
+                      onChange={(value) => adjust(id, value)}
                     />
                   ))}
                 </View>
               </View>
             )}
 
-            {resting && diverges && (
-              <Button
-                label={`Corriger la série ${lastSetIndex + 1}`}
-                variant="secondary"
-                size="md"
-                onPress={() => run(() => correctSet(lastSetIndex, values))}
-              />
-            )}
-
             {performance?.currentSet ? (
               <Button
                 label={`Terminer la série ${nextSetIndex}`}
                 size="2xl"
-                onPress={() => run(() => completePerformanceSet(values))}
+                onPress={() => run(() => completePerformanceSet(shown))}
               />
             ) : (
               <>

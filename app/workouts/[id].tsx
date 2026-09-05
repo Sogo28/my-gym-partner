@@ -67,7 +67,7 @@ export default function WorkoutDetailScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
-      <View className="px-5 pt-2">
+      <View className="px-5 pt-4">
         <BackHeader
           title={plan.name}
           subtitle={`${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''} prévue${totalSets > 1 ? 's' : ''}`}

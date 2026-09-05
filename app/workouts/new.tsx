@@ -137,7 +137,7 @@ export default function NewWorkoutScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#fff' },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16 },
   screenTitle: { fontSize: 22, fontWeight: '800' },
   close: { color: '#71717a', fontWeight: '600' },
   content: { padding: 20, gap: 16, paddingBottom: 60 },
