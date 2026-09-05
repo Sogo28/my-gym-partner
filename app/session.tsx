@@ -341,32 +341,27 @@ export default function SessionScreen() {
               />
             )}
 
-            {!performance?.currentSet &&
-              (plannedDone ? (
-                // Le plan est honoré : continuer devient un choix entre
-                // ajouter une série et passer à la suite.
-                <View className="flex-row gap-3">
-                  <Button
-                    label="Nouvelle série"
-                    variant="secondary"
-                    size="lg"
-                    className="flex-1"
-                    onPress={beginSet}
-                  />
-                  <Button
-                    label="Suivant"
-                    size="lg"
-                    className="flex-1"
-                    onPress={nextExercise}
-                  />
-                </View>
-              ) : (
+            {/* Hors série en cours, toujours deux choix : lancer la série,
+                ou passer à l'exercice suivant. Le principal dépend de l'état
+                du programme. */}
+            {!performance?.currentSet && (
+              <View className="flex-row gap-3">
                 <Button
-                  label={resting ? 'Série suivante' : `Série ${nextSetIndex + 1}`}
-                  size="xl"
+                  label={plannedDone ? 'Nouvelle série' : 'Démarrer'}
+                  variant={plannedDone ? 'secondary' : 'primary'}
+                  size="lg"
+                  className="flex-1"
                   onPress={beginSet}
                 />
-              ))}
+                <Button
+                  label="Suivant"
+                  variant={plannedDone ? 'primary' : 'secondary'}
+                  size="lg"
+                  className="flex-1"
+                  onPress={nextExercise}
+                />
+              </View>
+            )}
           </View>
         </>
       ) : (
