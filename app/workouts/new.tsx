@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { createPlannedWorkout } from '../../src/app/create-planned-workout';
+import { createPlannedWorkout } from '../../src/use-cases/create-planned-workout';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { PlannedExercise } from '../../src/domain/planned-workout/planned-workout';

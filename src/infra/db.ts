@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -85,6 +85,33 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         PRIMARY KEY (workout_id, position, set_index, measurement_id),
         FOREIGN KEY (workout_id, position)
           REFERENCES planned_workout_exercises(workout_id, position) ON DELETE CASCADE
+      );
+    `);
+  }
+
+  // Migration 3 : séances réelles (Slice 3).
+  if (version < 3) {
+    await db.execAsync(`
+      -- SQLite n'a pas de type date : on stocke les instants en ISO 8601
+      -- ('2026-09-05T18:00:00.000Z'), qui a la bonne propriété de se trier
+      -- chronologiquement en tant que texte.
+      CREATE TABLE workout_sessions (
+        id TEXT PRIMARY KEY NOT NULL,
+        planned_workout_id TEXT REFERENCES planned_workouts(id),
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        -- La base refuse elle-même un état inconnu : l'invariant du domaine
+        -- est doublé par une garantie du stockage.
+        status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'COMPLETED', 'CANCELLED'))
+      );
+
+      CREATE TABLE session_activities (
+        session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        exercise_id TEXT NOT NULL REFERENCES exercises(id),
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        PRIMARY KEY (session_id, position)
       );
     `);
   }

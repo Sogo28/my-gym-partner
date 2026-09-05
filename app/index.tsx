@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { createExercise } from '../src/app/create-exercise';
+import { createExercise } from '../src/use-cases/create-exercise';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import { findAll, findAllMeasurements } from '../src/infra/exercise-repository';
