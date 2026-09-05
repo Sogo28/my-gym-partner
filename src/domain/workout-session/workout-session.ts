@@ -30,6 +30,19 @@ export type Activity = {
 };
 
 /**
+ * Rest : une période de repos (§13).
+ *
+ * Elle appartient au fil temporel de la SÉANCE, pas à une série : un repos a
+ * un début, une fin, et peut être interrompu. Le cahier des charges écarte
+ * explicitement la modélisation naïve d'un nombre de secondes posé sur la
+ * série (n°19).
+ */
+export type Rest = {
+  readonly startedAt: Date;
+  readonly endedAt: Date | null;
+};
+
+/**
  * WorkoutSession : l'exécution réelle d'un entraînement (§8).
  *
  * Peut naître d'un PlannedWorkout ou de rien du tout (séance libre, n°13).
@@ -47,6 +60,7 @@ export class WorkoutSession {
     private _status: WorkoutSessionStatus,
     private _endedAt: Date | null,
     private _activities: Activity[],
+    private _rests: Rest[],
   ) {}
 
   static start(input: {
@@ -54,7 +68,15 @@ export class WorkoutSession {
     plannedWorkoutId?: PlannedWorkoutId | null;
     at: Date;
   }): WorkoutSession {
-    return new WorkoutSession(input.id, input.plannedWorkoutId ?? null, input.at, 'ACTIVE', null, []);
+    return new WorkoutSession(
+      input.id,
+      input.plannedWorkoutId ?? null,
+      input.at,
+      'ACTIVE',
+      null,
+      [],
+      [],
+    );
   }
 
   /** Utilisé par le repository pour reconstruire une séance déjà commencée. */
@@ -65,6 +87,7 @@ export class WorkoutSession {
     status: WorkoutSessionStatus;
     endedAt: Date | null;
     activities: readonly Activity[];
+    rests?: readonly Rest[];
   }): WorkoutSession {
     return new WorkoutSession(
       input.id,
@@ -73,6 +96,7 @@ export class WorkoutSession {
       input.status,
       input.endedAt,
       [...input.activities],
+      [...(input.rests ?? [])],
     );
   }
 
@@ -86,6 +110,34 @@ export class WorkoutSession {
 
   get activities(): readonly Activity[] {
     return [...this._activities];
+  }
+
+  get rests(): readonly Rest[] {
+    return [...this._rests];
+  }
+
+  /** Le repos en cours, s'il y en a un. */
+  get currentRest(): Rest | null {
+    const last = this._rests.at(-1);
+    return last && last.endedAt === null ? last : null;
+  }
+
+  startRest(at: Date): void {
+    this.requireActive();
+    if (this.currentRest) {
+      throw new Error('Un repos est déjà en cours.');
+    }
+    this._rests.push({ startedAt: at, endedAt: null });
+  }
+
+  /** Termine le repos, qu'il soit arrivé à son terme ou interrompu (§13). */
+  stopRest(at: Date): void {
+    this.requireActive();
+    const current = this.currentRest;
+    if (!current) {
+      throw new Error("Aucun repos n'est en cours.");
+    }
+    this._rests[this._rests.length - 1] = { ...current, endedAt: at };
   }
 
   /** Une seule activité peut être en cours à la fois. */
@@ -137,9 +189,13 @@ export class WorkoutSession {
     this._endedAt = at;
   }
 
+  /** Une séance terminée ne laisse ni exercice ni repos ouvert derrière elle. */
   private closeCurrentActivity(at: Date): void {
     if (this.currentActivity) {
       this.finishCurrentActivity(at);
+    }
+    if (this.currentRest) {
+      this.stopRest(at);
     }
   }
 

@@ -80,6 +80,48 @@ describe('WorkoutSession', () => {
     expect(session.activities[0].finishedAt).toEqual(t(30));
   });
 
+  it('démarre et arrête un repos', () => {
+    const session = startSession();
+
+    session.startRest(t(10));
+    expect(session.currentRest?.startedAt).toEqual(t(10));
+
+    session.stopRest(t(12));
+    expect(session.currentRest).toBeNull();
+    expect(session.rests[0].endedAt).toEqual(t(12));
+  });
+
+  it('interdit deux repos en cours en même temps', () => {
+    const session = startSession();
+    session.startRest(t(10));
+
+    expect(() => session.startRest(t(11))).toThrow(/déjà en cours/);
+  });
+
+  it('refuse d arrêter un repos quand aucun n est en cours', () => {
+    expect(() => startSession().stopRest(t(10))).toThrow(/Aucun repos/);
+  });
+
+  it('enchaîne plusieurs repos successifs', () => {
+    const session = startSession();
+    session.startRest(t(10));
+    session.stopRest(t(12));
+    session.startRest(t(20));
+    session.stopRest(t(22));
+
+    expect(session.rests).toHaveLength(2);
+  });
+
+  it('clôt le repos en cours quand la séance se termine', () => {
+    const session = startSession();
+    session.startRest(t(10));
+
+    session.finish(t(30));
+
+    expect(session.currentRest).toBeNull();
+    expect(session.rests[0].endedAt).toEqual(t(30));
+  });
+
   it('refuse de terminer un exercice quand aucun n est en cours', () => {
     const session = startSession();
 
