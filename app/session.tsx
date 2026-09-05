@@ -1,52 +1,84 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
+  abandonPerformanceSet,
   cancelWorkoutSession,
+  completePerformanceSet,
   finishActivity,
   finishWorkoutSession,
   startActivity,
+  startPerformanceSet,
   startWorkoutSession,
 } from '../src/use-cases/workout-session-actions';
 import type { Exercise } from '../src/domain/exercise/exercise';
+import type { Measurement } from '../src/domain/exercise/measurement';
+import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
-import { findAll as findAllExercises } from '../src/infra/exercise-repository';
+import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
+import { findById as findPerformanceById } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { findActive } from '../src/infra/workout-session-repository';
 
 export default function SessionScreen() {
   const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [performance, setPerformance] = useState<ExercisePerformance | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
+  const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    const [active, allExercises, allPlans, allMeasurements] = await Promise.all([
+      findActive(),
+      findAllExercises(),
+      findAllPlans(),
+      findAllMeasurements(),
+    ]);
+    setSession(active);
+    setExercises(allExercises);
+    setPlans(allPlans);
+    setMeasurements(allMeasurements);
+
+    const performanceId = active?.currentActivity?.performanceId ?? null;
+    setPerformance(performanceId ? await findPerformanceById(performanceId) : null);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([findActive(), findAllExercises(), findAllPlans()])
-        .then(([active, allExercises, allPlans]) => {
-          setSession(active);
-          setExercises(allExercises);
-          setPlans(allPlans);
-        })
-        .catch((e) => setError(String(e)));
-    }, []),
+      reload().catch((e) => setError(String(e)));
+    }, [reload]),
   );
 
-  // Toutes les actions suivent le même chemin : appeler le use case, afficher
-  // la séance qu'il renvoie, ou afficher le refus du domaine.
-  async function run(action: () => Promise<WorkoutSession>) {
+  // Toutes les actions suivent le même chemin : appeler le use case, recharger
+  // depuis la base, ou afficher le refus du domaine.
+  async function run(action: () => Promise<unknown>) {
     try {
-      const updated = await action();
-      setSession(updated.status === 'ACTIVE' ? updated : null);
+      await action();
+      await reload();
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
 
+  function submitSet() {
+    const parsed: Record<string, number> = {};
+    for (const [measurementId, raw] of Object.entries(values)) {
+      if (raw.trim() !== '') parsed[measurementId] = Number(raw.replace(',', '.'));
+    }
+    run(async () => {
+      await completePerformanceSet(parsed);
+      setValues({});
+    });
+  }
+
   const nameOf = (exerciseId: string) =>
     exercises.find((e) => e.id === exerciseId)?.name ?? exerciseId;
+  const unitOf = (measurementId: string) =>
+    measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
 
   function confirmCancel() {
     Alert.alert('Annuler la séance ?', 'Les exercices déjà enregistrés seront conservés.', [
@@ -97,8 +129,50 @@ export default function SessionScreen() {
         <View style={styles.currentBlock}>
           <Text style={styles.muted}>En cours</Text>
           <Text style={styles.currentTitle}>{nameOf(current.exerciseId)}</Text>
-          <Pressable style={styles.button} onPress={() => run(finishActivity)}>
-            <Text style={styles.buttonText}>Terminer cet exercice</Text>
+
+          {performance?.sets.map((set, index) => (
+            <Text key={index} style={set.status === 'COMPLETED' ? styles.setDone : styles.setOther}>
+              Série {index + 1} ·{' '}
+              {set.status === 'IN_PROGRESS'
+                ? 'en cours'
+                : Object.entries(set.values)
+                    .map(([id, value]) => `${value} ${unitOf(id)}`)
+                    .join(' · ') || 'abandonnée'}
+              {set.status === 'ABANDONED' ? '  (abandonnée)' : ''}
+            </Text>
+          ))}
+
+          {performance?.currentSet ? (
+            <>
+              <View style={styles.targetRow}>
+                {performance.measurementIds.map((measurementId) => (
+                  <TextInput
+                    key={measurementId}
+                    style={styles.smallInput}
+                    keyboardType="numeric"
+                    placeholder={unitOf(measurementId)}
+                    value={values[measurementId] ?? ''}
+                    onChangeText={(text) =>
+                      setValues((current) => ({ ...current, [measurementId]: text }))
+                    }
+                  />
+                ))}
+              </View>
+              <Pressable style={styles.button} onPress={submitSet}>
+                <Text style={styles.buttonText}>Valider la série</Text>
+              </Pressable>
+              <Pressable style={styles.buttonGhost} onPress={() => run(abandonPerformanceSet)}>
+                <Text style={styles.buttonGhostText}>Abandonner la série</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable style={styles.button} onPress={() => run(startPerformanceSet)}>
+              <Text style={styles.buttonText}>Démarrer une série</Text>
+            </Pressable>
+          )}
+
+          <Pressable style={styles.buttonOutline} onPress={() => run(finishActivity)}>
+            <Text style={styles.buttonOutlineText}>Terminer cet exercice</Text>
           </Pressable>
         </View>
       ) : (
@@ -177,4 +251,13 @@ const styles = StyleSheet.create({
   buttonGhost: { paddingVertical: 12, alignItems: 'center' },
   buttonGhostText: { color: '#dc2626', fontWeight: '600' },
   error: { color: '#dc2626' },
+  setDone: { color: '#15803d' },
+  setOther: { color: '#a1a1aa' },
+  targetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  smallInput: {
+    borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 8, minWidth: 70,
+  },
+  buttonOutline: { borderWidth: 1, borderColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  buttonOutlineText: { color: '#2563eb', fontWeight: '600' },
 });

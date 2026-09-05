@@ -1,7 +1,16 @@
 import { randomUUID } from 'expo-crypto';
 import type { ExerciseId } from '../domain/exercise/exercise';
 import type { PlannedWorkoutId } from '../domain/planned-workout/planned-workout';
+import {
+  ExercisePerformance,
+  type SetValues,
+} from '../domain/performance/exercise-performance';
 import { WorkoutSession } from '../domain/workout-session/workout-session';
+import { findAll as findAllExercises } from '../infra/exercise-repository';
+import {
+  findById as findPerformanceById,
+  save as savePerformance,
+} from '../infra/performance-repository';
 import { findActive, save } from '../infra/workout-session-repository';
 
 /**
@@ -39,8 +48,62 @@ export async function startWorkoutSession(
   return session;
 }
 
-export const startActivity = (exerciseId: ExerciseId) =>
-  onActiveSession((session, now) => session.startActivity(exerciseId, now));
+/**
+ * StartActivity (§30) : démarrer un exercice crée aussi sa performance.
+ *
+ * Deux agrégats, donc deux écritures qu'aucune transaction ne peut réunir --
+ * c'est le prix de la frontière posée en Slice 3. On écrit la performance
+ * D'ABORD : au pire on obtient une performance vide que personne ne
+ * référence, ce qui est inoffensif. Dans l'autre ordre, la séance pointerait
+ * vers une performance inexistante.
+ */
+export async function startActivity(exerciseId: ExerciseId): Promise<WorkoutSession> {
+  const exercise = (await findAllExercises()).find((candidate) => candidate.id === exerciseId);
+  if (!exercise) {
+    throw new Error("Cet exercice n'existe pas.");
+  }
+
+  const now = new Date();
+  const performance = ExercisePerformance.start({
+    id: randomUUID(),
+    exerciseId,
+    // Les mesures sont copiées ici, à l'instant de l'exécution.
+    measurementIds: exercise.measurementIds,
+    at: now,
+  });
+  await savePerformance(performance);
+
+  return onActiveSession((session) => session.startActivity(exerciseId, performance.id, now));
+}
+
+/** StartPerformanceSet / CompletePerformanceSet / AbandonPerformanceSet (§29). */
+export const startPerformanceSet = () => onCurrentPerformance((p, now) => p.startSet(now));
+
+export const completePerformanceSet = (values: SetValues) =>
+  onCurrentPerformance((p, now) => p.completeCurrentSet(values, now));
+
+export const abandonPerformanceSet = () =>
+  onCurrentPerformance((p, now) => p.abandonCurrentSet(now));
+
+async function onCurrentPerformance(
+  action: (performance: ExercisePerformance, now: Date) => void,
+): Promise<ExercisePerformance> {
+  const session = await findActive();
+  const current = session?.currentActivity;
+  if (!current?.performanceId) {
+    throw new Error("Aucun exercice n'est en cours.");
+  }
+
+  const performance = await findPerformanceById(current.performanceId);
+  if (!performance) {
+    throw new Error('Performance introuvable.');
+  }
+
+  action(performance, new Date());
+
+  await savePerformance(performance);
+  return performance;
+}
 
 export const finishActivity = () =>
   onActiveSession((session, now) => session.finishCurrentActivity(now));

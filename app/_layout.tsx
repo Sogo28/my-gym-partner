@@ -13,6 +13,7 @@ export default function RootLayout() {
       <Tabs.Screen name="session" options={{ title: 'Séance' }} />
       <Tabs.Screen name="index" options={{ title: 'Exercices' }} />
       <Tabs.Screen name="workouts" options={{ title: 'Entraînements', headerShown: false }} />
+      <Tabs.Screen name="history" options={{ title: 'Historique' }} />
     </Tabs>
   );
 }

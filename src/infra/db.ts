@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -112,6 +112,49 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         started_at TEXT NOT NULL,
         finished_at TEXT,
         PRIMARY KEY (session_id, position)
+      );
+    `);
+  }
+
+  // Migration 4 : performances réelles (Slice 4).
+  if (version < 4) {
+    await db.execAsync(`
+      -- ALTER TABLE plutôt que recréation : les séances déjà enregistrées
+      -- restent en place, leur performance_id vaut simplement NULL.
+      ALTER TABLE session_activities ADD COLUMN performance_id TEXT;
+
+      CREATE TABLE exercise_performances (
+        id TEXT PRIMARY KEY NOT NULL,
+        exercise_id TEXT NOT NULL REFERENCES exercises(id),
+        started_at TEXT NOT NULL
+      );
+
+      -- Les mesures sont copiées au moment de la performance : si l'exercice
+      -- change plus tard, la performance garde le sens qu'elle avait (§2).
+      CREATE TABLE exercise_performance_measurements (
+        performance_id TEXT NOT NULL REFERENCES exercise_performances(id) ON DELETE CASCADE,
+        measurement_id TEXT NOT NULL REFERENCES measurements(id),
+        position INTEGER NOT NULL,
+        PRIMARY KEY (performance_id, measurement_id)
+      );
+
+      CREATE TABLE performance_sets (
+        performance_id TEXT NOT NULL REFERENCES exercise_performances(id) ON DELETE CASCADE,
+        set_index INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'ABANDONED')),
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        PRIMARY KEY (performance_id, set_index)
+      );
+
+      CREATE TABLE performance_set_values (
+        performance_id TEXT NOT NULL,
+        set_index INTEGER NOT NULL,
+        measurement_id TEXT NOT NULL REFERENCES measurements(id),
+        value REAL NOT NULL,
+        PRIMARY KEY (performance_id, set_index, measurement_id),
+        FOREIGN KEY (performance_id, set_index)
+          REFERENCES performance_sets(performance_id, set_index) ON DELETE CASCADE
       );
     `);
   }

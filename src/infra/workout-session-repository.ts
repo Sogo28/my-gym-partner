@@ -16,6 +16,7 @@ type SessionRow = {
 type ActivityRow = {
   session_id: string;
   exercise_id: string;
+  performance_id: string | null;
   started_at: string;
   finished_at: string | null;
 };
@@ -39,11 +40,13 @@ export async function save(session: WorkoutSession): Promise<void> {
 
     for (const [position, activity] of session.activities.entries()) {
       await db.runAsync(
-        `INSERT INTO session_activities (session_id, position, exercise_id, started_at, finished_at)
-         VALUES (?, ?, ?, ?, ?);`,
+        `INSERT INTO session_activities
+           (session_id, position, exercise_id, performance_id, started_at, finished_at)
+         VALUES (?, ?, ?, ?, ?, ?);`,
         session.id,
         position,
         activity.exerciseId,
+        activity.performanceId,
         activity.startedAt.toISOString(),
         activity.finishedAt?.toISOString() ?? null,
       );
@@ -86,6 +89,7 @@ export async function findAll(): Promise<WorkoutSession[]> {
 function toActivity(row: ActivityRow): Activity {
   return {
     exerciseId: row.exercise_id,
+    performanceId: row.performance_id,
     startedAt: new Date(row.started_at),
     finishedAt: row.finished_at ? new Date(row.finished_at) : null,
   };
