@@ -319,7 +319,10 @@ export default function SessionScreen() {
           <View className="gap-3 pb-2">
             {error && <BusinessNotice message={error} />}
 
-            {resting && (
+            {/* Les champs n'ont de sens que s'il y a une série à ajuster :
+                après un changement d'exercice, le repos continue mais il n'y
+                a encore rien à corriger. */}
+            {resting && lastSet && (
               <View className="flex-row gap-3">
                 {(performance?.measurementIds ?? []).map((id) => (
                   <NumberField
