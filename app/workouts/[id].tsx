@@ -1,19 +1,20 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import { Button } from '../../src/ui/button';
+import { Collapsible } from '../../src/ui/collapsible';
 import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
  * DYNAMIQUE : /workouts/abc-123 ouvre cet écran avec id = "abc-123".
  *
- * Écran volontairement sans effet de bord : consulter un entraînement ne le
- * démarre pas. La séance ne commence qu'au tap explicite.
+ * Écran sans effet de bord : consulter un entraînement ne le démarre pas.
  */
 export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,9 +23,6 @@ export default function WorkoutDetailScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Replié par défaut : le résumé sert à voir l'enchaînement des exercices
-  // d'un coup d'oeil, le détail des séries est à la demande.
-  const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
@@ -44,8 +42,8 @@ export default function WorkoutDetailScreen() {
   async function start() {
     try {
       await startWorkoutSession(id);
-      // replace et non push : une fois la séance lancée, revenir en arrière
-      // sur l'aperçu n'aurait pas de sens.
+      // replace et non push : une fois la séance lancée, revenir sur l'aperçu
+      // n'aurait pas de sens.
       router.replace('/session');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -54,69 +52,53 @@ export default function WorkoutDetailScreen() {
 
   if (!plan) {
     return (
-      <View style={styles.screen}>
-        <Text style={[styles.muted, { padding: 20 }]}>{error ?? 'Entraînement introuvable.'}</Text>
+      <View className="flex-1 bg-white p-5">
+        <Text className="text-muted-foreground">{error ?? 'Entraînement introuvable.'}</Text>
       </View>
     );
   }
 
+  const totalSets = plan.exercises.reduce((total, e) => total + e.sets.length, 0);
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{plan.name}</Text>
+    <View className="flex-1 bg-white">
+      <ScrollView contentContainerClassName="gap-3 p-5 pb-8">
+        <View>
+          <Text className="text-2xl font-extrabold">{plan.name}</Text>
+          <Text className="text-muted-foreground">
+            {plan.exercises.length} exercice{plan.exercises.length > 1 ? 's' : ''} · {totalSets}{' '}
+            série{totalSets > 1 ? 's' : ''}
+          </Text>
+        </View>
 
-      {plan.exercises.map((planned, position) => {
-        const isOpen = expanded === position;
-        return (
-          <Pressable
+        {plan.exercises.map((planned, position) => (
+          <Collapsible
             key={`${planned.exerciseId}-${position}`}
-            style={styles.card}
-            onPress={() => setExpanded(isOpen ? null : position)}
+            title={`${position + 1}. ${nameOf(planned.exerciseId)}`}
+            summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
           >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {position + 1}. {nameOf(planned.exerciseId)}
-              </Text>
-              <Text style={styles.muted}>
-                {planned.sets.length} série{planned.sets.length > 1 ? 's' : ''}
-              </Text>
-            </View>
+            {planned.sets.length === 0 ? (
+              <Text className="text-muted-foreground">aucune série prévue</Text>
+            ) : (
+              planned.sets.map((set, index) => (
+                <Text key={index} className="text-zinc-700">
+                  Série {index + 1} ·{' '}
+                  {Object.entries(set.targets)
+                    .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
+                    .join(' · ')}
+                </Text>
+              ))
+            )}
+          </Collapsible>
+        ))}
 
-            {isOpen &&
-              (planned.sets.length === 0 ? (
-                <Text style={styles.muted}>aucune série prévue</Text>
-              ) : (
-                planned.sets.map((set, index) => (
-                  <Text key={index} style={styles.setLine}>
-                    Série {index + 1} ·{' '}
-                    {Object.entries(set.targets)
-                      .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
-                      .join(' · ')}
-                  </Text>
-                ))
-              ))}
-          </Pressable>
-        );
-      })}
+        {error && <Text className="text-destructive">{error}</Text>}
+      </ScrollView>
 
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.button} onPress={start}>
-        <Text style={styles.buttonText}>Démarrer la séance</Text>
-      </Pressable>
-    </ScrollView>
+      {/* Action principale ancrée en bas, hors du défilement. */}
+      <View className="border-t border-border bg-white p-5">
+        <Button label="Démarrer la séance" size="lg" onPress={start} />
+      </View>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, gap: 12, paddingBottom: 60 },
-  title: { fontSize: 24, fontWeight: '700' },
-  card: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 14, gap: 4 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  cardTitle: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
-  setLine: { color: '#3f3f46' },
-  muted: { color: '#71717a' },
-  error: { color: '#dc2626' },
-  button: { backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-});
