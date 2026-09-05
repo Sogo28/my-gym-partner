@@ -4,84 +4,91 @@ import type { MeasurementId } from '../exercise/measurement';
 export type GoalId = string;
 export type GoalStatus = 'ACTIVE' | 'ARCHIVED';
 
+/** Comment les valeurs d'une mesure sont réduites à un nombre (§7 du modèle). */
+export type Aggregation = 'average' | 'max' | 'min' | 'total' | 'setCount';
+
 /**
- * Ce qu'une condition mesure (§21, §23).
+ * Sur quoi porte l'évaluation (§6).
  *
- * Toutes les métriques sont DÉRIVÉES des séries complétées : rien n'est
- * stocké, tout est recalculé. 'setCount' ne porte pas de mesure, puisqu'elle
- * compte des séries et non des valeurs.
+ * En V1 il n'existe qu'une fenêtre, mais elle appartient explicitement à la
+ * Condition : c'est une donnée du modèle, pas une hypothèse du code qui
+ * l'évalue.
  */
-export type Metric =
-  | { type: 'average'; measurementId: MeasurementId }
-  | { type: 'max'; measurementId: MeasurementId }
-  | { type: 'min'; measurementId: MeasurementId }
-  | { type: 'total'; measurementId: MeasurementId }
-  | { type: 'setCount' };
+export type EvaluationWindow = 'LAST_SESSION';
 
 export type Operator = '>=' | '>' | '<=' | '<' | '==';
 
-/** Par exemple : moyenne des tenues >= 10 secondes. */
+/**
+ * Une Condition (§5) : quelle mesure, sur quelle fenêtre, agrégée comment,
+ * comparée par quel opérateur, à quelle cible.
+ *
+ * measurementId est nul pour 'setCount', qui compte des séries et non des
+ * valeurs.
+ */
 export type Condition = {
-  readonly metric: Metric;
+  readonly measurementId: MeasurementId | null;
+  readonly window: EvaluationWindow;
+  readonly aggregation: Aggregation;
   readonly operator: Operator;
-  readonly value: number;
+  readonly target: number;
 };
 
-/** Toutes ses conditions doivent être satisfaites (décision gelée n°29). */
+/** Au moins une Condition, et toutes doivent être satisfaites (n°9, n°10). */
 export type Requirement = {
   readonly conditions: readonly Condition[];
 };
 
-/**
- * Une étape de progression (§19), rattachée à UN exercice.
- *
- * C'est ici que se matérialise la décision du 2026-09-05 : les variantes d'un
- * mouvement sont des exercices distincts, et c'est l'ordre des étapes qui les
- * relie. Un Front Lever tuck et un advanced tuck sont deux exercices ; la
- * progression est ce qui en fait une lignée.
- */
+/** Une étape cible un Exercise et PEUT posséder un Requirement (n°7, n°8). */
 export type ProgressionStep = {
   readonly exerciseId: ExerciseId;
-  readonly requirements: readonly Requirement[];
+  readonly requirement: Requirement | null;
 };
 
 /**
- * Goal : un objectif sportif (§17). Aggregate Root (décision gelée n°7).
+ * Un objectif simple : un exercice et un requirement, sans étape (n°3, n°4).
+ * On ne fabrique pas de ProgressionStep pour le représenter.
+ */
+export type SimpleTarget = {
+  readonly kind: 'simple';
+  readonly exerciseId: ExerciseId;
+  readonly requirement: Requirement;
+};
+
+/** Un objectif progressif : des étapes ordonnées, au moins une (n°5, n°6). */
+export type Progression = {
+  readonly kind: 'progressive';
+  readonly steps: readonly ProgressionStep[];
+};
+
+export type GoalTarget = SimpleTarget | Progression;
+
+/**
+ * Goal (§1). Aggregate Root.
  *
- * Un objectif simple est un objectif à une seule étape : pas besoin d'un
- * second concept pour le représenter.
+ * Simple ou progressif : les deux formes sont distinctes dans le modèle, et
+ * non une forme dégradée de l'autre.
  */
 export class Goal {
   private constructor(
     readonly id: GoalId,
     private _name: string,
-    private _steps: readonly ProgressionStep[],
+    private _target: GoalTarget,
     private _currentStep: number,
     private _status: GoalStatus,
   ) {}
 
-  static create(input: {
-    id: GoalId;
-    name: string;
-    steps: readonly ProgressionStep[];
-  }): Goal {
-    return new Goal(input.id, normalizeName(input.name), requireSteps(input.steps), 0, 'ACTIVE');
+  static create(input: { id: GoalId; name: string; target: GoalTarget }): Goal {
+    return new Goal(input.id, normalizeName(input.name), checkTarget(input.target), 0, 'ACTIVE');
   }
 
   static restore(input: {
     id: GoalId;
     name: string;
-    steps: readonly ProgressionStep[];
+    target: GoalTarget;
     currentStep: number;
     status: GoalStatus;
   }): Goal {
-    return new Goal(
-      input.id,
-      input.name,
-      [...input.steps],
-      input.currentStep,
-      input.status,
-    );
+    return new Goal(input.id, input.name, input.target, input.currentStep, input.status);
   }
 
   get name(): string {
@@ -92,21 +99,40 @@ export class Goal {
     return this._status;
   }
 
+  get target(): GoalTarget {
+    return this._target;
+  }
+
+  get isProgressive(): boolean {
+    return this._target.kind === 'progressive';
+  }
+
+  /** Les étapes, ou un tableau vide pour un objectif simple. */
   get steps(): readonly ProgressionStep[] {
-    return [...this._steps];
+    return this._target.kind === 'progressive' ? this._target.steps : [];
   }
 
   get currentStepIndex(): number {
     return this._currentStep;
   }
 
-  get currentStep(): ProgressionStep {
-    return this._steps[this._currentStep];
+  /** L'exercice actuellement visé, quelle que soit la forme de l'objectif. */
+  get currentExerciseId(): ExerciseId {
+    return this._target.kind === 'simple'
+      ? this._target.exerciseId
+      : this._target.steps[this._currentStep].exerciseId;
   }
 
-  /** Sur la dernière étape : il n'y a plus rien après. */
+  /** Ce qu'il faut satisfaire aujourd'hui. Nul si l'étape n'en impose pas. */
+  get currentRequirement(): Requirement | null {
+    return this._target.kind === 'simple'
+      ? this._target.requirement
+      : this._target.steps[this._currentStep].requirement;
+  }
+
+  /** Un objectif simple est toujours à sa dernière (et unique) cible. */
   get isOnLastStep(): boolean {
-    return this._currentStep === this._steps.length - 1;
+    return this._target.kind === 'simple' || this._currentStep === this._target.steps.length - 1;
   }
 
   rename(newName: string): void {
@@ -114,15 +140,23 @@ export class Goal {
   }
 
   /**
-   * AdvanceProgression (§25) : passer à l'étape suivante.
+   * Modifier la règle d'évaluation (§9).
    *
-   * Jamais automatique -- le système propose, l'utilisateur décide
-   * (décisions gelées n°32 et 33). L'agrégat ne vérifie donc pas que l'étape
-   * est atteinte : c'est un choix, pas une conséquence.
+   * Ne touche à aucune performance : l'historique dit ce qui s'est passé, le
+   * requirement dit comment on le juge. Les deux ne se mélangent pas.
    */
+  changeTarget(target: GoalTarget): void {
+    this._target = checkTarget(target);
+    this._currentStep = Math.min(this._currentStep, Math.max(this.steps.length - 1, 0));
+  }
+
+  /** AdvanceProgression : jamais automatique, c'est un choix (n°17, n°18). */
   advance(): void {
     if (this._status !== 'ACTIVE') {
       throw new Error('Cet objectif est archivé.');
+    }
+    if (this._target.kind === 'simple') {
+      throw new Error("Cet objectif n'a pas d'étapes.");
     }
     if (this.isOnLastStep) {
       throw new Error('Cet objectif est déjà à sa dernière étape.');
@@ -143,19 +177,28 @@ function normalizeName(name: string): string {
   return trimmed;
 }
 
-function requireSteps(steps: readonly ProgressionStep[]): readonly ProgressionStep[] {
-  if (steps.length === 0) {
-    throw new Error('Un objectif doit avoir au moins une étape.');
+function checkTarget(target: GoalTarget): GoalTarget {
+  if (target.kind === 'simple') {
+    checkRequirement(target.requirement);
+    return target;
   }
-  for (const step of steps) {
-    if (step.requirements.length === 0) {
-      throw new Error("Une étape doit avoir au moins une condition à remplir.");
-    }
-    for (const requirement of step.requirements) {
-      if (requirement.conditions.length === 0) {
-        throw new Error('Un requirement sans condition ne pourrait jamais être évalué.');
-      }
+
+  if (target.steps.length === 0) {
+    throw new Error('Une progression doit avoir au moins une étape.');
+  }
+  for (const step of target.steps) {
+    if (step.requirement) checkRequirement(step.requirement);
+  }
+  return { kind: 'progressive', steps: [...target.steps] };
+}
+
+function checkRequirement(requirement: Requirement): void {
+  if (requirement.conditions.length === 0) {
+    throw new Error('Un requirement sans condition ne pourrait jamais être évalué.');
+  }
+  for (const condition of requirement.conditions) {
+    if (condition.aggregation !== 'setCount' && condition.measurementId === null) {
+      throw new Error('Cette condition doit préciser la mesure qu elle observe.');
     }
   }
-  return [...steps];
 }

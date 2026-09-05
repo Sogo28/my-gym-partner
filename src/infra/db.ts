@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -211,6 +211,50 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         PRIMARY KEY (goal_id, position, requirement_index, condition_index),
         FOREIGN KEY (goal_id, position)
           REFERENCES goal_steps(goal_id, position) ON DELETE CASCADE
+      );
+    `);
+  }
+
+  // Migration 8 : le modèle des objectifs prend sa forme définitive --
+  // un objectif simple porte son requirement directement, sans étape.
+  // Les tables de la migration 7 sont recréées ; les objectifs déjà saisis
+  // sont perdus, ce qui est assumé (fonctionnalité du jour même).
+  if (version < 8) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS goal_conditions;
+      DROP TABLE IF EXISTS goal_steps;
+      DROP TABLE IF EXISTS goals;
+
+      CREATE TABLE goals (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('simple', 'progressive')),
+        -- L'exercice visé, pour un objectif simple uniquement.
+        exercise_id TEXT REFERENCES exercises(id),
+        current_step INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'ARCHIVED'))
+      );
+
+      CREATE TABLE goal_steps (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        exercise_id TEXT NOT NULL REFERENCES exercises(id),
+        PRIMARY KEY (goal_id, position)
+      );
+
+      -- step_position = -1 désigne le requirement de l'objectif lui-même
+      -- (cas simple) ; sinon c'est celui de l'étape à cette position.
+      CREATE TABLE goal_conditions (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        step_position INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        measurement_id TEXT REFERENCES measurements(id),
+        window TEXT NOT NULL CHECK (window IN ('LAST_SESSION')),
+        aggregation TEXT NOT NULL
+          CHECK (aggregation IN ('average', 'max', 'min', 'total', 'setCount')),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        target REAL NOT NULL,
+        PRIMARY KEY (goal_id, step_position, condition_index)
       );
     `);
   }

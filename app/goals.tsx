@@ -20,7 +20,7 @@ import {
 
 export default function GoalsScreen() {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation>>(new Map());
+  const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +50,19 @@ export default function GoalsScreen() {
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
 
+  const AGGREGATIONS: Record<string, string> = {
+    average: 'moyenne',
+    max: 'meilleure',
+    min: 'minimum',
+    total: 'total',
+    setCount: 'séries complétées',
+  };
+
   function describe(condition: Condition): string {
-    const metric = condition.metric;
-    if (metric.type === 'setCount') return `${condition.operator} ${condition.value} séries`;
-    const label = { average: 'moyenne', max: 'meilleur', min: 'minimum', total: 'total' }[
-      metric.type
-    ];
-    return `${label} ${condition.operator} ${condition.value} ${unitOf(metric.measurementId)}`;
+    if (condition.aggregation === 'setCount') {
+      return `séries complétées ${condition.operator} ${condition.target}`;
+    }
+    return `${AGGREGATIONS[condition.aggregation]} ${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
   }
 
   const active = goals.filter((goal) => goal.status === 'ACTIVE');
@@ -81,7 +87,6 @@ export default function GoalsScreen() {
 
         {active.map((goal) => {
           const evaluation = evaluations.get(goal.id);
-          const step = goal.currentStep;
 
           return (
             <Card key={goal.id} density="titled" className="gap-2">
@@ -90,12 +95,14 @@ export default function GoalsScreen() {
                   {goal.name}
                 </Text>
                 <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-                  étape {goal.currentStepIndex + 1}/{goal.steps.length}
+                  {goal.isProgressive
+                    ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
+                    : 'objectif simple'}
                 </Text>
               </View>
 
               <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
-                {nameOf(step.exerciseId)}
+                {nameOf(goal.currentExerciseId)}
               </Text>
 
               {/* Chaque condition, avec ce qu'elle demande et ce que la
@@ -125,6 +132,12 @@ export default function GoalsScreen() {
               )}
 
               {/* La suggestion (§24) : proposée, jamais appliquée d'office. */}
+              {evaluation === null && (
+                <Text className="text-[13px] text-muted dark:text-muted-dark">
+                  Cette étape n'a pas de condition : à valider toi-même.
+                </Text>
+              )}
+
               {evaluation?.satisfied && !goal.isOnLastStep && (
                 <View className="mt-1 gap-2">
                   <BusinessNotice

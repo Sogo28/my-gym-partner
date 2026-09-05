@@ -1,35 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import { Goal, type ProgressionStep } from './goal';
+import { Goal, type Condition, type ProgressionStep } from './goal';
+
+const hold10: Condition = {
+  measurementId: 'duration',
+  window: 'LAST_SESSION',
+  aggregation: 'average',
+  operator: '>=',
+  target: 10,
+};
 
 const step = (exerciseId: string): ProgressionStep => ({
   exerciseId,
-  requirements: [
-    { conditions: [{ metric: { type: 'average', measurementId: 'duration' }, operator: '>=', value: 10 }] },
-  ],
+  requirement: { conditions: [hold10] },
 });
 
 const frontLever = () =>
   Goal.create({
     id: 'goal-1',
     name: 'Front Lever',
-    steps: [step('tuck'), step('advanced-tuck'), step('straddle')],
+    target: { kind: 'progressive', steps: [step('tuck'), step('advanced-tuck'), step('straddle')] },
   });
 
-describe('Goal', () => {
+const simple = () =>
+  Goal.create({
+    id: 'goal-2',
+    name: 'Tenir 10 secondes',
+    target: { kind: 'simple', exerciseId: 'advanced-tuck', requirement: { conditions: [hold10] } },
+  });
+
+describe('Goal simple', () => {
+  it('vise directement un exercice, sans étape fabriquée', () => {
+    const goal = simple();
+
+    expect(goal.isProgressive).toBe(false);
+    expect(goal.steps).toHaveLength(0);
+    expect(goal.currentExerciseId).toBe('advanced-tuck');
+    expect(goal.currentRequirement?.conditions).toEqual([hold10]);
+  });
+
+  it('est toujours sur sa cible unique, et ne peut pas avancer', () => {
+    const goal = simple();
+
+    expect(goal.isOnLastStep).toBe(true);
+    expect(() => goal.advance()).toThrow(/pas d'étapes/);
+  });
+});
+
+describe('Goal progressif', () => {
   it('commence à sa première étape', () => {
     const goal = frontLever();
 
     expect(goal.currentStepIndex).toBe(0);
-    expect(goal.currentStep.exerciseId).toBe('tuck');
-    expect(goal.status).toBe('ACTIVE');
+    expect(goal.currentExerciseId).toBe('tuck');
   });
 
-  it('avance d une étape à la fois, sur décision de l utilisateur', () => {
+  it('avance d une étape sur décision de l utilisateur', () => {
     const goal = frontLever();
 
     goal.advance();
 
-    expect(goal.currentStep.exerciseId).toBe('advanced-tuck');
+    expect(goal.currentExerciseId).toBe('advanced-tuck');
   });
 
   it('refuse d avancer au-delà de la dernière étape', () => {
@@ -41,6 +71,24 @@ describe('Goal', () => {
     expect(() => goal.advance()).toThrow(/dernière étape/);
   });
 
+  it('accepte une étape sans requirement : elle ne sera pas évaluée', () => {
+    const goal = Goal.create({
+      id: 'g',
+      name: 'Libre',
+      target: { kind: 'progressive', steps: [{ exerciseId: 'tuck', requirement: null }] },
+    });
+
+    expect(goal.currentRequirement).toBeNull();
+  });
+
+  it('refuse une progression sans étape', () => {
+    expect(() =>
+      Goal.create({ id: 'g', name: 'Vide', target: { kind: 'progressive', steps: [] } }),
+    ).toThrow(/au moins une étape/);
+  });
+});
+
+describe('Goal', () => {
   it('refuse d avancer un objectif archivé', () => {
     const goal = frontLever();
     goal.archive();
@@ -49,27 +97,45 @@ describe('Goal', () => {
     expect(() => goal.advance()).toThrow(/archivé/);
   });
 
-  it('accepte un objectif simple, à une seule étape', () => {
-    const goal = Goal.create({ id: 'g', name: 'Tenir 10s', steps: [step('front-lever')] });
+  it('laisse modifier la règle d évaluation sans toucher aux performances', () => {
+    const goal = simple();
 
-    expect(goal.isOnLastStep).toBe(true);
+    goal.changeTarget({
+      kind: 'simple',
+      exerciseId: 'advanced-tuck',
+      requirement: { conditions: [{ ...hold10, target: 12 }] },
+    });
+
+    expect(goal.currentRequirement?.conditions[0].target).toBe(12);
   });
 
-  it('refuse un objectif sans étape, ou une étape sans condition', () => {
-    expect(() => Goal.create({ id: 'g', name: 'Vide', steps: [] })).toThrow(/au moins une étape/);
-    expect(() =>
-      Goal.create({ id: 'g', name: 'X', steps: [{ exerciseId: 'e', requirements: [] }] }),
-    ).toThrow(/au moins une condition/);
+  it('refuse un requirement sans condition', () => {
     expect(() =>
       Goal.create({
         id: 'g',
         name: 'X',
-        steps: [{ exerciseId: 'e', requirements: [{ conditions: [] }] }],
+        target: { kind: 'simple', exerciseId: 'e', requirement: { conditions: [] } },
       }),
     ).toThrow(/jamais être évalué/);
   });
 
+  it('refuse une condition sans mesure quand elle en observe une', () => {
+    expect(() =>
+      Goal.create({
+        id: 'g',
+        name: 'X',
+        target: {
+          kind: 'simple',
+          exerciseId: 'e',
+          requirement: { conditions: [{ ...hold10, measurementId: null }] },
+        },
+      }),
+    ).toThrow(/préciser la mesure/);
+  });
+
   it('refuse un nom vide', () => {
-    expect(() => Goal.create({ id: 'g', name: '  ', steps: [step('tuck')] })).toThrow();
+    expect(() =>
+      Goal.create({ id: 'g', name: '  ', target: { kind: 'progressive', steps: [step('tuck')] } }),
+    ).toThrow();
   });
 });

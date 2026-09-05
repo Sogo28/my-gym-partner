@@ -1,20 +1,17 @@
 import { randomUUID } from 'expo-crypto';
-import { evaluateStep, type StepEvaluation } from '../domain/goal/evaluation';
-import { Goal, type ProgressionStep } from '../domain/goal/goal';
+import { evaluateRequirement, type RequirementEvaluation } from '../domain/goal/evaluation';
+import { Goal, type GoalTarget } from '../domain/goal/goal';
 import { findAll, save } from '../infra/goal-repository';
 import { findLatestCompletedFor } from '../infra/performance-repository';
 
 /** CreateGoal (§25). */
-export async function createGoal(input: {
-  name: string;
-  steps: readonly ProgressionStep[];
-}): Promise<Goal> {
+export async function createGoal(input: { name: string; target: GoalTarget }): Promise<Goal> {
   const goal = Goal.create({ id: randomUUID(), ...input });
   await save(goal);
   return goal;
 }
 
-export type GoalEvaluation = StepEvaluation & {
+export type GoalEvaluation = RequirementEvaluation & {
   /** Aucune performance enregistrée pour l'exercice de l'étape courante. */
   readonly hasData: boolean;
 };
@@ -29,9 +26,13 @@ export type GoalEvaluation = StepEvaluation & {
  *
  * Le use case ne fait que rassembler les séries ; c'est le domaine qui juge.
  */
-export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation> {
-  const performance = await findLatestCompletedFor(goal.currentStep.exerciseId);
-  const evaluation = evaluateStep(goal.currentStep, performance?.sets ?? []);
+export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation | null> {
+  // Une étape sans requirement n'est pas évaluable : elle se valide à la main.
+  const requirement = goal.currentRequirement;
+  if (!requirement) return null;
+
+  const performance = await findLatestCompletedFor(goal.currentExerciseId);
+  const evaluation = evaluateRequirement(requirement, performance?.sets ?? []);
   return { ...evaluation, hasData: performance !== null };
 }
 
