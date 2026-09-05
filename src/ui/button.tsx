@@ -14,10 +14,10 @@ const button = cva('flex-row items-center justify-center px-4', {
     variant: {
       primary: 'bg-primary active:bg-primary-pressed',
       secondary:
-        'bg-surface dark:bg-surface-dark border-[1.5px] border-border-strong dark:border-border-strong-dark',
+        'bg-surface dark:bg-surface-dark border-2 border-border-strong dark:border-border-strong-dark',
       ghost: 'bg-transparent active:opacity-60',
       danger:
-        'bg-[#FDF1F0] dark:bg-[#2A1A16] border-[1.5px] border-[#EAB9B5] dark:border-[#5C332B]',
+        'bg-[#FDF1F0] dark:bg-[#2A1A16] border-2 border-[#EAB9B5] dark:border-[#5C332B]',
     },
     size: {
       xl: 'min-h-[68px] rounded-xl',

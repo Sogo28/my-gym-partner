@@ -27,7 +27,7 @@ export function SetRow({ index, status, values }: SetRowProps) {
           'border-border dark:border-border-dark bg-surface-alt dark:bg-surface-alt-dark',
         status === 'planned' && 'border-transparent bg-transparent',
         status === 'in-progress' &&
-          'border-[1.5px] border-primary-ink dark:border-primary-ink-dark bg-surface dark:bg-surface-dark',
+          'border-2 border-primary-ink dark:border-primary-ink-dark bg-surface dark:bg-surface-dark',
       )}
     >
       <Badge status={status} />

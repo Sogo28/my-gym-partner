@@ -26,7 +26,7 @@ export function SetChip({
           'border-border bg-surface-alt dark:border-border-dark dark:bg-surface-alt-dark',
         status === 'planned' && 'border-dashed border-planned bg-transparent',
         status === 'in-progress' &&
-          'border-[1.5px] border-primary-ink bg-surface dark:border-primary-ink-dark dark:bg-surface-dark',
+          'border-2 border-primary-ink bg-surface dark:border-primary-ink-dark dark:bg-surface-dark',
       )}
     >
       <Text

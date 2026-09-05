@@ -30,7 +30,7 @@ export function NumberField({ value, onChange, unit, label, step = 1 }: NumberFi
 
       <View
         className={cn(
-          'h-[56px] flex-row items-center justify-between rounded-lg border-[1.5px]',
+          'h-[56px] flex-row items-center justify-between rounded-lg border-2',
           'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
         )}
       >
