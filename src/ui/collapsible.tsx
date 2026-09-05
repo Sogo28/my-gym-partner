@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, useColorScheme, View } from 'react-native';
 import { cn } from './cn';
 
 type CollapsibleProps = {
@@ -31,6 +32,9 @@ export function Collapsible({
 }: CollapsibleProps) {
   const [open, setOpen] = useState(defaultOpen);
   const progress = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
+  // Les icônes reçoivent leur couleur en propriété : la variante dark:
+  // ne s'applique qu'aux composants stylés par la feuille.
+  const iconColor = useColorScheme() === 'dark' ? '#8B9086' : '#5F6459';
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -68,7 +72,9 @@ export function Collapsible({
           ) : (
             summary
           )}
-          <Text className="text-muted dark:text-muted-dark">{open ? '⌃' : '⌄'}</Text>
+          {/* Une icône plutôt qu'un glyphe : les caractères ⌄ et ⌃ ne sont
+              pas centrés dans leur boîte et pendent sous la ligne de base. */}
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={iconColor} />
         </View>
       </Pressable>
 
