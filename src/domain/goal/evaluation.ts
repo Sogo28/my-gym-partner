@@ -19,10 +19,25 @@ export type ConditionResult = {
 };
 
 export type RequirementEvaluation = {
-  /** Faux tant qu'une seule condition ne tient pas (n°10). */
+  /** Faux tant qu'une seule condition ne tient pas (n°12). */
   readonly satisfied: boolean;
   readonly results: readonly ConditionResult[];
 };
+
+/**
+ * Plusieurs Requirements se combinent en ET (décidé le 2026-09-05) : tous
+ * doivent tenir pour que l'étape soit atteinte.
+ */
+export function evaluateRequirements(
+  requirements: readonly Requirement[],
+  sets: readonly PerformanceSet[],
+): RequirementEvaluation {
+  const evaluations = requirements.map((requirement) => evaluateRequirement(requirement, sets));
+  return {
+    satisfied: evaluations.every((evaluation) => evaluation.satisfied),
+    results: evaluations.flatMap((evaluation) => evaluation.results),
+  };
+}
 
 export function evaluateRequirement(
   requirement: Requirement,

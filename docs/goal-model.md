@@ -7,8 +7,16 @@
 
 `Goal` représente un objectif sportif que l'utilisateur souhaite atteindre.
 Il peut être **simple** ou **progressif** (plusieurs étapes). C'est un
-Aggregate Root. Il peut être lié à un `Exercise`, mais le modèle doit rester
-assez générique pour des objectifs purement basés sur une mesure.
+Aggregate Root.
+
+Un Goal **peut** être associé à un `Exercise`, mais cette association **n'est
+pas obligatoire** : le domaine doit permettre des objectifs définis
+indépendamment d'un exercice.
+
+> État du code : l'exercice est aujourd'hui obligatoire. Le cas sans exercice
+> (par exemple un objectif de mensuration) demande une seconde source de
+> données — des relevés datés saisis à la main — et fait l'objet d'une slice
+> à part.
 
 ## 2. Goal simple
 
@@ -36,7 +44,11 @@ Un objectif qui ne nécessite pas d'étape intermédiaire.
                               └── Step 5: Full
 
 Une `Progression` possède au moins une `ProgressionStep`, ordonnée. Chaque
-étape cible un `Exercise` et **peut** posséder un `Requirement`.
+étape cible un `Exercise` et possède **un ou plusieurs Requirements**, ou
+aucun (elle est alors validée à la main).
+
+**Plusieurs Requirements se combinent en ET** : l'étape est atteinte quand
+tous le sont (décidé le 2026-09-05).
 
 ## 4. Requirement
 

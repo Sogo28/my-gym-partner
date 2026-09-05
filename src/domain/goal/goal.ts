@@ -38,10 +38,16 @@ export type Requirement = {
   readonly conditions: readonly Condition[];
 };
 
-/** Une étape cible un Exercise et PEUT posséder un Requirement (n°7, n°8). */
+/**
+ * Une étape cible un Exercise et possède un ou plusieurs Requirements (n°9),
+ * ou aucun -- elle est alors validée à la main.
+ *
+ * Plusieurs Requirements se combinent en ET : l'étape est atteinte quand tous
+ * le sont.
+ */
 export type ProgressionStep = {
   readonly exerciseId: ExerciseId;
-  readonly requirement: Requirement | null;
+  readonly requirements: readonly Requirement[];
 };
 
 /**
@@ -51,7 +57,7 @@ export type ProgressionStep = {
 export type SimpleTarget = {
   readonly kind: 'simple';
   readonly exerciseId: ExerciseId;
-  readonly requirement: Requirement;
+  readonly requirements: readonly Requirement[];
 };
 
 /** Un objectif progressif : des étapes ordonnées, au moins une (n°5, n°6). */
@@ -123,11 +129,11 @@ export class Goal {
       : this._target.steps[this._currentStep].exerciseId;
   }
 
-  /** Ce qu'il faut satisfaire aujourd'hui. Nul si l'étape n'en impose pas. */
-  get currentRequirement(): Requirement | null {
+  /** Ce qu'il faut satisfaire aujourd'hui. Vide si rien n'est imposé. */
+  get currentRequirements(): readonly Requirement[] {
     return this._target.kind === 'simple'
-      ? this._target.requirement
-      : this._target.steps[this._currentStep].requirement;
+      ? this._target.requirements
+      : this._target.steps[this._currentStep].requirements;
   }
 
   /** Un objectif simple est toujours à sa dernière (et unique) cible. */
@@ -179,7 +185,10 @@ function normalizeName(name: string): string {
 
 function checkTarget(target: GoalTarget): GoalTarget {
   if (target.kind === 'simple') {
-    checkRequirement(target.requirement);
+    if (target.requirements.length === 0) {
+      throw new Error('Un objectif simple doit avoir au moins un requirement.');
+    }
+    target.requirements.forEach(checkRequirement);
     return target;
   }
 
@@ -187,7 +196,7 @@ function checkTarget(target: GoalTarget): GoalTarget {
     throw new Error('Une progression doit avoir au moins une étape.');
   }
   for (const step of target.steps) {
-    if (step.requirement) checkRequirement(step.requirement);
+    step.requirements.forEach(checkRequirement);
   }
   return { kind: 'progressive', steps: [...target.steps] };
 }

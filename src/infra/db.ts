@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -255,6 +255,27 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
         target REAL NOT NULL,
         PRIMARY KEY (goal_id, step_position, condition_index)
+      );
+    `);
+  }
+
+  // Migration 9 : une étape peut porter plusieurs Requirements, il faut donc
+  // savoir de quel requirement chaque condition relève.
+  if (version < 9) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS goal_conditions;
+      CREATE TABLE goal_conditions (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        step_position INTEGER NOT NULL,
+        requirement_index INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        measurement_id TEXT REFERENCES measurements(id),
+        window TEXT NOT NULL CHECK (window IN ('LAST_SESSION')),
+        aggregation TEXT NOT NULL
+          CHECK (aggregation IN ('average', 'max', 'min', 'total', 'setCount')),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        target REAL NOT NULL,
+        PRIMARY KEY (goal_id, step_position, requirement_index, condition_index)
       );
     `);
   }

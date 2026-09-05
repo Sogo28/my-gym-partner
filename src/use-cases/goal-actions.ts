@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import { evaluateRequirement, type RequirementEvaluation } from '../domain/goal/evaluation';
+import { evaluateRequirements, type RequirementEvaluation } from '../domain/goal/evaluation';
 import { Goal, type GoalTarget } from '../domain/goal/goal';
 import { findAll, save } from '../infra/goal-repository';
 import { findLatestCompletedFor } from '../infra/performance-repository';
@@ -28,11 +28,11 @@ export type GoalEvaluation = RequirementEvaluation & {
  */
 export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation | null> {
   // Une étape sans requirement n'est pas évaluable : elle se valide à la main.
-  const requirement = goal.currentRequirement;
-  if (!requirement) return null;
+  const requirements = goal.currentRequirements;
+  if (requirements.length === 0) return null;
 
   const performance = await findLatestCompletedFor(goal.currentExerciseId);
-  const evaluation = evaluateRequirement(requirement, performance?.sets ?? []);
+  const evaluation = evaluateRequirements(requirements, performance?.sets ?? []);
   return { ...evaluation, hasData: performance !== null };
 }
 

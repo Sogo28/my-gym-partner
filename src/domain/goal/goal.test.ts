@@ -11,7 +11,7 @@ const hold10: Condition = {
 
 const step = (exerciseId: string): ProgressionStep => ({
   exerciseId,
-  requirement: { conditions: [hold10] },
+  requirements: [{ conditions: [hold10] }],
 });
 
 const frontLever = () =>
@@ -25,7 +25,11 @@ const simple = () =>
   Goal.create({
     id: 'goal-2',
     name: 'Tenir 10 secondes',
-    target: { kind: 'simple', exerciseId: 'advanced-tuck', requirement: { conditions: [hold10] } },
+    target: {
+      kind: 'simple',
+      exerciseId: 'advanced-tuck',
+      requirements: [{ conditions: [hold10] }],
+    },
   });
 
 describe('Goal simple', () => {
@@ -35,7 +39,7 @@ describe('Goal simple', () => {
     expect(goal.isProgressive).toBe(false);
     expect(goal.steps).toHaveLength(0);
     expect(goal.currentExerciseId).toBe('advanced-tuck');
-    expect(goal.currentRequirement?.conditions).toEqual([hold10]);
+    expect(goal.currentRequirements[0].conditions).toEqual([hold10]);
   });
 
   it('est toujours sur sa cible unique, et ne peut pas avancer', () => {
@@ -75,10 +79,28 @@ describe('Goal progressif', () => {
     const goal = Goal.create({
       id: 'g',
       name: 'Libre',
-      target: { kind: 'progressive', steps: [{ exerciseId: 'tuck', requirement: null }] },
+      target: { kind: 'progressive', steps: [{ exerciseId: 'tuck', requirements: [] }] },
     });
 
-    expect(goal.currentRequirement).toBeNull();
+    expect(goal.currentRequirements).toHaveLength(0);
+  });
+
+  it('accepte plusieurs requirements sur une étape', () => {
+    const goal = Goal.create({
+      id: 'g',
+      name: 'Exigeant',
+      target: {
+        kind: 'progressive',
+        steps: [
+          {
+            exerciseId: 'tuck',
+            requirements: [{ conditions: [hold10] }, { conditions: [hold10] }],
+          },
+        ],
+      },
+    });
+
+    expect(goal.currentRequirements).toHaveLength(2);
   });
 
   it('refuse une progression sans étape', () => {
@@ -103,10 +125,10 @@ describe('Goal', () => {
     goal.changeTarget({
       kind: 'simple',
       exerciseId: 'advanced-tuck',
-      requirement: { conditions: [{ ...hold10, target: 12 }] },
+      requirements: [{ conditions: [{ ...hold10, target: 12 }] }],
     });
 
-    expect(goal.currentRequirement?.conditions[0].target).toBe(12);
+    expect(goal.currentRequirements[0].conditions[0].target).toBe(12);
   });
 
   it('refuse un requirement sans condition', () => {
@@ -114,7 +136,7 @@ describe('Goal', () => {
       Goal.create({
         id: 'g',
         name: 'X',
-        target: { kind: 'simple', exerciseId: 'e', requirement: { conditions: [] } },
+        target: { kind: 'simple', exerciseId: 'e', requirements: [{ conditions: [] }] },
       }),
     ).toThrow(/jamais être évalué/);
   });
@@ -127,7 +149,7 @@ describe('Goal', () => {
         target: {
           kind: 'simple',
           exerciseId: 'e',
-          requirement: { conditions: [{ ...hold10, measurementId: null }] },
+          requirements: [{ conditions: [{ ...hold10, measurementId: null }] }],
         },
       }),
     ).toThrow(/préciser la mesure/);

@@ -7,6 +7,7 @@ import {
   type GoalTarget,
   type Operator,
   type ProgressionStep,
+  type Requirement,
 } from '../domain/goal/goal';
 import { getDatabase } from './db';
 
@@ -25,6 +26,7 @@ type StepRow = { goal_id: string; position: number; exercise_id: string };
 type ConditionRow = {
   goal_id: string;
   step_position: number;
+  requirement_index: number;
   measurement_id: string | null;
   window: EvaluationWindow;
   aggregation: Aggregation;
@@ -55,7 +57,7 @@ export async function save(goal: Goal): Promise<void> {
     await db.runAsync('DELETE FROM goal_conditions WHERE goal_id = ?;', goal.id);
 
     if (target.kind === 'simple') {
-      await saveConditions(db, goal.id, GOAL_ITSELF, target.requirement.conditions);
+      await saveRequirements(db, goal.id, GOAL_ITSELF, target.requirements);
       return;
     }
 
@@ -66,33 +68,35 @@ export async function save(goal: Goal): Promise<void> {
         position,
         step.exerciseId,
       );
-      if (step.requirement) {
-        await saveConditions(db, goal.id, position, step.requirement.conditions);
-      }
+      await saveRequirements(db, goal.id, position, step.requirements);
     }
   });
 }
 
-async function saveConditions(
+async function saveRequirements(
   db: Awaited<ReturnType<typeof getDatabase>>,
   goalId: string,
   stepPosition: number,
-  conditions: readonly Condition[],
+  requirements: readonly Requirement[],
 ): Promise<void> {
-  for (const [index, condition] of conditions.entries()) {
-    await db.runAsync(
-      `INSERT INTO goal_conditions
-         (goal_id, step_position, condition_index, measurement_id, window, aggregation, operator, target)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      goalId,
-      stepPosition,
-      index,
-      condition.measurementId,
-      condition.window,
-      condition.aggregation,
-      condition.operator,
-      condition.target,
-    );
+  for (const [requirementIndex, requirement] of requirements.entries()) {
+    for (const [conditionIndex, condition] of requirement.conditions.entries()) {
+      await db.runAsync(
+        `INSERT INTO goal_conditions
+           (goal_id, step_position, requirement_index, condition_index,
+            measurement_id, window, aggregation, operator, target)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        goalId,
+        stepPosition,
+        requirementIndex,
+        conditionIndex,
+        condition.measurementId,
+        condition.window,
+        condition.aggregation,
+        condition.operator,
+        condition.target,
+      );
+    }
   }
 }
 
@@ -104,13 +108,16 @@ export async function findAll(): Promise<Goal[]> {
     'SELECT * FROM goal_steps ORDER BY goal_id, position;',
   );
   const conditionRows = await db.getAllAsync<ConditionRow>(
-    'SELECT * FROM goal_conditions ORDER BY goal_id, step_position, condition_index;',
+    `SELECT * FROM goal_conditions
+     ORDER BY goal_id, step_position, requirement_index, condition_index;`,
   );
 
-  const conditionsOf = new Map<string, Condition[]>();
+  // Regroupées par étape, puis par requirement.
+  const requirementsOf = new Map<string, Map<number, Condition[]>>();
   for (const row of conditionRows) {
     const key = `${row.goal_id}|${row.step_position}`;
-    const list = conditionsOf.get(key) ?? [];
+    const byRequirement = requirementsOf.get(key) ?? new Map<number, Condition[]>();
+    const list = byRequirement.get(row.requirement_index) ?? [];
     list.push({
       measurementId: row.measurement_id,
       window: row.window,
@@ -118,16 +125,21 @@ export async function findAll(): Promise<Goal[]> {
       operator: row.operator,
       target: row.target,
     });
-    conditionsOf.set(key, list);
+    byRequirement.set(row.requirement_index, list);
+    requirementsOf.set(key, byRequirement);
   }
+
+  const requirementsAt = (key: string): Requirement[] =>
+    [...(requirementsOf.get(key) ?? new Map<number, Condition[]>())]
+      .sort(([a], [b]) => a - b)
+      .map(([, conditions]) => ({ conditions }));
 
   const stepsOf = new Map<string, ProgressionStep[]>();
   for (const row of stepRows) {
-    const conditions = conditionsOf.get(`${row.goal_id}|${row.position}`);
     const list = stepsOf.get(row.goal_id) ?? [];
     list.push({
       exerciseId: row.exercise_id,
-      requirement: conditions ? { conditions } : null,
+      requirements: requirementsAt(`${row.goal_id}|${row.position}`),
     });
     stepsOf.set(row.goal_id, list);
   }
@@ -138,7 +150,7 @@ export async function findAll(): Promise<Goal[]> {
         ? {
             kind: 'simple',
             exerciseId: row.exercise_id!,
-            requirement: { conditions: conditionsOf.get(`${row.id}|${GOAL_ITSELF}`) ?? [] },
+            requirements: requirementsAt(`${row.id}|${GOAL_ITSELF}`),
           }
         : { kind: 'progressive', steps: stepsOf.get(row.id) ?? [] };
 

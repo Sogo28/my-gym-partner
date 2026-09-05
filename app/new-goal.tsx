@@ -14,16 +14,35 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
 
+/** Ce que chaque agrégation calcule sur les séries de la dernière séance. */
 const AGGREGATIONS: { value: Aggregation; label: string }[] = [
   { value: 'average', label: 'Moyenne' },
-  { value: 'max', label: 'Meilleure' },
-  { value: 'min', label: 'Minimum' },
-  { value: 'total', label: 'Total' },
-  { value: 'setCount', label: 'Séries' },
+  { value: 'max', label: 'Meilleure série' },
+  { value: 'min', label: 'Plus faible série' },
+  { value: 'total', label: 'Cumul' },
+  { value: 'setCount', label: 'Nombre de séries' },
 ];
 
+const AGGREGATION_PHRASES: Record<Aggregation, string> = {
+  average: 'moyenne des valeurs de la dernière séance',
+  max: 'meilleure valeur de la dernière séance',
+  min: 'plus faible valeur de la dernière séance',
+  total: 'somme des valeurs de la dernière séance',
+  setCount: 'nombre de séries complétées lors de la dernière séance',
+};
+
 /** Une entrée de l'écran : un exercice et sa condition. */
-type Entry = { exerciseId: string; condition: Condition };
+type Entry = { exerciseId: string; conditions: Condition[] };
+
+function defaultCondition(measurementId: string): Condition {
+  return {
+    measurementId,
+    window: 'LAST_SESSION',
+    aggregation: 'average',
+    operator: '>=',
+    target: 10,
+  };
+}
 
 export default function NewGoalScreen() {
   const router = useRouter();
@@ -51,24 +70,45 @@ export default function NewGoalScreen() {
     const measurementId = exerciseOf(exerciseId)?.measurementIds[0];
     if (!measurementId) return;
 
-    const entry: Entry = {
-      exerciseId,
-      condition: {
-        measurementId,
-        window: 'LAST_SESSION',
-        aggregation: 'average',
-        operator: '>=',
-        target: 10,
-      },
-    };
+    const entry: Entry = { exerciseId, conditions: [defaultCondition(measurementId)] };
     // Un objectif simple ne vise qu'un exercice : le nouveau remplace l'ancien.
     setEntries((current) => (progressive ? [...current, entry] : [entry]));
   }
 
-  function update(index: number, changes: Partial<Condition>) {
+  function update(index: number, conditionIndex: number, changes: Partial<Condition>) {
     setEntries((current) =>
       current.map((entry, i) =>
-        i === index ? { ...entry, condition: { ...entry.condition, ...changes } } : entry,
+        i === index
+          ? {
+              ...entry,
+              conditions: entry.conditions.map((condition, c) =>
+                c === conditionIndex ? { ...condition, ...changes } : condition,
+              ),
+            }
+          : entry,
+      ),
+    );
+  }
+
+  /** Toutes les conditions d'un requirement doivent tenir : c'est un ET. */
+  function addCondition(index: number) {
+    const measurementId = exerciseOf(entries[index].exerciseId)?.measurementIds[0];
+    if (!measurementId) return;
+    setEntries((current) =>
+      current.map((entry, i) =>
+        i === index
+          ? { ...entry, conditions: [...entry.conditions, defaultCondition(measurementId)] }
+          : entry,
+      ),
+    );
+  }
+
+  function removeCondition(index: number, conditionIndex: number) {
+    setEntries((current) =>
+      current.map((entry, i) =>
+        i === index
+          ? { ...entry, conditions: entry.conditions.filter((_, c) => c !== conditionIndex) }
+          : entry,
       ),
     );
   }
@@ -82,7 +122,7 @@ export default function NewGoalScreen() {
       if (progressive) {
         const steps: ProgressionStep[] = entries.map((entry) => ({
           exerciseId: entry.exerciseId,
-          requirement: { conditions: [entry.condition] },
+          requirements: [{ conditions: entry.conditions }],
         }));
         await createGoal({ name, target: { kind: 'progressive', steps } });
       } else {
@@ -92,7 +132,7 @@ export default function NewGoalScreen() {
           target: {
             kind: 'simple',
             exerciseId: entries[0].exerciseId,
-            requirement: { conditions: [entries[0].condition] },
+            requirements: [{ conditions: entries[0].conditions }],
           },
         });
       }
@@ -143,7 +183,6 @@ export default function NewGoalScreen() {
 
         {entries.map((entry, index) => {
           const exercise = exerciseOf(entry.exerciseId);
-          const { condition } = entry;
 
           return (
             <Card key={`${entry.exerciseId}-${index}`} density="titled" className="gap-3">
@@ -157,56 +196,87 @@ export default function NewGoalScreen() {
                 </Pressable>
               </View>
 
-              <View className="flex-row flex-wrap gap-2">
-                {AGGREGATIONS.map(({ value, label }) => (
-                  <Chip
-                    key={value}
-                    label={label}
-                    selected={condition.aggregation === value}
-                    onPress={() =>
-                      update(index, {
-                        aggregation: value,
-                        measurementId:
-                          value === 'setCount'
-                            ? null
-                            : (condition.measurementId ?? exercise?.measurementIds[0] ?? null),
-                      })
-                    }
-                  />
-                ))}
-              </View>
+              {entry.conditions.map((condition, conditionIndex) => (
+                <View
+                  key={conditionIndex}
+                  className="gap-3 rounded-lg bg-surface-alt p-3 dark:bg-surface-alt-dark"
+                >
+                  {conditionIndex > 0 && (
+                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                      et
+                    </Text>
+                  )}
 
-              {condition.aggregation !== 'setCount' &&
-                (exercise?.measurementIds.length ?? 0) > 1 && (
                   <View className="flex-row flex-wrap gap-2">
-                    {exercise?.measurementIds.map((measurementId) => (
+                    {AGGREGATIONS.map(({ value, label }) => (
                       <Chip
-                        key={measurementId}
-                        label={unitOf(measurementId)}
-                        selected={condition.measurementId === measurementId}
-                        onPress={() => update(index, { measurementId })}
+                        key={value}
+                        label={label}
+                        selected={condition.aggregation === value}
+                        onPress={() =>
+                          update(index, conditionIndex, {
+                            aggregation: value,
+                            measurementId:
+                              value === 'setCount'
+                                ? null
+                                : (condition.measurementId ?? exercise?.measurementIds[0] ?? null),
+                          })
+                        }
                       />
                     ))}
                   </View>
-                )}
 
-              <View className="flex-row items-end gap-3">
-                <Text className="mb-4 text-[15px] text-muted dark:text-muted-dark">au moins</Text>
-                <NumberField
-                  unit={
-                    condition.aggregation === 'setCount'
-                      ? 'séries'
-                      : unitOf(condition.measurementId ?? '')
-                  }
-                  value={condition.target}
-                  onChange={(target) => update(index, { target })}
-                />
-              </View>
+                  {condition.aggregation !== 'setCount' &&
+                    (exercise?.measurementIds.length ?? 0) > 1 && (
+                      <View className="flex-row flex-wrap gap-2">
+                        {exercise?.measurementIds.map((measurementId) => (
+                          <Chip
+                            key={measurementId}
+                            label={unitOf(measurementId)}
+                            selected={condition.measurementId === measurementId}
+                            onPress={() => update(index, conditionIndex, { measurementId })}
+                          />
+                        ))}
+                      </View>
+                    )}
 
-              {/* La fenêtre d'évaluation appartient à la condition (§5). */}
-              <Text className="font-mono text-[12px] text-planned">
-                évalué sur la dernière séance
-              </Text>
+                  <View className="flex-row items-end gap-3">
+                    <Text className="mb-4 text-[15px] text-muted dark:text-muted-dark">
+                      au moins
+                    </Text>
+                    <NumberField
+                      unit={
+                        condition.aggregation === 'setCount'
+                          ? 'séries'
+                          : unitOf(condition.measurementId ?? '')
+                      }
+                      value={condition.target}
+                      onChange={(target) => update(index, conditionIndex, { target })}
+                    />
+                  </View>
+
+                  {/* La phrase exacte que cette condition signifie. */}
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Text className="shrink font-mono text-[12px] text-planned">
+                      {AGGREGATION_PHRASES[condition.aggregation]}
+                    </Text>
+                    {entry.conditions.length > 1 && (
+                      <Pressable onPress={() => removeCondition(index, conditionIndex)}>
+                        <Text className="text-[12px] text-danger dark:text-danger-dark">
+                          retirer
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ))}
+
+              <Button
+                label="+ Ajouter une condition"
+                variant="ghost"
+                size="md"
+                onPress={() => addCondition(index)}
+              />
             </Card>
           );
         })}

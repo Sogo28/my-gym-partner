@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PerformanceSet } from '../performance/exercise-performance';
-import { evaluateRequirement } from './evaluation';
+import { evaluateRequirement, evaluateRequirements } from './evaluation';
 import type { Condition, Requirement } from './goal';
 
 const at = new Date(2026, 8, 5, 18, 0);
@@ -82,6 +82,16 @@ describe('evaluateRequirement', () => {
     expect(actual('max')).toBe(12);
     expect(actual('min')).toBe(6);
     expect(actual('total')).toBe(27);
+  });
+
+  it('exige que TOUS les requirements tiennent', () => {
+    const hold: Requirement = { conditions: [condition({ target: 10 })] };
+    const threeSets: Requirement = {
+      conditions: [condition({ aggregation: 'setCount', measurementId: null, target: 3 })],
+    };
+
+    expect(evaluateRequirements([hold, threeSets], [set(12), set(12)]).satisfied).toBe(false);
+    expect(evaluateRequirements([hold, threeSets], [set(12), set(12), set(12)]).satisfied).toBe(true);
   });
 
   it('compte les séries complétées, sans regarder les mesures', () => {
