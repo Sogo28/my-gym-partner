@@ -44,25 +44,31 @@ export function Collapsible({
   }, [open, progress]);
 
   return (
-    <View className={cn('overflow-hidden rounded-2xl border border-border', className)}>
+    <View
+      className={cn(
+        'overflow-hidden rounded-2xl border border-border bg-surface',
+        'dark:border-border-dark dark:bg-surface-dark',
+        className,
+      )}
+    >
       <Pressable
         onPress={() => setOpen((value) => !value)}
-        className="flex-row items-center justify-between gap-3 p-4 active:bg-muted"
+        className="flex-row items-center justify-between gap-3 p-4 active:bg-surface-alt dark:active:bg-surface-alt-dark"
       >
         <View className="shrink">
           {typeof title === 'string' ? (
-            <Text className="text-base font-semibold">{title}</Text>
+            <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">{title}</Text>
           ) : (
             title
           )}
         </View>
         <View className="flex-row items-center gap-2">
           {typeof summary === 'string' ? (
-            <Text className="text-muted-foreground">{summary}</Text>
+            <Text className="font-mono text-[13px] text-muted dark:text-muted-dark">{summary}</Text>
           ) : (
             summary
           )}
-          <Text className="text-muted-foreground">{open ? '⌃' : '⌄'}</Text>
+          <Text className="text-muted dark:text-muted-dark">{open ? '⌃' : '⌄'}</Text>
         </View>
       </Pressable>
 
