@@ -14,7 +14,7 @@ import { findActive } from '../src/infra/workout-session-repository';
 import { Button } from '../src/ui/button';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
-import { SessionHeader } from '../src/ui/screen-header';
+import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
 import { Sheet, type SheetAction } from '../src/ui/sheet';
 import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
@@ -236,7 +236,9 @@ export default function SessionScreen() {
 
   if (!session) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 justify-center gap-4 bg-background p-5 dark:bg-background-dark">
+      <SafeAreaView edges={['top']} className="flex-1 gap-4 bg-background p-5 pt-4 dark:bg-background-dark">
+        <SectionHeader title="Séance" subtitle="aucune séance en cours" />
+        <View className="flex-1 justify-center gap-4">
         <EmptyState
           title="Aucune séance en cours"
           description="Choisis un entraînement pour démarrer, ou lance une séance libre."
@@ -250,6 +252,7 @@ export default function SessionScreen() {
           onPress={() => run(() => startWorkoutSession())}
         />
         {error && <BusinessNotice message={error} />}
+        </View>
       </SafeAreaView>
     );
   }
