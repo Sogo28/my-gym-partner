@@ -1,63 +1,83 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
 import { findAll } from '../../src/infra/planned-workout-repository';
+import { Button } from '../../src/ui/button';
+import { Card } from '../../src/ui/card';
+import { EmptyState } from '../../src/ui/empty-state';
+import { SectionHeader } from '../../src/ui/screen-header';
 
 export default function WorkoutsScreen() {
   const [workouts, setWorkouts] = useState<PlannedWorkout[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // useFocusEffect et non useEffect : on recharge à CHAQUE retour sur l'écran,
-  // notamment après avoir créé un entraînement dans l'écran suivant.
   useFocusEffect(
     useCallback(() => {
-      findAll().then(setWorkouts).catch((e) => setError(String(e)));
+      Promise.all([findAll(), findAllExercises()])
+        .then(([plans, allExercises]) => {
+          setWorkouts(plans);
+          setExercises(allExercises);
+        })
+        .catch((e) => setError(String(e)));
     }, []),
   );
 
-  return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
-      <Text style={styles.screenTitle}>Entraînements</Text>
-      <Link href="/workouts/new" style={styles.button}>
-        <Text style={styles.buttonText}>+ Nouvel entraînement</Text>
-      </Link>
+  const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
 
-      {error && <Text style={styles.error}>{error}</Text>}
+  return (
+    <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pt-4 dark:bg-background-dark">
+      <SectionHeader
+        title="Entraînements"
+        subtitle={`${workouts.length} programme${workouts.length > 1 ? 's' : ''} réutilisable${workouts.length > 1 ? 's' : ''}`}
+      />
 
       <FlatList
         data={workouts}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.empty}>Aucun entraînement pour l'instant.</Text>}
+        contentContainerClassName="gap-3 pb-4"
+        ListEmptyComponent={
+          <EmptyState
+            title="Aucun entraînement"
+            description="Un entraînement regroupe des exercices et leurs séries cibles. Il est réutilisable, sans date."
+          />
+        }
         renderItem={({ item }) => {
           const setCount = item.exercises.reduce((total, e) => total + e.sets.length, 0);
           return (
-            // asChild : le Link ne rend pas de texte lui-même, il donne son
-            // comportement de navigation au composant qu'on lui confie.
             <Link href={`/workouts/${item.id}`} asChild>
-              <Pressable style={styles.card}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSubtitle}>
-                  {item.exercises.length} exercice(s) · {setCount} série(s)
-                </Text>
+              <Pressable>
+                <Card density="titled">
+                  <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+                    {item.name}
+                  </Text>
+                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                    {item.exercises.length} ex · {setCount} série{setCount > 1 ? 's' : ''}
+                  </Text>
+                  {item.exercises.length > 0 && (
+                    <Text
+                      className="mt-1 text-[13px] text-muted dark:text-muted-dark"
+                      numberOfLines={2}
+                    >
+                      {item.exercises.map((e) => nameOf(e.exerciseId)).join(' · ')}
+                    </Text>
+                  )}
+                </Card>
               </Pressable>
             </Link>
           );
         }}
       />
+
+      {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
+
+      <Link href="/workouts/new" asChild>
+        <Button label="Nouvel entraînement" variant="secondary" size="lg" className="mb-2" />
+      </Link>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 24 },
-  screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: 12 },
-  button: { backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 14, textAlign: 'center', marginBottom: 20 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  error: { color: '#dc2626', marginBottom: 12 },
-  empty: { color: '#71717a', fontStyle: 'italic' },
-  card: { borderTopWidth: 1, borderTopColor: '#e4e4e7', paddingVertical: 14 },
-  cardTitle: { fontSize: 17, fontWeight: '600' },
-  cardSubtitle: { color: '#71717a', marginTop: 2 },
-});

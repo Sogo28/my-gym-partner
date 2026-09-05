@@ -75,6 +75,9 @@ export default function RootLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="list-outline" size={20} color={color} />,
         }}
       />
+      {/* href: null garde l'écran hors de la barre d'onglets : on y arrive
+          depuis la liste des exercices, ce n'est pas une section. */}
+      <Tabs.Screen name="new-exercise" options={{ href: null }} />
       <Tabs.Screen
         name="workouts"
         options={{

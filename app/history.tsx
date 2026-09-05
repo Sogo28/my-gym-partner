@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -16,18 +16,17 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { findByIds } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { findAll as findAllSessions } from '../src/infra/workout-session-repository';
+import { Card } from '../src/ui/card';
+import { EmptyState } from '../src/ui/empty-state';
+import { SectionHeader } from '../src/ui/screen-header';
+import { SetRow } from '../src/ui/set-row';
+import { formatClock } from '../src/ui/timer';
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: 'en cours',
   COMPLETED: 'terminée',
   CANCELLED: 'annulée',
 };
-
-/** 135 -> "2:15", 840 -> "14 min". Le formatage est de l'affichage, pas du domaine. */
-function formatDuration(seconds: number): string {
-  if (seconds >= 600) return `${Math.round(seconds / 60)} min`;
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-}
 
 export default function HistoryScreen() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
@@ -47,8 +46,7 @@ export default function HistoryScreen() {
           findAllPlans(),
         ]);
 
-        // Tous les identifiants de performance d'un coup, plutôt qu'une
-        // requête par activité.
+        // Toutes les performances en une requête, pas une par activité.
         const ids = allSessions
           .flatMap((session) => session.activities)
           .map((activity) => activity.performanceId)
@@ -63,94 +61,146 @@ export default function HistoryScreen() {
     }, []),
   );
 
-  const nameOf = (exerciseId: string) =>
-    exercises.find((e) => e.id === exerciseId)?.name ?? exerciseId;
-  const unitOf = (measurementId: string) =>
-    measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
+  const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
+  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
+
+  const thisMonth = sessions.filter(
+    (s) =>
+      s.startedAt.getMonth() === new Date().getMonth() &&
+      s.startedAt.getFullYear() === new Date().getFullYear(),
+  ).length;
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
-      <Text style={styles.screenTitle}>Historique</Text>
-      <ScrollView contentContainerStyle={styles.content}>
-      {error && <Text style={styles.error}>{error}</Text>}
-      {sessions.length === 0 && <Text style={styles.muted}>Aucune séance enregistrée.</Text>}
+    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+      <View className="px-5 pt-4">
+        <SectionHeader
+          title="Historique"
+          subtitle={`${sessions.length} séance${sessions.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
+        />
+      </View>
 
-      {sessions.map((session) => {
-        const plan = plans.find((p) => p.id === session.plannedWorkoutId);
-        const date = session.startedAt;
-        const duration = sessionDuration(session);
-        const rest = totalRest(session);
+      <ScrollView contentContainerClassName="gap-3 px-5 pb-6">
+        {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
+        {sessions.length === 0 && (
+          <EmptyState
+            title="Aucun historique"
+            description="Tes séances terminées apparaîtront ici, avec leurs séries et leurs temps de repos."
+          />
+        )}
 
-        return (
-          <View key={session.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{plan ? plan.name : 'Séance libre'}</Text>
-            <Text style={styles.muted}>
-              {date.toLocaleDateString('fr-FR')} · {date.getHours()}h
-              {String(date.getMinutes()).padStart(2, '0')} ·{' '}
-              {STATUS_LABEL[session.status] ?? session.status}
-            </Text>
-            {duration !== null && (
-              <Text style={styles.muted}>
-                {formatDuration(duration)}
-                {rest > 0 ? ` · dont ${formatDuration(rest)} de repos` : ''}
-              </Text>
-            )}
+        {sessions.map((session) => {
+          const plan = plans.find((p) => p.id === session.plannedWorkoutId);
+          const date = session.startedAt;
+          const duration = sessionDuration(session);
+          const rest = totalRest(session);
+          const completed = session.activities.reduce((total, activity) => {
+            const performance = activity.performanceId
+              ? performances.get(activity.performanceId)
+              : undefined;
+            return total + (performance?.completedSets.length ?? 0);
+          }, 0);
 
-            {session.activities.map((activity, index) => {
-              const performance = activity.performanceId
-                ? performances.get(activity.performanceId)
-                : undefined;
-              // Seules les séries COMPLETED comptent comme performance (n°18).
-              const done = performance?.completedSets ?? [];
-              // Repos et séries n'ont aucun lien direct : on les rapproche
-              // par les instants (voir session-metrics).
-              const restsBefore = restBeforeEachSet(done, session.rests);
-
-              return (
-                <View key={index} style={styles.activity}>
-                  <Text style={styles.activityTitle}>{nameOf(activity.exerciseId)}</Text>
-                  {done.length === 0 ? (
-                    <Text style={styles.muted}>aucune série complétée</Text>
-                  ) : (
-                    done.map((set, setIndex) => (
-                      <View key={setIndex}>
-                        {/* Le repos s'intercale entre les deux séries qu'il sépare :
-                            sa place à l'écran suit la chronologie réelle. */}
-                        {restsBefore[setIndex] ? (
-                          <Text style={styles.restLine}>
-                            repos {formatDuration(restsBefore[setIndex]!)}
-                          </Text>
-                        ) : null}
-                        <Text style={styles.setLine}>
-                          Série {setIndex + 1} ·{' '}
-                          {Object.entries(set.values)
-                            .map(([id, value]) => `${value} ${unitOf(id)}`)
-                            .join(' · ')}
-                        </Text>
-                      </View>
-                    ))
-                  )}
+          return (
+            <Card key={session.id} density="titled" className="gap-2">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="shrink">
+                  <Text className="font-extrabold text-[18px] text-ink dark:text-ink-dark">
+                    {plan ? plan.name : 'Séance libre'}
+                  </Text>
+                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                    {date.toLocaleDateString('fr-FR')} ·{' '}
+                    {String(date.getHours()).padStart(2, '0')}:
+                    {String(date.getMinutes()).padStart(2, '0')}
+                  </Text>
                 </View>
-              );
-            })}
-          </View>
-        );
-      })}
+                <StatusPill status={session.status} />
+              </View>
+
+              <View className="flex-row gap-3">
+                <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
+                <Stat label="repos" value={formatClock(rest)} />
+                <Stat label="séries" value={String(completed)} />
+              </View>
+
+              {session.activities.map((activity, index) => {
+                const performance = activity.performanceId
+                  ? performances.get(activity.performanceId)
+                  : undefined;
+                // Seules les séries COMPLETED comptent comme performance.
+                const done = performance?.completedSets ?? [];
+                const restsBefore = restBeforeEachSet(done, session.rests);
+
+                return (
+                  <View key={index} className="mt-2 gap-1.5">
+                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                      {nameOf(activity.exerciseId)}
+                    </Text>
+                    {done.length === 0 ? (
+                      <Text className="text-[13px] text-muted dark:text-muted-dark">
+                        aucune série complétée
+                      </Text>
+                    ) : (
+                      done.map((set, setIndex) => (
+                        <View key={setIndex} className="gap-1.5">
+                          {restsBefore[setIndex] ? (
+                            <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
+                              repos {formatClock(restsBefore[setIndex]!)}
+                            </Text>
+                          ) : null}
+                          <SetRow
+                            index={setIndex + 1}
+                            status="completed"
+                            values={Object.entries(set.values)
+                              .map(([id, value]) => `${value} ${unitOf(id)}`)
+                              .join(' · ')}
+                          />
+                        </View>
+                      ))
+                    )}
+                  </View>
+                );
+              })}
+            </Card>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
-  screenTitle: { fontSize: 26, fontWeight: '800', paddingHorizontal: 20, paddingTop: 16 },
-  content: { padding: 20, gap: 14, paddingBottom: 60 },
-  card: { borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, padding: 14, gap: 6 },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
-  muted: { color: '#71717a' },
-  activity: { marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: '#e4e4e7' },
-  activityTitle: { fontWeight: '600' },
-  setLine: { color: '#3f3f46' },
-  restLine: { color: '#a1a1aa', fontSize: 13, paddingVertical: 2 },
-  error: { color: '#dc2626' },
-});
+function StatusPill({ status }: { status: string }) {
+  const done = status === 'COMPLETED';
+  return (
+    <View
+      className={
+        done
+          ? 'rounded-full bg-[#E7F3C8] px-2.5 py-1 dark:bg-[#17281D]'
+          : 'rounded-full bg-[#FDF1F0] px-2.5 py-1 dark:bg-[#2A1A16]'
+      }
+    >
+      <Text
+        className={
+          done
+            ? 'font-bold text-[11px] text-success dark:text-success-dark'
+            : 'font-bold text-[11px] text-danger dark:text-danger-dark'
+        }
+      >
+        {STATUS_LABEL[status] ?? status}
+      </Text>
+    </View>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-1 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
+      <Text
+        className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+        style={{ fontVariant: ['tabular-nums'] }}
+      >
+        {value}
+      </Text>
+      <Text className="text-[11px] text-muted dark:text-muted-dark">{label}</Text>
+    </View>
+  );
+}
