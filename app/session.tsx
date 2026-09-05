@@ -436,6 +436,7 @@ export default function SessionScreen() {
           label: exercise.name,
           onPress: () => addExercise(exercise.id),
         }))}
+        searchPlaceholder="Rechercher un exercice"
         onClose={() => setSheet('none')}
       />
       <Sheet

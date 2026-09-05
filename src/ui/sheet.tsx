@@ -1,4 +1,14 @@
-import { Modal, Pressable, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { cn } from './cn';
 
 export type SheetAction = {
@@ -20,13 +30,27 @@ export function Sheet({
   description,
   actions,
   onClose,
+  searchPlaceholder,
 }: {
   visible: boolean;
   title: string;
   description?: string;
   actions: SheetAction[];
   onClose: () => void;
+  /** Fourni : la liste devient filtrable. Utile au-delà de quelques entrées. */
+  searchPlaceholder?: string;
 }) {
+  const [query, setQuery] = useState('');
+
+  // Repartir d'une recherche vide à chaque ouverture.
+  useEffect(() => {
+    if (visible) setQuery('');
+  }, [visible]);
+
+  const shown = searchPlaceholder
+    ? actions.filter((action) => action.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : actions;
+
   return (
     <Modal
       visible={visible}
@@ -38,13 +62,32 @@ export function Sheet({
     >
       <Pressable className="flex-1 bg-black/50" onPress={onClose} />
 
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="gap-2 rounded-t-3xl border-t border-border bg-background p-5 pb-8 dark:border-border-dark dark:bg-background-dark">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">{title}</Text>
         {description && (
           <Text className="mb-1 text-[13px] text-muted dark:text-muted-dark">{description}</Text>
         )}
 
-        {actions.map((action) => (
+        {searchPlaceholder && (
+          <TextInput
+            className="mb-1 h-12 rounded-lg border border-border bg-surface px-4 text-[16px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder={searchPlaceholder}
+            placeholderTextColor="#A8AD9E"
+            value={query}
+            onChangeText={setQuery}
+            autoCorrect={false}
+          />
+        )}
+
+        {/* La liste défile plutôt que de pousser la feuille hors de l'écran. */}
+        <ScrollView className="max-h-80 grow-0" contentContainerClassName="gap-2">
+        {shown.length === 0 && (
+          <Text className="py-2 text-[13px] text-muted dark:text-muted-dark">
+            Aucun résultat.
+          </Text>
+        )}
+        {shown.map((action) => (
           <Pressable
             key={action.label}
             onPress={() => {
@@ -70,11 +113,13 @@ export function Sheet({
             </Text>
           </Pressable>
         ))}
+        </ScrollView>
 
         <Pressable onPress={onClose} className="min-h-touch items-center justify-center">
           <Text className="font-bold text-muted dark:text-muted-dark">Fermer</Text>
         </Pressable>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
