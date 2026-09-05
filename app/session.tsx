@@ -211,7 +211,7 @@ export default function SessionScreen() {
           </Pressable>
 
           {showDetail ? (
-            <ScrollView className="shrink" contentContainerClassName="gap-2 pb-1">
+            <ScrollView className="max-h-[40%] shrink grow-0" contentContainerClassName="gap-2 pb-1">
               {sets.map((set, index) => (
                 <SetRow
                   key={index}
@@ -233,6 +233,7 @@ export default function SessionScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              className="max-h-12 grow-0"
               contentContainerClassName="gap-2 pr-4"
             >
               {sets.map((set, index) => (
@@ -264,9 +265,11 @@ export default function SessionScreen() {
             {performance?.currentSet && (
               <Pressable
                 onPress={() => run(() => completePerformanceSet(shown))}
-                className="h-44 w-44 items-center justify-center rounded-full bg-primary active:bg-primary-pressed"
+                className="h-64 w-64 items-center justify-center rounded-full bg-primary active:bg-primary-pressed"
               >
-                <Text className="font-black uppercase text-[22px] text-ink">Terminer</Text>
+                <Text className="font-black uppercase text-[28px] tracking-tight text-ink">
+                  Terminer
+                </Text>
               </Pressable>
             )}
           </View>
