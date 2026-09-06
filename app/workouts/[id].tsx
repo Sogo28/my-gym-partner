@@ -11,6 +11,7 @@ import { findAll as findAllPlans } from '../../src/infra/planned-workout-reposit
 import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
 import { DatePickerSheet } from '../../src/ui/date-picker';
+import { formatDateTime } from '../../src/ui/format';
 import { BackHeader } from '../../src/ui/screen-header';
 import { discardWorkout, unarchiveWorkout } from '../../src/use-cases/edit-catalogue';
 import { scheduleWorkout } from '../../src/use-cases/scheduling-actions';
@@ -133,9 +134,7 @@ export default function WorkoutDetailScreen() {
       <View className="gap-2 p-5 pt-2">
         {scheduled && (
           <Text className="text-center font-mono text-[12px] text-success dark:text-success-dark">
-            programmé le {scheduled.toLocaleDateString('fr-FR')} à{' '}
-            {String(scheduled.getHours()).padStart(2, '0')}:
-            {String(scheduled.getMinutes()).padStart(2, '0')}
+            programmé le {formatDateTime(scheduled)}
           </Text>
         )}
         <Button label="Démarrer la séance" size="xl" onPress={start} />

@@ -29,6 +29,7 @@ import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
 import { NumberField } from '../src/ui/number-field';
 import { Timer } from '../src/ui/timer';
+import { formatDateTime } from '../src/ui/format';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -273,8 +274,7 @@ export default function SessionScreen() {
               {planNameOf(entry.plannedWorkoutId)}
             </Text>
             <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-              {note ??
-                `${entry.scheduledAt.toLocaleDateString('fr-FR')} · ${String(entry.scheduledAt.getHours()).padStart(2, '0')}:${String(entry.scheduledAt.getMinutes()).padStart(2, '0')}`}
+              {note ?? formatDateTime(entry.scheduledAt)}
             </Text>
           </View>
           <View className="flex-row gap-3 pt-1">

@@ -1,11 +1,5 @@
 import { Text, View } from 'react-native';
-
-/** Formate des secondes en mm:ss, toujours sur deux chiffres. */
-export function formatClock(totalSeconds: number): string {
-  const minutes = Math.floor(Math.max(totalSeconds, 0) / 60);
-  const seconds = Math.max(totalSeconds, 0) % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
+import { formatClock } from './format';
 
 /**
  * Le chrono de repos : l'élément le plus grand de l'écran C.

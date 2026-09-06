@@ -73,11 +73,6 @@ export async function unarchiveWorkout(workout: PlannedWorkout): Promise<void> {
   await saveWorkout(workout);
 }
 
-export async function renameWorkout(workout: PlannedWorkout, name: string): Promise<void> {
-  workout.rename(name);
-  await saveWorkout(workout);
-}
-
 /** Ce que les écrans de choix doivent proposer : le catalogue vivant. */
 export async function listActiveExercises(): Promise<Exercise[]> {
   return (await findAllExercises()).filter((exercise) => !exercise.isArchived);

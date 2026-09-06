@@ -1,16 +1,16 @@
 import { useRouter } from 'expo-router';
+import {
+  AGGREGATION_LABELS,
+  describeSource,
+  WINDOW_LABELS,
+} from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type {
-  Aggregation,
-  Condition,
-  EvaluationWindow,
-  ProgressionStep,
-} from '../src/domain/goal/goal';
+import type { Condition, ProgressionStep } from '../src/domain/goal/goal';
 import { findAllMeasurements } from '../src/infra/exercise-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
@@ -20,37 +20,6 @@ import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
-
-/** Ce que chaque agrégation calcule sur les séries de la période observée. */
-const AGGREGATIONS: { value: Aggregation; label: string }[] = [
-  { value: 'average', label: 'Moyenne' },
-  { value: 'max', label: 'Meilleure série' },
-  { value: 'min', label: 'Plus faible série' },
-  { value: 'total', label: 'Cumul' },
-  { value: 'setCount', label: 'Nombre de séries' },
-];
-
-const AGGREGATION_PHRASES: Record<Aggregation, string> = {
-  average: 'moyenne des valeurs',
-  max: 'meilleure valeur',
-  min: 'plus faible valeur',
-  total: 'somme des valeurs',
-  setCount: 'nombre de séries complétées',
-};
-
-/**
- * La période observée. Elle appartient à CHAQUE condition : une même exigence
- * peut demander une forme du jour et un volume accumulé.
- */
-const WINDOWS: { value: EvaluationWindow; label: string; phrase: string }[] = [
-  { value: 'LAST_SESSION', label: 'Dernière séance', phrase: 'lors de la dernière séance' },
-  { value: 'ALL_TIME', label: 'Tout l historique', phrase: 'sur tout l historique' },
-];
-
-function describeCondition(condition: Condition): string {
-  const window = WINDOWS.find((entry) => entry.value === condition.window);
-  return `${AGGREGATION_PHRASES[condition.aggregation]} ${window?.phrase ?? ''}`;
-}
 
 /** Une entrée de l'écran : un exercice et sa condition. */
 type Entry = { exerciseId: string; conditions: Condition[] };
@@ -229,7 +198,7 @@ export default function NewGoalScreen() {
                   )}
 
                   <View className="flex-row flex-wrap gap-2">
-                    {AGGREGATIONS.map(({ value, label }) => (
+                    {AGGREGATION_LABELS.map(({ value, label }) => (
                       <Chip
                         key={value}
                         label={label}
@@ -278,7 +247,7 @@ export default function NewGoalScreen() {
 
                   {/* La période observée : elle change le sens de la condition. */}
                   <View className="flex-row flex-wrap gap-2">
-                    {WINDOWS.map(({ value, label }) => (
+                    {WINDOW_LABELS.map(({ value, label }) => (
                       <Chip
                         key={value}
                         label={label}
@@ -291,7 +260,7 @@ export default function NewGoalScreen() {
                   {/* La phrase exacte que cette condition signifie. */}
                   <View className="flex-row items-center justify-between gap-3">
                     <Text className="shrink font-mono text-[12px] text-planned">
-                      {describeCondition(condition)}
+                      {describeSource(condition)}
                     </Text>
                     {entry.conditions.length > 1 && (
                       <Pressable onPress={() => removeCondition(index, conditionIndex)}>

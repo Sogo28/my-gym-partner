@@ -4,9 +4,10 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Condition, EvaluationWindow, Goal } from '../src/domain/goal/goal';
+import type { Goal } from '../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
+import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
@@ -51,27 +52,6 @@ export default function GoalsScreen() {
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
-
-  const AGGREGATIONS: Record<string, string> = {
-    average: 'moyenne',
-    max: 'meilleure',
-    min: 'minimum',
-    total: 'total',
-    setCount: 'séries complétées',
-  };
-
-  /** La période que la condition observe : elle change tout son sens. */
-  const WINDOW_LABELS: Record<EvaluationWindow, string> = {
-    LAST_SESSION: 'sur la dernière séance',
-    ALL_TIME: 'sur tout l historique',
-  };
-
-  function describe(condition: Condition): string {
-    if (condition.aggregation === 'setCount') {
-      return `séries complétées ${condition.operator} ${condition.target}`;
-    }
-    return `${AGGREGATIONS[condition.aggregation]} ${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
-  }
 
   const active = goals.filter((goal) => goal.status === 'ACTIVE');
 
@@ -131,7 +111,7 @@ export default function GoalsScreen() {
                 <View key={index} className="gap-0.5">
                   <View className="flex-row items-center justify-between gap-3">
                     <Text className="shrink text-[13px] text-muted dark:text-muted-dark">
-                      {describe(result.condition)}
+                      {describeCondition(result.condition, unitOf)}
                     </Text>
                     <Text
                       className={
@@ -145,7 +125,7 @@ export default function GoalsScreen() {
                     </Text>
                   </View>
                   <Text className="font-mono text-[11px] text-planned">
-                    {WINDOW_LABELS[result.condition.window]}
+                    {WINDOW_PHRASES[result.condition.window]}
                     {result.hasData ? '' : ' · aucune donnée'}
                   </Text>
                 </View>

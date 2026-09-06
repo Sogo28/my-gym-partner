@@ -16,7 +16,7 @@ import { Sheet } from '../src/ui/sheet';
 import { EmptyState } from '../src/ui/empty-state';
 import { SectionHeader } from '../src/ui/screen-header';
 import { SetRow } from '../src/ui/set-row';
-import { formatClock } from '../src/ui/timer';
+import { formatClock, formatDateTime } from '../src/ui/format';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -116,9 +116,7 @@ export default function HistoryScreen() {
                     {plan ? plan.name : 'Séance libre'}
                   </Text>
                   <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-                    {date.toLocaleDateString('fr-FR')} ·{' '}
-                    {String(date.getHours()).padStart(2, '0')}:
-                    {String(date.getMinutes()).padStart(2, '0')}
+                    {formatDateTime(date)}
                   </Text>
                 </View>
                 <StatusPill status={session.status} />
