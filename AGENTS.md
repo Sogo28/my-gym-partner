@@ -16,9 +16,19 @@ domaine et base SQLite embarqués dans le téléphone, pas de backend. Mono-util
 ⚠️ Ne jamais créer de dossier `src/app/` : expo-router le prendrait pour sa racine de routes
 et tenterait de rendre son contenu comme des écrans.
 
+## Tests
+
+Vitest substitue `expo-sqlite` et `expo-crypto` par des équivalents Node
+(`test/fake-*.ts`, alias dans `vitest.config.mts`). Les tests de use cases
+s'exécutent donc sur une VRAIE base SQLite en mémoire, avec le vrai schéma et
+les vraies migrations — sans qu'une ligne de code de production le sache.
+
+Un test de use case appelle `useCleanDatabase()` (dans `test/support.ts`) :
+chaque test repart d'une base migrée et vide.
+
 ## Commandes
 
-- `npm test` — tests du domaine (Vitest, sans émulateur)
+- `npm test` — domaine + use cases (Vitest, sans émulateur)
 - `npx expo start` — lance l'app (`-c` pour vider le cache après un changement de structure)
 - `npx tsc --noEmit` — vérification des types
 
