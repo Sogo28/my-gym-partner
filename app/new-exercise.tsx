@@ -6,7 +6,8 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import { findAll, findAllMeasurements } from '../src/infra/exercise-repository';
+import type { Muscle } from '../src/domain/exercise/muscle';
+import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
@@ -30,10 +31,13 @@ export default function NewExerciseScreen() {
   const [name, setName] = useState('');
   const [isUnilateral, setIsUnilateral] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [muscles, setMuscles] = useState<Muscle[]>([]);
+  const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
+    findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
     if (!id) return;
 
     findAll()
@@ -44,6 +48,7 @@ export default function NewExerciseScreen() {
         setName(exercise.name);
         setIsUnilateral(exercise.isUnilateral);
         setSelected([...exercise.measurementIds]);
+        setSelectedMuscles([...exercise.muscleIds]);
       })
       .catch((e) => setError(messageOf(e)));
   }, [id]);
@@ -52,9 +57,19 @@ export default function NewExerciseScreen() {
     try {
       // Aucune validation ici : les règles appartiennent au domaine.
       if (existing) {
-        await updateExercise({ exercise: existing, name, measurementIds: selected });
+        await updateExercise({
+          exercise: existing,
+          name,
+          measurementIds: selected,
+          muscleIds: selectedMuscles,
+        });
       } else {
-        await createExercise({ name, isUnilateral, measurementIds: selected });
+        await createExercise({
+          name,
+          isUnilateral,
+          measurementIds: selected,
+          muscleIds: selectedMuscles,
+        });
       }
       router.back();
     } catch (e) {
@@ -130,6 +145,47 @@ export default function NewExerciseScreen() {
                     }
                   >
                     {measurement.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Muscles sollicités
+          </Text>
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Facultatif. Sert à retrouver l'exercice, jamais à juger une performance.
+          </Text>
+          <View className="mt-1 flex-row flex-wrap gap-2">
+            {muscles.map((muscle) => {
+              const on = selectedMuscles.includes(muscle.id);
+              return (
+                <Pressable
+                  key={muscle.id}
+                  onPress={() =>
+                    setSelectedMuscles((current) =>
+                      current.includes(muscle.id)
+                        ? current.filter((id) => id !== muscle.id)
+                        : [...current, muscle.id],
+                    )
+                  }
+                  className={
+                    on
+                      ? 'h-11 justify-center rounded-full bg-primary-soft px-4 dark:bg-primary-soft-dark'
+                      : 'h-11 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
+                  }
+                >
+                  <Text
+                    className={
+                      on
+                        ? 'font-bold text-[13px] text-primary-ink dark:text-primary-ink-dark'
+                        : 'text-[13px] text-muted dark:text-muted-dark'
+                    }
+                  >
+                    {muscle.name}
                   </Text>
                 </Pressable>
               );

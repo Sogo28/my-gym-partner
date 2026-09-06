@@ -66,6 +66,29 @@ describe('Exercise', () => {
     expect(exercise.measurementIds).toEqual(['reps', 'weight']);
   });
 
+  it('peut ne cibler aucun muscle', () => {
+    const exercise = Exercise.create(validInput);
+
+    expect(exercise.muscleIds).toEqual([]);
+  });
+
+  it('retient les muscles ciblés, sans doublon', () => {
+    const exercise = Exercise.create({ ...validInput, muscleIds: ['back', 'biceps', 'back'] });
+
+    expect(exercise.muscleIds).toEqual(['back', 'biceps']);
+  });
+
+  it('laisse changer les muscles ciblés, y compris pour aucun', () => {
+    const exercise = Exercise.create({ ...validInput, muscleIds: ['back'] });
+
+    exercise.changeMuscles(['chest', 'triceps']);
+    expect(exercise.muscleIds).toEqual(['chest', 'triceps']);
+
+    // Contrairement aux mesures, n'en cibler aucun reste valide.
+    exercise.changeMuscles([]);
+    expect(exercise.muscleIds).toEqual([]);
+  });
+
   it('s archive sans rien perdre de son identité', () => {
     const exercise = Exercise.create(validInput);
 

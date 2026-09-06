@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -374,8 +374,61 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
     await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
+  // Migration 14 : groupes musculaires, pour retrouver un exercice.
+  if (version < 14) {
+    await db.execAsync(`
+      CREATE TABLE muscles (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        position INTEGER NOT NULL
+      );
+
+      -- Un exercice sollicite plusieurs muscles, un muscle sert à plusieurs
+      -- exercices : la relation a sa propre table. Aucune ligne n'est requise,
+      -- un exercice peut ne cibler aucun muscle.
+      CREATE TABLE exercise_muscles (
+        exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        muscle_id TEXT NOT NULL REFERENCES muscles(id),
+        PRIMARY KEY (exercise_id, muscle_id)
+      );
+    `);
+    await seedMuscles(db);
+  }
+
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   return db;
+}
+
+/**
+ * Catalogue des groupes musculaires, dans l'ordre où on les présente : le
+ * haut du corps d'abord, puis le tronc, puis le bas.
+ */
+async function seedMuscles(db: SQLite.SQLiteDatabase): Promise<void> {
+  const muscles = [
+    'Pectoraux',
+    'Dos',
+    'Épaules',
+    'Biceps',
+    'Triceps',
+    'Avant-bras',
+    'Abdominaux',
+    'Lombaires',
+    'Fessiers',
+    'Quadriceps',
+    'Ischio-jambiers',
+    'Mollets',
+  ];
+
+  for (const [position, name] of muscles.entries()) {
+    await db.runAsync(
+      'INSERT INTO muscles (id, name, position) VALUES (?, ?, ?);',
+      // Un identifiant stable, dérivé du nom : il ne bougera plus, même si
+      // le libellé affiché change un jour.
+      name.toLowerCase().normalize('NFD').replace(/[^a-z]/g, ''),
+      name,
+      position,
+    );
+  }
 }
 
 /**

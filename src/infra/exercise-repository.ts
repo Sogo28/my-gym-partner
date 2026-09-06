@@ -1,9 +1,11 @@
 import { Exercise } from '../domain/exercise/exercise';
 import type { Measurement } from '../domain/exercise/measurement';
+import type { Muscle } from '../domain/exercise/muscle';
 import { getDatabase } from './db';
 
 type ExerciseRow = { id: string; name: string; is_unilateral: number; archived: number };
 type LinkRow = { exercise_id: string; measurement_id: string };
+type MuscleLinkRow = { exercise_id: string; muscle_id: string };
 
 /**
  * Repository : la seule porte d'entrée pour charger et sauvegarder l'agrégat
@@ -31,6 +33,15 @@ export async function save(exercise: Exercise): Promise<void> {
     // On remplace la liste complète des mesures plutôt que de calculer un
     // différentiel : l'agrégat est l'unité de cohérence, on écrit son état actuel.
     await db.runAsync('DELETE FROM exercise_measurements WHERE exercise_id = ?;', exercise.id);
+    await db.runAsync('DELETE FROM exercise_muscles WHERE exercise_id = ?;', exercise.id);
+
+    for (const muscleId of exercise.muscleIds) {
+      await db.runAsync(
+        'INSERT INTO exercise_muscles (exercise_id, muscle_id) VALUES (?, ?);',
+        exercise.id,
+        muscleId,
+      );
+    }
 
     for (const [position, measurementId] of exercise.measurementIds.entries()) {
       await db.runAsync(
@@ -54,12 +65,24 @@ export async function findAll(): Promise<Exercise[]> {
   const links = await db.getAllAsync<LinkRow>(
     'SELECT exercise_id, measurement_id FROM exercise_measurements ORDER BY exercise_id, position;',
   );
+  const muscleLinks = await db.getAllAsync<MuscleLinkRow>(
+    `SELECT em.exercise_id, em.muscle_id FROM exercise_muscles em
+     JOIN muscles m ON m.id = em.muscle_id
+     ORDER BY em.exercise_id, m.position;`,
+  );
 
   const measurementsByExercise = new Map<string, string[]>();
   for (const link of links) {
     const list = measurementsByExercise.get(link.exercise_id) ?? [];
     list.push(link.measurement_id);
     measurementsByExercise.set(link.exercise_id, list);
+  }
+
+  const musclesByExercise = new Map<string, string[]>();
+  for (const link of muscleLinks) {
+    const list = musclesByExercise.get(link.exercise_id) ?? [];
+    list.push(link.muscle_id);
+    musclesByExercise.set(link.exercise_id, list);
   }
 
   // On reconstruit de vrais objets du domaine : ce qui sort du repository est
@@ -70,6 +93,7 @@ export async function findAll(): Promise<Exercise[]> {
       name: row.name,
       isUnilateral: row.is_unilateral === 1,
       measurementIds: measurementsByExercise.get(row.id) ?? [],
+      muscleIds: musclesByExercise.get(row.id) ?? [],
       isArchived: row.archived === 1,
     }),
   );
@@ -103,6 +127,11 @@ export async function remove(exerciseId: string): Promise<void> {
     await db.runAsync('DELETE FROM exercise_measurements WHERE exercise_id = ?;', exerciseId);
     await db.runAsync('DELETE FROM exercises WHERE id = ?;', exerciseId);
   });
+}
+
+export async function findAllMuscles(): Promise<Muscle[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<Muscle>('SELECT id, name FROM muscles ORDER BY position;');
 }
 
 export async function findAllMeasurements(): Promise<Measurement[]> {
