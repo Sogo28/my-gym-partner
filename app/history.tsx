@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { listSessionSummaries, type SessionSummary } from '../src/use-cases/session-summary';
@@ -23,6 +24,7 @@ import { EmptyState } from '../src/ui/empty-state';
 import { SectionHeader } from '../src/ui/screen-header';
 import { SetRow } from '../src/ui/set-row';
 import { formatClock, formatDateTime } from '../src/ui/format';
+import { formatSetValues } from '../src/ui/set-values';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -42,7 +44,7 @@ export default function HistoryScreen() {
     performanceId: string;
     setIndex: number;
     measurementIds: readonly string[];
-    values: Record<string, number>;
+    values: ValuesBySide;
   } | null>(null);
   /** La sauvegarde choisie, en attente de confirmation. */
   const [restoring, setRestoring] = useState<BackupPreview | null>(null);
@@ -192,9 +194,7 @@ export default function HistoryScreen() {
                         <SetRow
                           index={position + 1}
                           status="completed"
-                          values={Object.entries(set.values)
-                            .map(([id, value]) => `${value} ${unitOf(id)}`)
-                            .join(' · ')}
+                          values={formatSetValues(set.values, unitOf)}
                           // Une faute de saisie doit pouvoir se réparer, même
                           // des semaines plus tard.
                           onPress={
@@ -265,21 +265,39 @@ export default function HistoryScreen() {
       >
         {editing && (
           <View className="gap-3 pb-2">
-            <View className="flex-row gap-3">
-              {editing.measurementIds.map((id) => (
-                <NumberField
-                  key={id}
-                  unit={unitOf(id)}
-                  value={editing.values[id] ?? 0}
-                  step={id === 'weight' ? 2.5 : 1}
-                  onChange={(value) =>
-                    setEditing((current) =>
-                      current ? { ...current, values: { ...current.values, [id]: value } } : current,
-                    )
-                  }
-                />
-              ))}
-            </View>
+            {/* Une rangée par côté : un exercice unilatéral en a deux. */}
+            {(Object.keys(editing.values) as Side[]).map((side) => (
+              <View key={side} className="gap-1">
+                {side !== 'BOTH' && (
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
+                  </Text>
+                )}
+                <View className="flex-row gap-3">
+                  {editing.measurementIds.map((id) => (
+                    <NumberField
+                      key={id}
+                      unit={unitOf(id)}
+                      value={editing.values[side]?.[id] ?? 0}
+                      step={id === 'weight' ? 2.5 : 1}
+                      onChange={(value) =>
+                        setEditing((current) =>
+                          current
+                            ? {
+                                ...current,
+                                values: {
+                                  ...current.values,
+                                  [side]: { ...(current.values[side] ?? {}), [id]: value },
+                                },
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
             <Button label="Enregistrer" size="md" onPress={saveCorrection} />
           </View>
         )}

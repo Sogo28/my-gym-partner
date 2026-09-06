@@ -1,5 +1,5 @@
 import { findById, save } from '../infra/performance-repository';
-import type { SetValues } from '../domain/performance/exercise-performance';
+import type { ValuesBySide } from '../domain/performance/exercise-performance';
 import { DomainError } from '../domain/domain-error';
 
 /**
@@ -13,7 +13,7 @@ import { DomainError } from '../domain/domain-error';
 export async function correctPastSet(input: {
   performanceId: string;
   setIndex: number;
-  values: SetValues;
+  values: ValuesBySide;
 }): Promise<void> {
   const performance = await findById(input.performanceId);
   if (!performance) {

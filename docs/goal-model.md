@@ -99,6 +99,23 @@ Pas de moyenne glissante sur N séances en V1.
     Session précédente : 7s, 9s, 8s → moyenne 8s  → NON SATISFAIT
     Dernière session   : 10s, 11s, 9s → moyenne 10s → SATISFAIT
 
+### Exercices unilatéraux
+
+Une série unilatérale porte **les deux côtés** : c'est une seule série, pas
+deux. Un côté peut manquer -- rattrapage du côté faible, côté blessé épargné
+-- et cette absence n'est pas un zéro.
+
+**C'est le côté le plus faible qui compte** pour toute condition (décidé le
+2026-09-06), mesure par mesure :
+
+    Série 1   gauche 12 s   droite 8 s
+    Série 2   gauche 11 s   droite 7 s
+    → moyenne évaluée : (8+7)/2 = 7,5 s
+
+On progresse au rythme du côté qui suit le moins ; laisser un côté fort
+compenser validerait une étape à moitié acquise. Quand un seul côté a été
+fait, c'est lui qui parle : il n'y a rien à comparer.
+
 ## 7. Métriques
 
 Dérivées des performances réelles : moyenne des tenues, meilleure tenue,

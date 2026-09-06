@@ -7,7 +7,7 @@ const at = new Date(2026, 8, 5, 18, 0);
 
 const set = (duration: number, status: PerformanceSet['status'] = 'COMPLETED'): PerformanceSet => ({
   status,
-  values: { duration },
+  values: { BOTH: { duration } },
   startedAt: at,
   endedAt: at,
 });

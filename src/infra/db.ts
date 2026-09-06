@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -393,6 +393,36 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       );
     `);
     await seedMuscles(db);
+  }
+
+  // Migration 15 : le côté du corps auquel une valeur appartient.
+  //
+  // Le côté n'est pas une mesure (n°22) mais une propriété de l'exécution :
+  // il entre donc dans la clé des valeurs, pas dans le catalogue. Les séries
+  // déjà enregistrées sont bilatérales, d'où le défaut 'BOTH'.
+  if (version < 15) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      CREATE TABLE performance_set_values_v15 (
+        performance_id TEXT NOT NULL,
+        set_index INTEGER NOT NULL,
+        side TEXT NOT NULL CHECK (side IN ('BOTH', 'LEFT', 'RIGHT')),
+        measurement_id TEXT NOT NULL REFERENCES measurements(id),
+        value REAL NOT NULL,
+        PRIMARY KEY (performance_id, set_index, side, measurement_id),
+        FOREIGN KEY (performance_id, set_index)
+          REFERENCES performance_sets(performance_id, set_index) ON DELETE CASCADE
+      );
+
+      INSERT INTO performance_set_values_v15
+        (performance_id, set_index, side, measurement_id, value)
+        SELECT performance_id, set_index, 'BOTH', measurement_id, value
+        FROM performance_set_values;
+
+      DROP TABLE performance_set_values;
+      ALTER TABLE performance_set_values_v15 RENAME TO performance_set_values;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

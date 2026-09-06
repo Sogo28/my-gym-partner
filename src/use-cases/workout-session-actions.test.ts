@@ -86,7 +86,7 @@ describe('Séries prévues non faites', () => {
     await startWorkoutSession(plan.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
 
     const performanceId = (await findActive())!.currentActivity!.performanceId!;
     await goToNextExercise();
@@ -106,7 +106,7 @@ describe('Séries prévues non faites', () => {
     await startWorkoutSession(plan.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
 
     const performanceId = (await findActive())!.currentActivity!.performanceId!;
     await finishWorkoutSession();
@@ -122,7 +122,7 @@ describe('Séries prévues non faites', () => {
     await startWorkoutSession(plan.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
 
     const performanceId = (await findActive())!.currentActivity!.performanceId!;
     await cancelWorkoutSession();
@@ -187,13 +187,13 @@ describe('Annulation d une séance', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 14 });
+    await completePerformanceSet({ BOTH: { duration: 14 } });
     const performanceId = (await findActive())!.currentActivity!.performanceId!;
 
     await cancelWorkoutSession();
 
     const performance = await findPerformanceById(performanceId);
-    expect(performance!.completedSets[0].values).toEqual({ duration: 14 });
+    expect(performance!.completedSets[0].values).toEqual({ BOTH: { duration: 14 } });
   });
 });
 
@@ -204,7 +204,7 @@ describe('Repos', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 10 });
+    await completePerformanceSet({ BOTH: { duration: 10 } });
     expect((await findActive())!.currentRest).not.toBeNull();
 
     await startPerformanceSet();
@@ -217,7 +217,7 @@ describe('Repos', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 10 });
+    await completePerformanceSet({ BOTH: { duration: 10 } });
     await startPerformanceSet();
 
     const session = await findActive();
@@ -259,11 +259,11 @@ describe('Correction pendant la séance', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 10 });
+    await completePerformanceSet({ BOTH: { duration: 10 } });
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 8 });
+    await completePerformanceSet({ BOTH: { duration: 8 } });
 
     const sets = await currentSets();
-    expect(sets.map((set) => set.values.duration)).toEqual([10, 8]);
+    expect(sets.map((set) => set.values.BOTH?.duration)).toEqual([10, 8]);
   });
 });

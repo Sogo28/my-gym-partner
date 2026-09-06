@@ -35,7 +35,7 @@ describe('Modifier un entraînement', () => {
 
     await startWorkoutSession(plan.id);
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
     await finishWorkoutSession();
 
     // Le plan change après coup : la séance dit ce qui a été fait, pas ce
@@ -48,7 +48,7 @@ describe('Modifier un entraînement', () => {
 
     const [summary] = await listSessionSummaries();
     expect(summary.completedSetCount).toBe(1);
-    expect(summary.activities[0].completedSets[0].set.values).toEqual({ duration: 12 });
+    expect(summary.activities[0].completedSets[0].set.values).toEqual({ BOTH: { duration: 12 } });
   });
 
   it('refuse une cible qui ne correspond pas aux mesures de l exercice', async () => {

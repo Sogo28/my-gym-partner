@@ -24,7 +24,7 @@ async function someHistory() {
 
   await startWorkoutSession(plan.id);
   await startPerformanceSet();
-  await completePerformanceSet({ duration: 12 });
+  await completePerformanceSet({ BOTH: { duration: 12 } });
   await finishWorkoutSession();
 
   return exercise;
@@ -45,7 +45,7 @@ describe('Sauvegarde', () => {
     const after = await listSessionSummaries();
     expect(after).toHaveLength(before.length);
     expect(after[0].completedSetCount).toBe(1);
-    expect(after[0].activities[0].completedSets[0].set.values).toEqual({ duration: 12 });
+    expect(after[0].activities[0].completedSets[0].set.values).toEqual({ BOTH: { duration: 12 } });
   });
 
   it('rend aussi le catalogue, muscles compris', async () => {

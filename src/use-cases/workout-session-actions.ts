@@ -3,7 +3,7 @@ import type { ExerciseId } from '../domain/exercise/exercise';
 import type { PlannedWorkoutId } from '../domain/planned-workout/planned-workout';
 import {
   ExercisePerformance,
-  type SetValues,
+  type ValuesBySide,
 } from '../domain/performance/exercise-performance';
 import { WorkoutSession } from '../domain/workout-session/workout-session';
 import { findAll as findAllExercises } from '../infra/exercise-repository';
@@ -160,7 +160,7 @@ export async function goToNextExercise(): Promise<WorkoutSession> {
 }
 
 /** Corriger une série déjà validée, typiquement pendant le repos. */
-export const correctSet = (setIndex: number, values: SetValues) =>
+export const correctSet = (setIndex: number, values: ValuesBySide) =>
   onCurrentPerformance((performance) => performance.correctSetValues(setIndex, values));
 
 /** Combien de séries le plan prévoyait pour l'exercice en cours. */
@@ -188,7 +188,7 @@ export async function startPerformanceSet(): Promise<ExercisePerformance> {
 }
 
 /** CompletePerformanceSet (§29), suivi du repos qui s'enchaîne (§13). */
-export async function completePerformanceSet(values: SetValues): Promise<ExercisePerformance> {
+export async function completePerformanceSet(values: ValuesBySide): Promise<ExercisePerformance> {
   const performance = await onCurrentPerformance((p, now) => p.completeCurrentSet(values, now));
   await onActiveSession((session, now) => {
     if (!session.currentRest) session.startRest(now);

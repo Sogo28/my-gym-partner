@@ -5,7 +5,11 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
+import type {
+  ExercisePerformance,
+  Side,
+  ValuesBySide,
+} from '../src/domain/performance/exercise-performance';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
@@ -29,6 +33,7 @@ import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
 import { NumberField } from '../src/ui/number-field';
 import { Timer } from '../src/ui/timer';
+import { formatSetValues, formatSetValuesShort } from '../src/ui/set-values';
 import { formatDateTime } from '../src/ui/format';
 import {
   abandonPerformanceSet,
@@ -58,7 +63,7 @@ export default function SessionScreen() {
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   /** L'entraînement programmé qu'on est en train de déplacer. */
   const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
-  const [values, setValues] = useState<Record<string, number>>({});
+  const [values, setValues] = useState<ValuesBySide>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
@@ -137,32 +142,41 @@ export default function SessionScreen() {
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
-  const format = (v: Record<string, number>) =>
-    Object.entries(v)
-      .map(([id, value]) => `${value} ${unitOf(id)}`)
-      .join(' · ');
-  /** Version courte pour les pastilles : "12s", "8reps·20kg". */
-  const formatShort = (v: Record<string, number>) =>
-    Object.entries(v)
-      .map(([id, value]) => `${value}${unitOf(id)}`)
-      .join('·');
+  const format = (v: ValuesBySide) => formatSetValues(v, unitOf);
+  const formatShort = (v: ValuesBySide) => formatSetValuesShort(v, unitOf);
+
+  /**
+   * Les côtés à saisir. Un exercice unilatéral en a deux : c'est UNE série
+   * qui porte les deux, pas deux séries (§4).
+   */
+  const currentExercise = exercises.find((e) => e.id === activity?.exerciseId);
+  const sides: Side[] = currentExercise?.isUnilateral ? ['LEFT', 'RIGHT'] : ['BOTH'];
+  const SIDE_LABELS: Record<string, string> = {
+    BOTH: '',
+    LEFT: 'Côté gauche',
+    RIGHT: 'Côté droit',
+  };
+
+  /** Les mêmes cibles s'appliquent à chaque côté : le plan ne les distingue pas. */
+  const spreadOverSides = (targets: Record<string, number>): ValuesBySide =>
+    Object.fromEntries(sides.map((side) => [side, targets]));
 
   /**
    * Le socle de ce qu'on affiche : pendant une série, ce que le plan prévoit
    * pour elle ; pendant le repos, ce qui a été enregistré. La saisie locale ne
    * fait que le recouvrir, le temps que l'écriture aboutisse.
    */
-  function baseline(): Record<string, number> {
+  function baseline(): ValuesBySide {
     if (!performance?.currentSet) return lastSet?.values ?? {};
 
     const targets = plannedExercise?.sets[sets.length - 1]?.targets;
-    if (targets && Object.keys(targets).length > 0) return targets;
+    if (targets && Object.keys(targets).length > 0) return spreadOverSides(targets);
 
     // Hors programme : on reprend la dernière série faite, sinon zéro.
     const previous = [...sets].reverse().find((set) => set.status === 'COMPLETED');
     return (
       previous?.values ??
-      Object.fromEntries((performance.measurementIds ?? []).map((id) => [id, 0]))
+      spreadOverSides(Object.fromEntries((performance.measurementIds ?? []).map((id) => [id, 0])))
     );
   }
 
@@ -175,9 +189,12 @@ export default function SessionScreen() {
   const editedValues = { ...(editedSet?.values ?? {}), ...values };
 
   /** Ajuster une valeur l'enregistre aussitôt sur la série ouverte. */
-  function adjust(measurementId: string, value: number) {
+  function adjust(side: Side, measurementId: string, value: number) {
     if (editing === null) return;
-    const next = { ...editedValues, [measurementId]: value };
+    const next = {
+      ...editedValues,
+      [side]: { ...(editedValues[side] ?? {}), [measurementId]: value },
+    };
     setValues(next);
     correctSet(editing, next)
       .then(() => setError(null))
@@ -484,20 +501,30 @@ export default function SessionScreen() {
           <View className="gap-3 pb-2">
             {error && <BusinessNotice message={error} />}
 
-            {/* Les champs n'apparaissent que pour la série qu'on a ouverte. */}
-            {editing !== null && editedSet && (
-              <View className="flex-row gap-3">
-                {(performance?.measurementIds ?? []).map((id) => (
-                  <NumberField
-                    key={id}
-                    unit={unitOf(id)}
-                    value={editedValues[id] ?? 0}
-                    step={STEPS[id] ?? 1}
-                    onChange={(value) => adjust(id, value)}
-                  />
-                ))}
-              </View>
-            )}
+            {/* Les champs n'apparaissent que pour la série qu'on a ouverte.
+                Un exercice unilatéral en montre une rangée par côté. */}
+            {editing !== null &&
+              editedSet &&
+              sides.map((side) => (
+                <View key={side} className="gap-1">
+                  {SIDE_LABELS[side] ? (
+                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                      {SIDE_LABELS[side]}
+                    </Text>
+                  ) : null}
+                  <View className="flex-row gap-3">
+                    {(performance?.measurementIds ?? []).map((id) => (
+                      <NumberField
+                        key={id}
+                        unit={unitOf(id)}
+                        value={editedValues[side]?.[id] ?? 0}
+                        step={STEPS[id] ?? 1}
+                        onChange={(value) => adjust(side, id, value)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
 
             {performance?.currentSet && (
               <Button

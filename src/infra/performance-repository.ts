@@ -2,6 +2,8 @@ import {
   ExercisePerformance,
   type PerformanceSet,
   type PerformanceSetStatus,
+  type SetValues,
+  type Side,
 } from '../domain/performance/exercise-performance';
 import { getDatabase } from './db';
 
@@ -17,6 +19,7 @@ type SetRow = {
 type ValueRow = {
   performance_id: string;
   set_index: number;
+  side: Side;
   measurement_id: string;
   value: number;
 };
@@ -58,15 +61,19 @@ export async function save(performance: ExercisePerformance): Promise<void> {
         set.startedAt.toISOString(),
         set.endedAt?.toISOString() ?? null,
       );
-      for (const [measurementId, value] of Object.entries(set.values)) {
-        await db.runAsync(
-          `INSERT INTO performance_set_values (performance_id, set_index, measurement_id, value)
-           VALUES (?, ?, ?, ?);`,
-          performance.id,
-          setIndex,
-          measurementId,
-          value,
-        );
+      for (const [side, sideValues] of Object.entries(set.values)) {
+        for (const [measurementId, value] of Object.entries(sideValues ?? {})) {
+          await db.runAsync(
+            `INSERT INTO performance_set_values
+               (performance_id, set_index, side, measurement_id, value)
+             VALUES (?, ?, ?, ?, ?);`,
+            performance.id,
+            setIndex,
+            side,
+            measurementId,
+            value,
+          );
+        }
       }
     }
   });
@@ -117,12 +124,15 @@ export async function findByIds(ids: readonly string[]): Promise<Map<string, Exe
     measurementsOf.set(row.performance_id, list);
   }
 
-  const valuesOf = new Map<string, Record<string, number>>();
+  // Regroupées par série, puis par côté du corps.
+  const valuesOf = new Map<string, Record<string, Record<string, number>>>();
   for (const row of valueRows) {
     const key = `${row.performance_id}|${row.set_index}`;
-    const values = valuesOf.get(key) ?? {};
+    const bySide = valuesOf.get(key) ?? {};
+    const values = bySide[row.side] ?? {};
     values[row.measurement_id] = row.value;
-    valuesOf.set(key, values);
+    bySide[row.side] = values;
+    valuesOf.set(key, bySide);
   }
 
   const setsOf = new Map<string, PerformanceSet[]>();
@@ -130,7 +140,10 @@ export async function findByIds(ids: readonly string[]): Promise<Map<string, Exe
     const list = setsOf.get(row.performance_id) ?? [];
     list.push({
       status: row.status,
-      values: valuesOf.get(`${row.performance_id}|${row.set_index}`) ?? {},
+      values: (valuesOf.get(`${row.performance_id}|${row.set_index}`) ?? {}) as Record<
+        Side,
+        SetValues
+      >,
       startedAt: new Date(row.started_at),
       endedAt: row.ended_at ? new Date(row.ended_at) : null,
     });

@@ -20,11 +20,11 @@ describe('Résumé de séance', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 10 });
+    await completePerformanceSet({ BOTH: { duration: 10 } });
     await startPerformanceSet();
     await abandonPerformanceSet();
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 9 });
+    await completePerformanceSet({ BOTH: { duration: 9 } });
     await finishWorkoutSession();
 
     const [summary] = await listSessionSummaries();
@@ -42,7 +42,7 @@ describe('Résumé de séance', () => {
     await startWorkoutSession(plan.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
     // Les deux séries prévues restantes seront consignées abandonnées.
     await finishWorkoutSession();
 
@@ -78,9 +78,9 @@ describe('Résumé de séance', () => {
     await startActivity(exercise.id);
 
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 10 }); // démarre un repos
+    await completePerformanceSet({ BOTH: { duration: 10 } }); // démarre un repos
     await startPerformanceSet(); // l'interrompt
-    await completePerformanceSet({ duration: 9 });
+    await completePerformanceSet({ BOTH: { duration: 9 } });
     await finishWorkoutSession();
 
     const [summary] = await listSessionSummaries();
@@ -95,7 +95,7 @@ describe('Résumé de séance', () => {
     await startWorkoutSession();
     await startActivity(exercise.id);
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 14 });
+    await completePerformanceSet({ BOTH: { duration: 14 } });
 
     await cancelWorkoutSession();
 

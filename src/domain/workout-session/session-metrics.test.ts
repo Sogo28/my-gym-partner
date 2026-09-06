@@ -7,7 +7,7 @@ const t = (minutes: number, secs = 0) => new Date(2026, 8, 5, 18, minutes, secs)
 
 const set = (startedAt: Date, endedAt: Date): PerformanceSet => ({
   status: 'COMPLETED',
-  values: { reps: 8 },
+  values: { BOTH: { reps: 8 } },
   startedAt,
   endedAt,
 });

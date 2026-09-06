@@ -33,7 +33,7 @@ async function aSessionOf(exerciseId: string, durations: number[]) {
   await startActivity(exerciseId);
   for (const duration of durations) {
     await startPerformanceSet();
-    await completePerformanceSet({ duration });
+    await completePerformanceSet({ BOTH: { duration } });
   }
   await finishWorkoutSession();
 }
@@ -66,13 +66,13 @@ describe('LAST_SESSION', () => {
     await startActivity(exercise.id);
     for (const duration of [10, 11, 9]) {
       await startPerformanceSet();
-      await completePerformanceSet({ duration });
+      await completePerformanceSet({ BOTH: { duration } });
     }
     await finishActivity();
     await startActivity(exercise.id);
     for (const duration of [6, 5]) {
       await startPerformanceSet();
-      await completePerformanceSet({ duration });
+      await completePerformanceSet({ BOTH: { duration } });
     }
     await finishWorkoutSession();
 
@@ -146,6 +146,44 @@ describe('Deux fenêtres dans la même exigence', () => {
   });
 });
 
+describe('Exercice unilatéral', () => {
+  it('évalue le côté le plus faible', async () => {
+    const exercise = await anExercise('One Leg Front Lever', ['duration']);
+
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    for (const [left, right] of [
+      [12, 8],
+      [11, 7],
+    ]) {
+      await startPerformanceSet();
+      await completePerformanceSet({ LEFT: { duration: left }, RIGHT: { duration: right } });
+    }
+    await finishWorkoutSession();
+
+    const evaluation = await evaluateGoal(await goalOn(exercise.id, [hold()]));
+
+    // (8+7)/2 = 7,5 : le côté fort ne compense pas. Compter les quatre
+    // valeurs donnerait 9,5, et l'étape passerait à moitié acquise.
+    expect(evaluation!.results[0].actual).toBe(7.5);
+    expect(evaluation!.satisfied).toBe(false);
+  });
+
+  it('se contente du côté enregistré quand l autre manque', async () => {
+    const exercise = await anExercise('One Leg Front Lever', ['duration']);
+
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ LEFT: { duration: 12 } });
+    await finishWorkoutSession();
+
+    const evaluation = await evaluateGoal(await goalOn(exercise.id, [hold()]));
+
+    expect(evaluation!.results[0].actual).toBe(12);
+  });
+});
+
 describe('Séries abandonnées', () => {
   it('ne les compte dans aucune fenêtre', async () => {
     const exercise = await anExercise();
@@ -153,7 +191,7 @@ describe('Séries abandonnées', () => {
     await startWorkoutSession();
     await startActivity(exercise.id);
     await startPerformanceSet();
-    await completePerformanceSet({ duration: 12 });
+    await completePerformanceSet({ BOTH: { duration: 12 } });
     await startPerformanceSet(); // laissée en cours, donc abandonnée à la fin
     await finishWorkoutSession();
 

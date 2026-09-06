@@ -1,4 +1,4 @@
-import type { PerformanceSet } from '../performance/exercise-performance';
+import { weakestValues, type PerformanceSet } from '../performance/exercise-performance';
 import type {
   Aggregation,
   Condition,
@@ -93,7 +93,9 @@ function aggregate(
   if (measurementId === null) return null;
 
   const values = completed
-    .map((set) => set.values[measurementId])
+    // Pour un exercice unilatéral, c'est le côté le plus faible qui compte :
+    // un côté fort ne doit pas valider une étape à moitié acquise.
+    .map((set) => weakestValues(set.values)[measurementId])
     .filter((value): value is number => value !== undefined);
 
   if (values.length === 0) return null;
