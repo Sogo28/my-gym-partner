@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { PlannedExercise } from '../../src/domain/planned-workout/planned-workout';
-import { findAll, findAllMeasurements } from '../../src/infra/exercise-repository';
+import { findAllMeasurements } from '../../src/infra/exercise-repository';
+import { listActiveExercises } from '../../src/use-cases/edit-catalogue';
 import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
 import { NumberField } from '../../src/ui/number-field';
@@ -26,7 +27,7 @@ export default function NewWorkoutScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([findAll(), findAllMeasurements()])
+    Promise.all([listActiveExercises(), findAllMeasurements()])
       .then(([exercises, allMeasurements]) => {
         setAvailable(exercises);
         setMeasurements(allMeasurements);

@@ -1,18 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import { findAllMeasurements } from '../src/infra/exercise-repository';
+import { findAll, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
+import { discardExercise, updateExercise } from '../src/use-cases/edit-catalogue';
 
+/**
+ * Création ET édition d'un exercice : un identifiant dans l'URL fait passer
+ * l'écran en mode édition. Le formulaire est le même, il n'y a pas de raison
+ * de l'écrire deux fois.
+ */
 export default function NewExerciseScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [existing, setExisting] = useState<Exercise | null>(null);
   const [name, setName] = useState('');
   const [isUnilateral, setIsUnilateral] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -20,12 +29,39 @@ export default function NewExerciseScreen() {
 
   useEffect(() => {
     findAllMeasurements().then(setMeasurements).catch((e) => setError(String(e)));
-  }, []);
+    if (!id) return;
+
+    findAll()
+      .then((all) => {
+        const exercise = all.find((candidate) => candidate.id === id);
+        if (!exercise) return;
+        setExisting(exercise);
+        setName(exercise.name);
+        setIsUnilateral(exercise.isUnilateral);
+        setSelected([...exercise.measurementIds]);
+      })
+      .catch((e) => setError(String(e)));
+  }, [id]);
 
   async function submit() {
     try {
       // Aucune validation ici : les règles appartiennent au domaine.
-      await createExercise({ name, isUnilateral, measurementIds: selected });
+      if (existing) {
+        await updateExercise({ exercise: existing, name, measurementIds: selected });
+      } else {
+        await createExercise({ name, isUnilateral, measurementIds: selected });
+      }
+      router.back();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Archivé s'il a déjà servi, supprimé sinon : c'est la base qui tranche. */
+  async function discard() {
+    if (!existing) return;
+    try {
+      await discardExercise(existing);
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -35,7 +71,11 @@ export default function NewExerciseScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
-        <BackHeader title="Nouvel exercice" onBack={() => router.back()} />
+        <BackHeader
+          title={existing ? "Modifier l'exercice" : 'Nouvel exercice'}
+          subtitle={existing ? 'les séances passées ne changent pas' : undefined}
+          onBack={() => router.back()}
+        />
       </View>
 
       <ScrollView contentContainerClassName="gap-6 px-5 pb-8">
@@ -103,6 +143,9 @@ export default function NewExerciseScreen() {
           </View>
           <Switch
             value={isUnilateral}
+            // Le caractère unilatéral n'est pas modifiable : il changerait le
+            // sens des performances déjà enregistrées.
+            disabled={existing !== null}
             onValueChange={setIsUnilateral}
             trackColor={{ true: '#BFF04A', false: '#C3C8B8' }}
             thumbColor="#FFFFFF"
@@ -113,8 +156,16 @@ export default function NewExerciseScreen() {
       </ScrollView>
 
       <View className="gap-2 p-5 pt-2">
-        <Button label="Créer l'exercice" size="lg" onPress={submit} />
-        <Button label="Annuler" variant="ghost" size="md" onPress={() => router.back()} />
+        <Button
+          label={existing ? 'Enregistrer' : "Créer l'exercice"}
+          size="lg"
+          onPress={submit}
+        />
+        {existing ? (
+          <Button label="Retirer du catalogue" variant="danger" size="md" onPress={discard} />
+        ) : (
+          <Button label="Annuler" variant="ghost" size="md" onPress={() => router.back()} />
+        )}
       </View>
     </SafeAreaView>
   );

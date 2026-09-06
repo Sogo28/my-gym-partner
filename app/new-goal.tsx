@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Aggregation, Condition, ProgressionStep } from '../src/domain/goal/goal';
-import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
+import { findAllMeasurements } from '../src/infra/exercise-repository';
+import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
@@ -55,7 +56,7 @@ export default function NewGoalScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([findAllExercises(), findAllMeasurements()])
+    Promise.all([listActiveExercises(), findAllMeasurements()])
       .then(([all, allMeasurements]) => {
         setExercises(all);
         setMeasurements(allMeasurements);

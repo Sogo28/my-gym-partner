@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
-import { findAll } from '../../src/infra/planned-workout-repository';
+import { listActiveWorkouts } from '../../src/use-cases/edit-catalogue';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { EmptyState } from '../../src/ui/empty-state';
@@ -18,7 +18,7 @@ export default function WorkoutsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([findAll(), findAllExercises()])
+      Promise.all([listActiveWorkouts(), findAllExercises()])
         .then(([plans, allExercises]) => {
           setWorkouts(plans);
           setExercises(allExercises);

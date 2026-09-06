@@ -435,10 +435,14 @@ export default function SessionScreen() {
         visible={sheet === 'pick-exercise'}
         title="Ajouter un exercice"
         description="Hors programme : ses séries seront enregistrées normalement."
-        actions={exercises.map((exercise) => ({
-          label: exercise.name,
-          onPress: () => addExercise(exercise.id),
-        }))}
+        // La liste complète sert à nommer les exercices déjà faits ; on ne
+        // propose en revanche que ceux encore au catalogue.
+        actions={exercises
+          .filter((exercise) => !exercise.isArchived)
+          .map((exercise) => ({
+            label: exercise.name,
+            onPress: () => addExercise(exercise.id),
+          }))}
         searchPlaceholder="Rechercher un exercice"
         onClose={() => setSheet('none')}
       />
