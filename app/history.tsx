@@ -9,6 +9,12 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { listSessionSummaries, type SessionSummary } from '../src/use-cases/session-summary';
+import {
+  applyBackup,
+  pickBackup,
+  shareBackup,
+  type BackupPreview,
+} from '../src/use-cases/backup-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
@@ -38,6 +44,9 @@ export default function HistoryScreen() {
     measurementIds: readonly string[];
     values: Record<string, number>;
   } | null>(null);
+  /** La sauvegarde choisie, en attente de confirmation. */
+  const [restoring, setRestoring] = useState<BackupPreview | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     // Le résumé est calculé par le use case : l'écran ne fait plus que
@@ -85,6 +94,40 @@ export default function HistoryScreen() {
       session.startedAt.getMonth() === new Date().getMonth() &&
       session.startedAt.getFullYear() === new Date().getFullYear(),
   ).length;
+
+  async function backup() {
+    setBusy(true);
+    try {
+      await shareBackup();
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function choose() {
+    try {
+      setRestoring(await pickBackup());
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  async function restore() {
+    if (!restoring) return;
+    const chosen = restoring;
+    setRestoring(null);
+    try {
+      await applyBackup(chosen.backup);
+      await load();
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
@@ -176,7 +219,43 @@ export default function HistoryScreen() {
             </Card>
           );
         })}
+        <View className="mt-4 gap-2 border-t border-border pt-4 dark:border-border-dark">
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu
+            ranges où tu veux.
+          </Text>
+          <View className="flex-row gap-2">
+            <Button
+              label={busy ? 'Préparation…' : 'Sauvegarder'}
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              disabled={busy}
+              onPress={backup}
+            />
+            <Button
+              label="Restaurer"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={choose}
+            />
+          </View>
+        </View>
       </ScrollView>
+
+      <Sheet
+        visible={restoring !== null}
+        title="Restaurer cette sauvegarde ?"
+        description={
+          restoring
+            ? `Du ${formatDateTime(restoring.exportedAt)} · ${restoring.exercises} exercice(s), ` +
+              `${restoring.sessions} séance(s). Tout ce que contient l'application sera remplacé.`
+            : undefined
+        }
+        actions={[{ label: 'Remplacer mes données', tone: 'danger', onPress: restore }]}
+        onClose={() => setRestoring(null)}
+      />
 
       <Sheet
         visible={editing !== null}

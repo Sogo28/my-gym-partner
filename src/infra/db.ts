@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 14;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 

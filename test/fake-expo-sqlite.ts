@@ -10,6 +10,9 @@ import { DatabaseSync } from 'node:sqlite';
  */
 let db = new DatabaseSync(':memory:');
 
+/** Peuplés par les migrations et référencés partout : jamais effacés. */
+const CATALOGUES = ['measurements', 'muscles'];
+
 /** Vide les données entre deux tests, en gardant schéma et catalogue. */
 export function __clearData(): void {
   const tables = db
@@ -23,9 +26,9 @@ export function __clearData(): void {
   // suppression n'a alors pas d'importance.
   db.exec('PRAGMA foreign_keys = OFF;');
   for (const { name } of tables) {
-    // measurements est un catalogue installé par la migration 1, pas une
-    // donnée de test : le vider casserait toutes les clés étrangères.
-    if (name !== 'measurements') db.exec(`DELETE FROM ${name};`);
+    // Les catalogues sont installés par les migrations, pas par les tests :
+    // les vider casserait les clés étrangères qui les visent.
+    if (!CATALOGUES.includes(name)) db.exec(`DELETE FROM ${name};`);
   }
   db.exec('PRAGMA foreign_keys = ON;');
 }
