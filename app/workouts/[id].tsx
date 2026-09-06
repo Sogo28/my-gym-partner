@@ -1,4 +1,3 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
@@ -10,6 +9,7 @@ import { findAll as findAllExercises, findAllMeasurements } from '../../src/infr
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
 import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
+import { DatePickerSheet } from '../../src/ui/date-picker';
 import { BackHeader } from '../../src/ui/screen-header';
 import { discardWorkout } from '../../src/use-cases/edit-catalogue';
 import { scheduleWorkout } from '../../src/use-cases/scheduling-actions';
@@ -152,20 +152,13 @@ export default function WorkoutDetailScreen() {
         />
       </View>
 
-      {picking && (
-        <DateTimePicker
-          value={new Date()}
-          mode="datetime"
-          // Le sélecteur natif rend null quand l'utilisateur annule.
-          onChange={(event, date) => {
-            if (event.type === 'dismissed' || !date) {
-              setPicking(false);
-              return;
-            }
-            schedule(date);
-          }}
-        />
-      )}
+      <DatePickerSheet
+        visible={picking}
+        title="Programmer cet entraînement"
+        confirmLabel="Programmer"
+        onConfirm={schedule}
+        onClose={() => setPicking(false)}
+      />
     </SafeAreaView>
   );
 }

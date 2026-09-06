@@ -25,8 +25,7 @@
       "expo-sqlite",
       "expo-router",
       "expo-font",
-      "expo-splash-screen",
-      "@react-native-community/datetimepicker"
+      "expo-splash-screen"
     ],
     "scheme": "mygympartner"
   }
