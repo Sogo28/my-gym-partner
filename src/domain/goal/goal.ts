@@ -1,5 +1,6 @@
 import type { ExerciseId } from '../exercise/exercise';
 import type { MeasurementId } from '../exercise/measurement';
+import { DomainError } from '../domain-error';
 
 export type GoalId = string;
 export type GoalStatus = 'ACTIVE' | 'ARCHIVED';
@@ -164,13 +165,13 @@ export class Goal {
   /** AdvanceProgression : jamais automatique, c'est un choix (n°17, n°18). */
   advance(): void {
     if (this._status !== 'ACTIVE') {
-      throw new Error('Cet objectif est archivé.');
+      throw new DomainError('Cet objectif est archivé.');
     }
     if (this._target.kind === 'simple') {
-      throw new Error("Cet objectif n'a pas d'étapes.");
+      throw new DomainError("Cet objectif n'a pas d'étapes.");
     }
     if (this.isOnLastStep) {
-      throw new Error('Cet objectif est déjà à sa dernière étape.');
+      throw new DomainError('Cet objectif est déjà à sa dernière étape.');
     }
     this._currentStep += 1;
   }
@@ -183,7 +184,7 @@ export class Goal {
 function normalizeName(name: string): string {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    throw new Error("Le nom d'un objectif ne peut pas être vide.");
+    throw new DomainError("Le nom d'un objectif ne peut pas être vide.");
   }
   return trimmed;
 }
@@ -191,14 +192,14 @@ function normalizeName(name: string): string {
 function checkTarget(target: GoalTarget): GoalTarget {
   if (target.kind === 'simple') {
     if (target.requirements.length === 0) {
-      throw new Error('Un objectif simple doit avoir au moins un requirement.');
+      throw new DomainError('Un objectif simple doit avoir au moins un requirement.');
     }
     target.requirements.forEach(checkRequirement);
     return target;
   }
 
   if (target.steps.length === 0) {
-    throw new Error('Une progression doit avoir au moins une étape.');
+    throw new DomainError('Une progression doit avoir au moins une étape.');
   }
   for (const step of target.steps) {
     step.requirements.forEach(checkRequirement);
@@ -208,11 +209,11 @@ function checkTarget(target: GoalTarget): GoalTarget {
 
 function checkRequirement(requirement: Requirement): void {
   if (requirement.conditions.length === 0) {
-    throw new Error('Un requirement sans condition ne pourrait jamais être évalué.');
+    throw new DomainError('Un requirement sans condition ne pourrait jamais être évalué.');
   }
   for (const condition of requirement.conditions) {
     if (condition.aggregation !== 'setCount' && condition.measurementId === null) {
-      throw new Error('Cette condition doit préciser la mesure qu elle observe.');
+      throw new DomainError('Cette condition doit préciser la mesure qu elle observe.');
     }
   }
 }

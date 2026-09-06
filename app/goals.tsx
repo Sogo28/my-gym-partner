@@ -1,18 +1,20 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Condition, EvaluationWindow, Goal } from '../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
+import { messageOf } from '../src/ui/message';
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader } from '../src/ui/screen-header';
 import {
   advanceProgression,
+  archiveGoal,
   evaluateGoal,
   listGoals,
   type GoalEvaluation,
@@ -43,7 +45,7 @@ export default function GoalsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      reload().catch((e) => setError(String(e)));
+      reload().catch((e) => setError(messageOf(e)));
     }, [reload]),
   );
 
@@ -100,11 +102,23 @@ export default function GoalsScreen() {
                 <Text className="shrink font-extrabold text-heading text-ink dark:text-ink-dark">
                   {goal.name}
                 </Text>
-                <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-                  {goal.isProgressive
-                    ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
-                    : 'objectif simple'}
-                </Text>
+                <View className="items-end gap-1">
+                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                    {goal.isProgressive
+                      ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
+                      : 'objectif simple'}
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      archiveGoal(goal)
+                        .then(reload)
+                        .catch((e) => setError(messageOf(e)))
+                    }
+                    hitSlop={8}
+                  >
+                    <Text className="text-[12px] text-muted dark:text-muted-dark">archiver</Text>
+                  </Pressable>
+                </View>
               </View>
 
               <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
@@ -156,7 +170,7 @@ export default function GoalsScreen() {
                     onPress={() =>
                       advanceProgression(goal)
                         .then(reload)
-                        .catch((e) => setError(String(e)))
+                        .catch((e) => setError(messageOf(e)))
                     }
                   />
                 </View>

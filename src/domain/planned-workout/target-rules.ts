@@ -1,6 +1,7 @@
 import type { ExerciseId } from '../exercise/exercise';
 import type { MeasurementId } from '../exercise/measurement';
 import type { PlannedExercise } from './planned-workout';
+import { DomainError } from '../domain-error';
 
 /**
  * Une règle métier qui traverse deux agrégats : une série ne peut cibler que
@@ -21,12 +22,12 @@ export function assertTargetsAreMeasurable(
   for (const planned of exercises) {
     const allowed = measurementsByExercise.get(planned.exerciseId);
     if (!allowed) {
-      throw new Error("Cet exercice n'existe pas.");
+      throw new DomainError("Cet exercice n'existe pas.");
     }
     for (const set of planned.sets) {
       for (const measurementId of Object.keys(set.targets)) {
         if (!allowed.includes(measurementId)) {
-          throw new Error(
+          throw new DomainError(
             `Cet exercice ne se mesure pas en "${measurementId}", la série ne peut pas le cibler.`,
           );
         }

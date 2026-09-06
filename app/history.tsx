@@ -1,4 +1,5 @@
 import { useFocusEffect } from 'expo-router';
+import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,7 +57,7 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load().catch((e) => setError(String(e)));
+      load().catch((e) => setError(messageOf(e)));
     }, [load]),
   );
 
@@ -72,7 +73,7 @@ export default function HistoryScreen() {
       await load();
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 

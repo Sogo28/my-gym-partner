@@ -1,5 +1,6 @@
 import type { ExerciseId } from '../exercise/exercise';
 import type { MeasurementId } from '../exercise/measurement';
+import { DomainError } from '../domain-error';
 
 export type ExercisePerformanceId = string;
 
@@ -50,7 +51,7 @@ export class ExercisePerformance {
     at: Date;
   }): ExercisePerformance {
     if (input.measurementIds.length === 0) {
-      throw new Error('Un exercice sans mesure ne peut pas être enregistré.');
+      throw new DomainError('Un exercice sans mesure ne peut pas être enregistré.');
     }
     return new ExercisePerformance(
       input.id,
@@ -93,7 +94,7 @@ export class ExercisePerformance {
 
   startSet(at: Date): void {
     if (this.currentSet) {
-      throw new Error('Une série est déjà en cours.');
+      throw new DomainError('Une série est déjà en cours.');
     }
     this._sets.push({ status: 'IN_PROGRESS', values: {}, startedAt: at, endedAt: null });
   }
@@ -140,10 +141,10 @@ export class ExercisePerformance {
   correctSetValues(setIndex: number, values: SetValues): void {
     const set = this._sets[setIndex];
     if (!set) {
-      throw new Error("Cette série n'existe pas.");
+      throw new DomainError("Cette série n'existe pas.");
     }
     if (set.status === 'IN_PROGRESS') {
-      throw new Error("Cette série est encore en cours : termine-la d'abord.");
+      throw new DomainError("Cette série est encore en cours : termine-la d'abord.");
     }
     this._sets[setIndex] = { ...set, values: this.checkValues(values) };
   }
@@ -151,7 +152,7 @@ export class ExercisePerformance {
   private replaceCurrentSet(status: PerformanceSetStatus, values: SetValues, at: Date): void {
     const current = this.currentSet;
     if (!current) {
-      throw new Error("Aucune série n'est en cours.");
+      throw new DomainError("Aucune série n'est en cours.");
     }
     this._sets[this._sets.length - 1] = { ...current, status, values, endedAt: at };
   }
@@ -159,16 +160,16 @@ export class ExercisePerformance {
   private checkValues(values: SetValues): SetValues {
     const entries = Object.entries(values);
     if (entries.length === 0) {
-      throw new Error('Une série complétée doit avoir au moins une valeur.');
+      throw new DomainError('Une série complétée doit avoir au moins une valeur.');
     }
     for (const [measurementId, value] of entries) {
       // La performance connaît les mesures de son exercice : elle peut donc
       // refuser une valeur qui n'a pas de sens pour lui.
       if (!this.measurementIds.includes(measurementId)) {
-        throw new Error(`Cet exercice ne se mesure pas en "${measurementId}".`);
+        throw new DomainError(`Cet exercice ne se mesure pas en "${measurementId}".`);
       }
       if (!Number.isFinite(value) || value < 0) {
-        throw new Error(`La valeur de "${measurementId}" doit être un nombre positif.`);
+        throw new DomainError(`La valeur de "${measurementId}" doit être un nombre positif.`);
       }
     }
     return Object.fromEntries(entries);

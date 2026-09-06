@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { messageOf } from '../src/ui/message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
@@ -10,7 +11,11 @@ import { Button } from '../src/ui/button';
 import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
-import { discardExercise, updateExercise } from '../src/use-cases/edit-catalogue';
+import {
+  discardExercise,
+  unarchiveExercise,
+  updateExercise,
+} from '../src/use-cases/edit-catalogue';
 
 /**
  * Création ET édition d'un exercice : un identifiant dans l'URL fait passer
@@ -28,7 +33,7 @@ export default function NewExerciseScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    findAllMeasurements().then(setMeasurements).catch((e) => setError(String(e)));
+    findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
     if (!id) return;
 
     findAll()
@@ -40,7 +45,7 @@ export default function NewExerciseScreen() {
         setIsUnilateral(exercise.isUnilateral);
         setSelected([...exercise.measurementIds]);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(messageOf(e)));
   }, [id]);
 
   async function submit() {
@@ -53,7 +58,7 @@ export default function NewExerciseScreen() {
       }
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -64,7 +69,7 @@ export default function NewExerciseScreen() {
       await discardExercise(existing);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -161,7 +166,18 @@ export default function NewExerciseScreen() {
           size="lg"
           onPress={submit}
         />
-        {existing ? (
+        {existing?.isArchived ? (
+          <Button
+            label="Remettre au catalogue"
+            variant="secondary"
+            size="md"
+            onPress={() =>
+              unarchiveExercise(existing)
+                .then(() => router.back())
+                .catch((e) => setError(messageOf(e)))
+            }
+          />
+        ) : existing ? (
           <Button label="Retirer du catalogue" variant="danger" size="md" onPress={discard} />
         ) : (
           <Button label="Annuler" variant="ghost" size="md" onPress={() => router.back()} />

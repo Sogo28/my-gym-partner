@@ -14,6 +14,7 @@ import {
 } from '../infra/performance-repository';
 import { findActive, save } from '../infra/workout-session-repository';
 import { markScheduleExecuted } from './scheduling-actions';
+import { DomainError } from '../domain/domain-error';
 
 /**
  * Use cases de la séance (§29). Chacun fait le même geste : charger la séance
@@ -38,7 +39,7 @@ export async function startWorkoutSession(
   scheduledWorkoutId?: string | null,
 ): Promise<WorkoutSession> {
   if (await findActive()) {
-    throw new Error('Une séance est déjà en cours. Termine-la ou annule-la d abord.');
+    throw new DomainError('Une séance est déjà en cours. Termine-la ou annule-la d abord.');
   }
 
   const session = WorkoutSession.start({
@@ -78,7 +79,7 @@ export async function startActivity(
 ): Promise<WorkoutSession> {
   const exercise = (await findAllExercises()).find((candidate) => candidate.id === exerciseId);
   if (!exercise) {
-    throw new Error("Cet exercice n'existe pas.");
+    throw new DomainError("Cet exercice n'existe pas.");
   }
 
   const now = new Date();
@@ -136,7 +137,7 @@ async function abandonRemainingSets(): Promise<void> {
 export async function goToNextExercise(): Promise<WorkoutSession> {
   const session = await findActive();
   if (!session) {
-    throw new Error("Aucune séance n'est en cours.");
+    throw new DomainError("Aucune séance n'est en cours.");
   }
 
   const activity = session.currentActivity;
@@ -216,12 +217,12 @@ async function onCurrentPerformance(
   const session = await findActive();
   const current = session?.currentActivity;
   if (!current?.performanceId) {
-    throw new Error("Aucun exercice n'est en cours.");
+    throw new DomainError("Aucun exercice n'est en cours.");
   }
 
   const performance = await findPerformanceById(current.performanceId);
   if (!performance) {
-    throw new Error('Performance introuvable.');
+    throw new DomainError('Performance introuvable.');
   }
 
   action(performance, new Date());
@@ -259,7 +260,7 @@ async function onActiveSession(
 ): Promise<WorkoutSession> {
   const session = await findActive();
   if (!session) {
-    throw new Error("Aucune séance n'est en cours.");
+    throw new DomainError("Aucune séance n'est en cours.");
   }
 
   action(session, new Date());

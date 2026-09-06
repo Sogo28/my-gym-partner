@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { messageOf } from '../src/ui/message';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -80,7 +81,7 @@ export default function NewGoalScreen() {
         setExercises(all);
         setMeasurements(allMeasurements);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(messageOf(e)));
   }, []);
 
   const exerciseOf = (id: string) => exercises.find((e) => e.id === id);
@@ -158,7 +159,7 @@ export default function NewGoalScreen() {
       }
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 

@@ -1,4 +1,5 @@
 import type { PlannedWorkoutId } from '../planned-workout/planned-workout';
+import { DomainError } from '../domain-error';
 
 export type ScheduledWorkoutId = string;
 
@@ -85,7 +86,7 @@ export class ScheduledWorkout {
 
   private requireScheduled(): void {
     if (this._status !== 'SCHEDULED') {
-      throw new Error(
+      throw new DomainError(
         this._status === 'EXECUTED'
           ? 'Cet entraînement a déjà été exécuté.'
           : 'Cet entraînement programmé a été annulé.',

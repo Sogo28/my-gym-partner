@@ -1,4 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,10 +15,12 @@ import type { ScheduledWorkout } from '../src/domain/scheduling/scheduled-workou
 import {
   cancelScheduledWorkout,
   listSchedule,
+  rescheduleWorkout,
 } from '../src/use-cases/scheduling-actions';
 import { findActive } from '../src/infra/workout-session-repository';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
+import { DatePickerSheet } from '../src/ui/date-picker';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
@@ -36,7 +39,9 @@ import {
   goToNextExercise,
   startActivity,
   startPerformanceSet,
+  startRest,
   startWorkoutSession,
+  stopRest,
 } from '../src/use-cases/workout-session-actions';
 
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
@@ -50,6 +55,8 @@ export default function SessionScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
+  /** L'entraînement programmé qu'on est en train de déplacer. */
+  const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
   const [values, setValues] = useState<Record<string, number>>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
@@ -82,7 +89,7 @@ export default function SessionScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      reload().catch((e) => setError(String(e)));
+      reload().catch((e) => setError(messageOf(e)));
     }, [reload]),
   );
 
@@ -92,7 +99,7 @@ export default function SessionScreen() {
       await reload();
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -173,7 +180,7 @@ export default function SessionScreen() {
     setValues(next);
     correctSet(editing, next)
       .then(() => setError(null))
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e) => setError(messageOf(e)));
   }
 
   /**
@@ -186,7 +193,7 @@ export default function SessionScreen() {
     setValues({});
     if (editing === index) {
       setEditing(null);
-      reload().catch((e) => setError(String(e)));
+      reload().catch((e) => setError(messageOf(e)));
     } else {
       setEditing(index);
     }
@@ -241,6 +248,11 @@ export default function SessionScreen() {
       ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
       : []),
     ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: nextExercise }] : []),
+    // Le repos s'enchaîne tout seul après une série ; ici on le commande à
+    // la main, pour souffler avant d'attaquer ou pour couper court.
+    ...(session?.currentRest
+      ? [{ label: 'Arrêter le repos', onPress: () => run(stopRest) }]
+      : [{ label: 'Démarrer un repos', onPress: () => run(startRest) }]),
     { label: 'Annuler la séance', tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
   ];
 
@@ -265,13 +277,16 @@ export default function SessionScreen() {
                 `${entry.scheduledAt.toLocaleDateString('fr-FR')} · ${String(entry.scheduledAt.getHours()).padStart(2, '0')}:${String(entry.scheduledAt.getMinutes()).padStart(2, '0')}`}
             </Text>
           </View>
-          <Pressable
-            onPress={() => run(() => cancelScheduledWorkout(entry))}
-            hitSlop={8}
-            className="pt-1"
-          >
-            <Text className="text-[13px] text-danger dark:text-danger-dark">annuler</Text>
-          </Pressable>
+          <View className="flex-row gap-3 pt-1">
+            <Pressable onPress={() => setMoving(entry)} hitSlop={8}>
+              <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                déplacer
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => run(() => cancelScheduledWorkout(entry))} hitSlop={8}>
+              <Text className="text-[13px] text-danger dark:text-danger-dark">annuler</Text>
+            </Pressable>
+          </View>
         </View>
         <Button
           label="Démarrer"
@@ -332,6 +347,19 @@ export default function SessionScreen() {
             />
           )}
         </ScrollView>
+
+        <DatePickerSheet
+          visible={moving !== null}
+          title="Déplacer cette séance"
+          confirmLabel="Déplacer"
+          initial={moving?.scheduledAt}
+          onConfirm={(date) => {
+            const entry = moving;
+            setMoving(null);
+            if (entry) run(() => rescheduleWorkout(entry, date));
+          }}
+          onClose={() => setMoving(null)}
+        />
 
         <View className="gap-2 px-5 pb-2">
           <Button

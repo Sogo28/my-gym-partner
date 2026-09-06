@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { messageOf } from '../../src/ui/message';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +12,7 @@ import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
 import { DatePickerSheet } from '../../src/ui/date-picker';
 import { BackHeader } from '../../src/ui/screen-header';
-import { discardWorkout } from '../../src/use-cases/edit-catalogue';
+import { discardWorkout, unarchiveWorkout } from '../../src/use-cases/edit-catalogue';
 import { scheduleWorkout } from '../../src/use-cases/scheduling-actions';
 import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 
@@ -38,7 +39,7 @@ export default function WorkoutDetailScreen() {
         setExercises(allExercises);
         setMeasurements(allMeasurements);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(messageOf(e)));
   }, [id]);
 
   const nameOf = (exerciseId: string) =>
@@ -53,7 +54,7 @@ export default function WorkoutDetailScreen() {
       // n'aurait pas de sens.
       router.replace('/session');
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -78,7 +79,7 @@ export default function WorkoutDetailScreen() {
       setScheduled(at);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -89,7 +90,7 @@ export default function WorkoutDetailScreen() {
       await discardWorkout(plan);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     }
   }
 
@@ -144,12 +145,25 @@ export default function WorkoutDetailScreen() {
           size="md"
           onPress={() => setPicking(true)}
         />
-        <Button
-          label="Retirer cet entraînement"
-          variant="danger"
-          size="md"
-          onPress={discard}
-        />
+        {plan.isArchived ? (
+          <Button
+            label="Remettre au catalogue"
+            variant="secondary"
+            size="md"
+            onPress={() =>
+              unarchiveWorkout(plan)
+                .then(() => router.back())
+                .catch((e) => setError(messageOf(e)))
+            }
+          />
+        ) : (
+          <Button
+            label="Retirer cet entraînement"
+            variant="danger"
+            size="md"
+            onPress={discard}
+          />
+        )}
       </View>
 
       <DatePickerSheet

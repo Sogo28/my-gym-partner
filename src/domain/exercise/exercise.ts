@@ -1,4 +1,5 @@
 import type { MeasurementId } from './measurement';
+import { DomainError } from '../domain-error';
 
 export type ExerciseId = string;
 
@@ -89,17 +90,17 @@ export class Exercise {
 function normalizeName(name: string): string {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    throw new Error("Le nom d'un exercice ne peut pas être vide.");
+    throw new DomainError("Le nom d'un exercice ne peut pas être vide.");
   }
   return trimmed;
 }
 
 function normalizeMeasurementIds(ids: readonly MeasurementId[]): readonly MeasurementId[] {
   if (ids.length === 0) {
-    throw new Error('Un exercice doit être mesurable par au moins une mesure.');
+    throw new DomainError('Un exercice doit être mesurable par au moins une mesure.');
   }
   if (new Set(ids).size !== ids.length) {
-    throw new Error('Un exercice ne peut pas référencer deux fois la même mesure.');
+    throw new DomainError('Un exercice ne peut pas référencer deux fois la même mesure.');
   }
   return [...ids];
 }

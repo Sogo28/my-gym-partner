@@ -1,5 +1,6 @@
 import { findById, save } from '../infra/performance-repository';
 import type { SetValues } from '../domain/performance/exercise-performance';
+import { DomainError } from '../domain/domain-error';
 
 /**
  * Corriger une série d'une séance passée.
@@ -16,7 +17,7 @@ export async function correctPastSet(input: {
 }): Promise<void> {
   const performance = await findById(input.performanceId);
   if (!performance) {
-    throw new Error('Performance introuvable.');
+    throw new DomainError('Performance introuvable.');
   }
 
   performance.correctSetValues(input.setIndex, input.values);

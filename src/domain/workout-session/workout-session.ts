@@ -2,6 +2,7 @@ import type { ExerciseId } from '../exercise/exercise';
 import type { ExercisePerformanceId } from '../performance/exercise-performance';
 import type { PlannedWorkoutId } from '../planned-workout/planned-workout';
 import type { ScheduledWorkoutId } from '../scheduling/scheduled-workout';
+import { DomainError } from '../domain-error';
 
 export type WorkoutSessionId = string;
 
@@ -138,7 +139,7 @@ export class WorkoutSession {
   startRest(at: Date): void {
     this.requireActive();
     if (this.currentRest) {
-      throw new Error('Un repos est déjà en cours.');
+      throw new DomainError('Un repos est déjà en cours.');
     }
     this._rests.push({ startedAt: at, endedAt: null });
   }
@@ -148,7 +149,7 @@ export class WorkoutSession {
     this.requireActive();
     const current = this.currentRest;
     if (!current) {
-      throw new Error("Aucun repos n'est en cours.");
+      throw new DomainError("Aucun repos n'est en cours.");
     }
     this._rests[this._rests.length - 1] = { ...current, endedAt: at };
   }
@@ -171,7 +172,7 @@ export class WorkoutSession {
   ): void {
     this.requireActive();
     if (this.currentActivity) {
-      throw new Error("Termine l'exercice en cours avant d'en commencer un autre.");
+      throw new DomainError("Termine l'exercice en cours avant d'en commencer un autre.");
     }
     this._activities.push({
       exerciseId,
@@ -186,7 +187,7 @@ export class WorkoutSession {
     this.requireActive();
     const index = this._activities.length - 1;
     if (!this.currentActivity) {
-      throw new Error("Aucun exercice n'est en cours.");
+      throw new DomainError("Aucun exercice n'est en cours.");
     }
     this._activities[index] = { ...this._activities[index], finishedAt: at };
   }
@@ -225,7 +226,7 @@ export class WorkoutSession {
 
   private requireActive(): void {
     if (this._status !== 'ACTIVE') {
-      throw new Error(
+      throw new DomainError(
         this._status === 'COMPLETED'
           ? 'Cette séance est déjà terminée.'
           : 'Cette séance a été annulée.',

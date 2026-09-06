@@ -1,5 +1,6 @@
 import type { ExerciseId } from '../exercise/exercise';
 import type { MeasurementId } from '../exercise/measurement';
+import { DomainError } from '../domain-error';
 
 export type PlannedWorkoutId = string;
 
@@ -118,7 +119,7 @@ export class PlannedWorkout {
     const index = requirePosition(this._exercises, position);
     const exercise = this._exercises[index];
     if (setIndex < 0 || setIndex >= exercise.sets.length) {
-      throw new Error("Cette série n'existe pas dans cet exercice.");
+      throw new DomainError("Cette série n'existe pas dans cet exercice.");
     }
     this._exercises[index] = {
       ...exercise,
@@ -136,7 +137,7 @@ export class PlannedWorkout {
 function normalizeName(name: string): string {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    throw new Error("Le nom d'un entraînement ne peut pas être vide.");
+    throw new DomainError("Le nom d'un entraînement ne peut pas être vide.");
   }
   return trimmed;
 }
@@ -152,12 +153,12 @@ function normalizeTargets(targets: TargetValues): TargetValues {
   const entries = Object.entries(targets);
 
   if (entries.length === 0) {
-    throw new Error('Une série planifiée doit cibler au moins une mesure.');
+    throw new DomainError('Une série planifiée doit cibler au moins une mesure.');
   }
   for (const [measurementId, value] of entries) {
     // 0 est autorisé : un tirage au poids du corps cible bien 0 kg ajouté.
     if (!Number.isFinite(value) || value < 0) {
-      throw new Error(`La cible de "${measurementId}" doit être un nombre positif.`);
+      throw new DomainError(`La cible de "${measurementId}" doit être un nombre positif.`);
     }
   }
   return Object.fromEntries(entries);
@@ -165,7 +166,7 @@ function normalizeTargets(targets: TargetValues): TargetValues {
 
 function requirePosition(exercises: readonly PlannedExercise[], position: number): number {
   if (!Number.isInteger(position) || position < 0 || position >= exercises.length) {
-    throw new Error("Cet exercice n'existe pas dans cet entraînement.");
+    throw new DomainError("Cet exercice n'existe pas dans cet entraînement.");
   }
   return position;
 }

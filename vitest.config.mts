@@ -1,6 +1,14 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  test: {
+    // Les fichiers de test partagent une base en mémoire portée par le module
+    // qui remplace expo-sqlite. Deux fichiers exécutés en même temps dans le
+    // même processus s'effaceraient donc mutuellement leurs données : chacun
+    // a son propre processus.
+    fileParallelism: false,
+    isolate: true,
+  },
   resolve: {
     alias: {
       // Les deux seuls modules d'Expo qu'atteignent le domaine et les use

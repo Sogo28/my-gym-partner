@@ -1,4 +1,5 @@
 import { Link, useFocusEffect } from 'expo-router';
+import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +23,7 @@ export default function ExercisesScreen() {
           setExercises(all);
           setMeasurements(allMeasurements);
         })
-        .catch((e) => setError(String(e)));
+        .catch((e) => setError(messageOf(e)));
     }, []),
   );
 
