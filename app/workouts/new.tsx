@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
@@ -39,14 +39,20 @@ export default function NewWorkoutScreen() {
   const [inputs, setInputs] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([listActiveExercises(), findAllMeasurements()])
-      .then(([exercises, allMeasurements]) => {
-        setAvailable(exercises);
-        setMeasurements(allMeasurements);
-      })
-      .catch((e) => setError(messageOf(e)));
+  // Les exercices disponibles se rechargent à chaque affichage...
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([listActiveExercises(), findAllMeasurements()])
+        .then(([exercises, allMeasurements]) => {
+          setAvailable(exercises);
+          setMeasurements(allMeasurements);
+        })
+        .catch((e) => setError(messageOf(e)));
+    }, []),
+  );
 
+  // ...mais le brouillon en cours d'édition une seule fois.
+  useEffect(() => {
     if (!id) return;
     findAllPlans()
       .then((plans) => {

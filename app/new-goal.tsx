@@ -1,11 +1,11 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
   describeSource,
   WINDOW_LABELS,
 } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -54,15 +54,19 @@ export default function NewGoalScreen() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([listActiveExercises(), findAllMeasurements(), listMetrics()])
-      .then(([all, allMeasurements, allMetrics]) => {
-        setExercises(all);
-        setMeasurements(allMeasurements);
-        setMetrics(allMetrics);
-      })
-      .catch((e) => setError(messageOf(e)));
-  }, []);
+  // À chaque affichage, et non au seul montage : un exercice ou une
+  // mensuration créés entre-temps doivent apparaître ici.
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([listActiveExercises(), findAllMeasurements(), listMetrics()])
+        .then(([all, allMeasurements, allMetrics]) => {
+          setExercises(all);
+          setMeasurements(allMeasurements);
+          setMetrics(allMetrics);
+        })
+        .catch((e) => setError(messageOf(e)));
+    }, []),
+  );
 
   const exerciseOf = (id: string) => exercises.find((e) => e.id === id);
   const metricOf = (id: string) => metrics.find((m) => m.id === id);

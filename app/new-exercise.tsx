@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { messageOf } from '../src/ui/message';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -35,9 +35,17 @@ export default function NewExerciseScreen() {
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Les catalogues se rechargent à chaque affichage...
+  useFocusEffect(
+    useCallback(() => {
+      findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
+      findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
+    }, []),
+  );
+
+  // ...mais l'exercice à modifier une seule fois : le relire écraserait ce
+  // qu'on est en train de saisir.
   useEffect(() => {
-    findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
-    findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
     if (!id) return;
 
     findAll()

@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
@@ -33,15 +33,19 @@ export default function WorkoutDetailScreen() {
   const [picking, setPicking] = useState(false);
   const [scheduled, setScheduled] = useState<Date | null>(null);
 
-  useEffect(() => {
-    Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
-      .then(([plans, allExercises, allMeasurements]) => {
-        setPlan(plans.find((candidate) => candidate.id === id) ?? null);
-        setExercises(allExercises);
-        setMeasurements(allMeasurements);
-      })
-      .catch((e) => setError(messageOf(e)));
-  }, [id]);
+  // À chaque affichage : revenir de l'écran d'édition doit montrer
+  // l'entraînement modifié, pas celui d'avant.
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
+        .then(([plans, allExercises, allMeasurements]) => {
+          setPlan(plans.find((candidate) => candidate.id === id) ?? null);
+          setExercises(allExercises);
+          setMeasurements(allMeasurements);
+        })
+        .catch((e) => setError(messageOf(e)));
+    }, [id]),
+  );
 
   const nameOf = (exerciseId: string) =>
     exercises.find((e) => e.id === exerciseId)?.name ?? exerciseId;
