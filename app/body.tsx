@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BodyMetric, BodyReading } from '../src/domain/body/body-metric';
 import { Button } from '../src/ui/button';
@@ -12,7 +12,11 @@ import { BusinessNotice } from '../src/ui/notice';
 import { NumberField } from '../src/ui/number-field';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
+import type { Muscle } from '../src/domain/exercise/muscle';
+import { findAllMuscles } from '../src/infra/exercise-repository';
 import {
+  createMetric,
+  deleteMetric,
   deleteReading,
   listAllReadings,
   listMetrics,
@@ -29,12 +33,24 @@ export default function BodyScreen() {
   const [readings, setReadings] = useState<BodyReading[]>([]);
   const [recording, setRecording] = useState<BodyMetric | null>(null);
   const [value, setValue] = useState(0);
+  const [muscles, setMuscles] = useState<Muscle[]>([]);
+  /** La mensuration en cours de création : nom, unité, muscles concernés. */
+  const [creating, setCreating] = useState<{
+    name: string;
+    unit: string;
+    muscleIds: string[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [allMetrics, allReadings] = await Promise.all([listMetrics(), listAllReadings()]);
+    const [allMetrics, allReadings, allMuscles] = await Promise.all([
+      listMetrics(),
+      listAllReadings(),
+      findAllMuscles(),
+    ]);
     setMetrics(allMetrics);
     setReadings(allReadings);
+    setMuscles(allMuscles);
   }, []);
 
   useFocusEffect(
@@ -68,6 +84,29 @@ export default function BodyScreen() {
     setRecording(null);
     try {
       await recordReading({ metricId: metric.id, value });
+      await reload();
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  async function saveMetric() {
+    if (!creating) return;
+    const draft = creating;
+    setCreating(null);
+    try {
+      await createMetric(draft);
+      await reload();
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  async function removeMetric(metric: BodyMetric) {
+    try {
+      await deleteMetric(metric);
       await reload();
       setError(null);
     } catch (e) {
@@ -154,12 +193,23 @@ export default function BodyScreen() {
                 </View>
               ))}
 
-              <Button
-                label="Nouveau relevé"
-                variant="secondary"
-                size="md"
-                onPress={() => open(metric)}
-              />
+              <View className="flex-row gap-2">
+                <Button
+                  label="Nouveau relevé"
+                  variant="secondary"
+                  size="md"
+                  className="flex-1"
+                  onPress={() => open(metric)}
+                />
+                {!metric.isBuiltIn && (
+                  <Button
+                    label="Supprimer"
+                    variant="danger"
+                    size="md"
+                    onPress={() => removeMetric(metric)}
+                  />
+                )}
+              </View>
             </Card>
           );
         })}
@@ -182,7 +232,101 @@ export default function BodyScreen() {
             </View>
           </View>
         )}
+        <Button
+          label="Nouvelle mensuration"
+          variant="secondary"
+          size="md"
+          className="mt-2"
+          onPress={() => setCreating({ name: '', unit: 'cm', muscleIds: [] })}
+        />
       </ScrollView>
+
+      <Sheet
+        visible={creating !== null}
+        title="Nouvelle mensuration"
+        description="Ce que tu mesures, son unité, et les muscles qu'elle concerne."
+        onClose={() => setCreating(null)}
+      >
+        {creating && (
+          <View className="gap-3 pb-2">
+            <TextInput
+              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+              placeholder="Tour de fesses"
+              placeholderTextColor="#A8AD9E"
+              value={creating.name}
+              onChangeText={(name) => setCreating((current) => current && { ...current, name })}
+            />
+
+            <View className="flex-row gap-2">
+              {['cm', 'kg', '%'].map((unit) => (
+                <Pressable
+                  key={unit}
+                  onPress={() => setCreating((current) => current && { ...current, unit })}
+                  className={
+                    creating.unit === unit
+                      ? 'h-11 justify-center rounded-full bg-primary px-4'
+                      : 'h-11 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
+                  }
+                >
+                  <Text
+                    className={
+                      creating.unit === unit
+                        ? 'font-bold text-[13px] text-ink'
+                        : 'text-[13px] text-muted dark:text-muted-dark'
+                    }
+                  >
+                    {unit}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Les muscles concernés : c'est par eux qu'on retrouvera les
+                exercices qui soutiennent la progression. */}
+            <Text className="text-[13px] text-muted dark:text-muted-dark">
+              Muscles concernés — facultatif, mais c'est ce qui reliera cette mensuration à tes
+              exercices.
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {muscles.map((muscle) => {
+                const on = creating.muscleIds.includes(muscle.id);
+                return (
+                  <Pressable
+                    key={muscle.id}
+                    onPress={() =>
+                      setCreating((current) =>
+                        current && {
+                          ...current,
+                          muscleIds: on
+                            ? current.muscleIds.filter((id) => id !== muscle.id)
+                            : [...current.muscleIds, muscle.id],
+                        },
+                      )
+                    }
+                    className={
+                      on
+                        ? 'h-10 justify-center rounded-full bg-primary-soft px-3 dark:bg-primary-soft-dark'
+                        : 'h-10 justify-center rounded-full border border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark'
+                    }
+                  >
+                    <Text
+                      className={
+                        on
+                          ? 'font-bold text-[12px] text-primary-ink dark:text-primary-ink-dark'
+                          : 'text-[12px] text-muted dark:text-muted-dark'
+                      }
+                    >
+                      {muscle.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Button label="Créer" size="md" onPress={saveMetric} />
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         visible={recording !== null}

@@ -42,6 +42,7 @@ export const WINDOW_LABELS: { value: EvaluationWindow; label: string }[] = [
 
 /** « moyenne des valeurs lors de la dernière séance ». */
 export function describeSource(condition: Condition): string {
+  if (condition.window === 'LATEST_READING') return 'valeur de ton dernier relevé';
   return `${AGGREGATION_PHRASES[condition.aggregation]} ${WINDOW_PHRASES[condition.window]}`;
 }
 
@@ -54,6 +55,12 @@ export function describeCondition(
   condition: Condition,
   unitOf: (measurementId: string) => string,
 ): string {
+  // Un relevé est une valeur unique : moyenne, meilleure ou cumul y donnent
+  // tous le même nombre. Nommer l'agrégation ne ferait qu'embrouiller.
+  if (condition.window === 'LATEST_READING') {
+    return `${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
+  }
+
   if (condition.aggregation === 'setCount') {
     return `séries complétées ${condition.operator} ${condition.target}`;
   }

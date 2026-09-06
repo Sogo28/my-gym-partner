@@ -203,6 +203,9 @@ export default function NewGoalScreen() {
         {entries.map((entry, index) => {
           const available = measurementsOf(entry.subject);
           const windows = windowsFor(entry.subject);
+          // Un relevé est une valeur unique : il n'y a ni période ni
+          // agrégation à choisir, seulement une cible à atteindre.
+          const isReading = entry.subject.kind === 'body';
 
           return (
             <Card key={index} density="titled" className="gap-3">
@@ -227,6 +230,7 @@ export default function NewGoalScreen() {
                     </Text>
                   )}
 
+                  {!isReading && (
                   <View className="flex-row flex-wrap gap-2">
                     {AGGREGATION_LABELS.map(({ value, label }) => (
                       <Chip
@@ -245,8 +249,9 @@ export default function NewGoalScreen() {
                       />
                     ))}
                   </View>
+                  )}
 
-                  {condition.aggregation !== 'setCount' && available.length > 1 && (
+                  {!isReading && condition.aggregation !== 'setCount' && available.length > 1 && (
                       <View className="flex-row flex-wrap gap-2">
                         {available.map((measurementId) => (
                           <Chip
@@ -275,7 +280,8 @@ export default function NewGoalScreen() {
                   </View>
 
                   {/* Les périodes que ce sujet sait alimenter : une
-                      mensuration n'a pas de séances. */}
+                      mensuration n'en a qu'une, donc rien à choisir. */}
+                  {windows.length > 1 && (
                   <View className="flex-row flex-wrap gap-2">
                     {WINDOW_LABELS.filter((entry) => windows.includes(entry.value)).map(({ value, label }) => (
                       <Chip
@@ -286,6 +292,7 @@ export default function NewGoalScreen() {
                       />
                     ))}
                   </View>
+                  )}
 
                   {/* La phrase exacte que cette condition signifie. */}
                   <View className="flex-row items-center justify-between gap-3">
