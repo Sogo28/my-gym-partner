@@ -64,6 +64,16 @@ describe('PlannedWorkout', () => {
     expect(workout.exercises.map((e) => e.exerciseId)).toEqual(['row', 'dip']);
   });
 
+  it('s archive sans toucher à son contenu', () => {
+    const workout = emptyWorkout();
+    workout.addExercise('pull-up');
+
+    workout.archive();
+
+    expect(workout.isArchived).toBe(true);
+    expect(workout.exercises).toHaveLength(1);
+  });
+
   it('refuse un nom vide', () => {
     expect(() => PlannedWorkout.create({ id: 'pw-1', name: '  ' })).toThrow();
   });

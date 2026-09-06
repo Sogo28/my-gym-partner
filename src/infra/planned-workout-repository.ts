@@ -5,7 +5,7 @@ import {
 } from '../domain/planned-workout/planned-workout';
 import { getDatabase } from './db';
 
-type WorkoutRow = { id: string; name: string };
+type WorkoutRow = { id: string; name: string; archived: number };
 type ExerciseRow = { workout_id: string; position: number; exercise_id: string };
 type SetRow = {
   workout_id: string;
@@ -20,10 +20,11 @@ export async function save(workout: PlannedWorkout): Promise<void> {
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO planned_workouts (id, name) VALUES (?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name;`,
+      `INSERT INTO planned_workouts (id, name, archived) VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, archived = excluded.archived;`,
       workout.id,
       workout.name,
+      workout.isArchived ? 1 : 0,
     );
 
     // On efface puis on réécrit tout le contenu de l'agrégat. Les séries
@@ -63,10 +64,27 @@ export async function save(workout: PlannedWorkout): Promise<void> {
  * entraînement -- avec cinquante entraînements, ce serait cent-cinquante
  * allers-retours vers la base.
  */
+/** Un entraînement déjà exécuté ne se supprime pas : des séances en dépendent. */
+export async function isReferenced(workoutId: string): Promise<boolean> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ used: number }>(
+    'SELECT EXISTS (SELECT 1 FROM workout_sessions WHERE planned_workout_id = ?) AS used;',
+    workoutId,
+  );
+  return (row?.used ?? 0) === 1;
+}
+
+export async function remove(workoutId: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM planned_workouts WHERE id = ?;', workoutId);
+}
+
 export async function findAll(): Promise<PlannedWorkout[]> {
   const db = await getDatabase();
 
-  const workouts = await db.getAllAsync<WorkoutRow>('SELECT id, name FROM planned_workouts ORDER BY name;');
+  const workouts = await db.getAllAsync<WorkoutRow>(
+    'SELECT id, name, archived FROM planned_workouts ORDER BY name;',
+  );
   const exerciseRows = await db.getAllAsync<ExerciseRow>(
     'SELECT workout_id, position, exercise_id FROM planned_workout_exercises ORDER BY workout_id, position;',
   );
@@ -107,6 +125,7 @@ export async function findAll(): Promise<PlannedWorkout[]> {
       id: row.id,
       name: row.name,
       exercises: exercisesByWorkout.get(row.id) ?? [],
+      isArchived: row.archived === 1,
     }),
   );
 }

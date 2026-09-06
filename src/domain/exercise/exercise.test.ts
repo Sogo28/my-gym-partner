@@ -51,6 +51,33 @@ describe('Exercise', () => {
     expect(exercise.id).toBe('ex-1');
   });
 
+  it('peut changer ses mesures : les performances passées ont copié les leurs', () => {
+    const exercise = Exercise.create(validInput);
+
+    exercise.changeMeasurements(['duration']);
+
+    expect(exercise.measurementIds).toEqual(['duration']);
+  });
+
+  it('refuse de se retrouver sans aucune mesure après modification', () => {
+    const exercise = Exercise.create(validInput);
+
+    expect(() => exercise.changeMeasurements([])).toThrow();
+    expect(exercise.measurementIds).toEqual(['reps', 'weight']);
+  });
+
+  it('s archive sans rien perdre de son identité', () => {
+    const exercise = Exercise.create(validInput);
+
+    expect(exercise.isArchived).toBe(false);
+    exercise.archive();
+    expect(exercise.isArchived).toBe(true);
+    expect(exercise.id).toBe('ex-1');
+
+    exercise.unarchive();
+    expect(exercise.isArchived).toBe(false);
+  });
+
   it('refuse un renommage vide', () => {
     const exercise = Exercise.create(validInput);
 

@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -277,6 +277,15 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         target REAL NOT NULL,
         PRIMARY KEY (goal_id, step_position, requirement_index, condition_index)
       );
+    `);
+  }
+
+  // Migration 10 : archivage. On n'efface pas ce qui a produit de
+  // l'historique, on le retire des listes de choix.
+  if (version < 10) {
+    await db.execAsync(`
+      ALTER TABLE exercises ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE planned_workouts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
     `);
   }
 

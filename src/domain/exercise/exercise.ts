@@ -27,12 +27,24 @@ export class Exercise {
     private _name: string,
     readonly isUnilateral: boolean,
     private _measurementIds: readonly MeasurementId[],
+    private _isArchived: boolean,
   ) {}
 
   static create(input: CreateExerciseInput): Exercise {
     const name = normalizeName(input.name);
     const measurementIds = normalizeMeasurementIds(input.measurementIds);
-    return new Exercise(input.id, name, input.isUnilateral, measurementIds);
+    return new Exercise(input.id, name, input.isUnilateral, measurementIds, false);
+  }
+
+  /** Utilisé par le repository pour recharger un exercice existant. */
+  static restore(input: CreateExerciseInput & { isArchived: boolean }): Exercise {
+    return new Exercise(
+      input.id,
+      input.name,
+      input.isUnilateral,
+      [...input.measurementIds],
+      input.isArchived,
+    );
   }
 
   get name(): string {
@@ -43,8 +55,34 @@ export class Exercise {
     return this._measurementIds;
   }
 
+  get isArchived(): boolean {
+    return this._isArchived;
+  }
+
   rename(newName: string): void {
     this._name = normalizeName(newName);
+  }
+
+  /**
+   * Changer les mesures d'un exercice n'affecte AUCUNE performance passée :
+   * chacune a copié les siennes au moment où elle a eu lieu (§2). On peut
+   * donc corriger une définition sans réécrire l'histoire.
+   */
+  changeMeasurements(measurementIds: readonly MeasurementId[]): void {
+    this._measurementIds = normalizeMeasurementIds(measurementIds);
+  }
+
+  /**
+   * Archiver plutôt que supprimer : l'exercice sort des listes de choix mais
+   * reste rattaché à tout ce qu'il a produit. Supprimer romprait le lien avec
+   * des performances qui, elles, ont bien eu lieu.
+   */
+  archive(): void {
+    this._isArchived = true;
+  }
+
+  unarchive(): void {
+    this._isArchived = false;
   }
 }
 

@@ -45,17 +45,20 @@ export class PlannedWorkout {
     readonly id: PlannedWorkoutId,
     private _name: string,
     private _exercises: PlannedExercise[],
+    private _isArchived: boolean,
   ) {}
 
   static create(input: {
     id: PlannedWorkoutId;
     name: string;
     exercises?: readonly PlannedExercise[];
+    isArchived?: boolean;
   }): PlannedWorkout {
     return new PlannedWorkout(
       input.id,
       normalizeName(input.name),
       (input.exercises ?? []).map(normalizeExercise),
+      input.isArchived ?? false,
     );
   }
 
@@ -74,8 +77,24 @@ export class PlannedWorkout {
     return [...this._exercises];
   }
 
+  get isArchived(): boolean {
+    return this._isArchived;
+  }
+
   rename(newName: string): void {
     this._name = normalizeName(newName);
+  }
+
+  /**
+   * Archiver un entraînement ne touche pas aux séances qui en sont issues :
+   * elles ont eu lieu, et gardent leur lien.
+   */
+  archive(): void {
+    this._isArchived = true;
+  }
+
+  unarchive(): void {
+    this._isArchived = false;
   }
 
   addExercise(exerciseId: ExerciseId): void {
