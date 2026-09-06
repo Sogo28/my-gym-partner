@@ -135,19 +135,27 @@ async function abandonRemainingSets(): Promise<void> {
  */
 export async function goToNextExercise(): Promise<WorkoutSession> {
   const session = await findActive();
-  const activity = session?.currentActivity;
-  const plan = session?.plannedWorkoutId
+  if (!session) {
+    throw new Error("Aucune séance n'est en cours.");
+  }
+
+  const activity = session.currentActivity;
+  const plan = session.plannedWorkoutId
     ? (await findAllPlans()).find((p) => p.id === session.plannedWorkoutId)
     : undefined;
 
-  const nextPosition = activity?.plannedPosition === null ? null : (activity?.plannedPosition ?? -1) + 1;
-  const next = nextPosition !== null ? plan?.exercises[nextPosition] : undefined;
+  // Il n'y a de "suivant" que si l'exercice en cours vient du plan. Aucune
+  // activité, ou un exercice ajouté librement : rien à enchaîner.
+  const currentPosition = activity?.plannedPosition ?? null;
+  const nextPosition = currentPosition === null ? null : currentPosition + 1;
+  const next = nextPosition === null ? undefined : plan?.exercises[nextPosition];
 
-  const updated = await finishActivity();
-  if (!next || nextPosition === null) {
-    return updated;
-  }
-  return startActivity(next.exerciseId, nextPosition);
+  // Rien à clore s'il n'y a pas d'exercice en cours : le domaine refuserait.
+  const updated = activity ? await finishActivity() : session;
+
+  return next && nextPosition !== null
+    ? startActivity(next.exerciseId, nextPosition)
+    : updated;
 }
 
 /** Corriger une série déjà validée, typiquement pendant le repos. */

@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -336,6 +336,42 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       DROP TABLE goal_conditions;
       ALTER TABLE goal_conditions_v12 RENAME TO goal_conditions;
     `);
+  }
+
+  // Migration 13 : la contrainte manquante sur le lien vers la performance.
+  //
+  // Elle avait été ajoutée par ALTER TABLE (migration 4), qui ne peut pas
+  // porter de clé étrangère : rien n'empêchait donc une activité de désigner
+  // une performance inexistante. Recréer la table est le seul moyen de
+  // l'ajouter -- les lignes sont recopiées, pas effacées.
+  if (version < 13) {
+    // Les contraintes sont relâchées le temps de la manoeuvre, sinon le DROP
+    // ferait tomber les lignes qui référencent la table en cours de
+    // remplacement.
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      CREATE TABLE session_activities_v13 (
+        session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        exercise_id TEXT NOT NULL REFERENCES exercises(id),
+        performance_id TEXT REFERENCES exercise_performances(id),
+        planned_position INTEGER,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        PRIMARY KEY (session_id, position)
+      );
+
+      INSERT INTO session_activities_v13
+        (session_id, position, exercise_id, performance_id, planned_position,
+         started_at, finished_at)
+        SELECT session_id, position, exercise_id, performance_id, planned_position,
+               started_at, finished_at
+        FROM session_activities;
+
+      DROP TABLE session_activities;
+      ALTER TABLE session_activities_v13 RENAME TO session_activities;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

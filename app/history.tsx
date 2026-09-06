@@ -4,18 +4,10 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { ExercisePerformance } from '../src/domain/performance/exercise-performance';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
-import {
-  restBeforeEachSet,
-  sessionDuration,
-  totalRest,
-} from '../src/domain/workout-session/session-metrics';
-import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
-import { findByIds } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
-import { findAll as findAllSessions } from '../src/infra/workout-session-repository';
+import { listSessionSummaries, type SessionSummary } from '../src/use-cases/session-summary';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
@@ -33,8 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function HistoryScreen() {
-  const [sessions, setSessions] = useState<WorkoutSession[]>([]);
-  const [performances, setPerformances] = useState<Map<string, ExercisePerformance>>(new Map());
+  const [summaries, setSummaries] = useState<SessionSummary[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
@@ -48,26 +39,19 @@ export default function HistoryScreen() {
   } | null>(null);
 
   const load = useCallback(async () => {
-    {
-        const [allSessions, allExercises, allMeasurements, allPlans] = await Promise.all([
-          findAllSessions(),
-          findAllExercises(),
-          findAllMeasurements(),
-          findAllPlans(),
-        ]);
+    // Le résumé est calculé par le use case : l'écran ne fait plus que
+    // l'afficher.
+    const [allSummaries, allExercises, allMeasurements, allPlans] = await Promise.all([
+      listSessionSummaries(),
+      findAllExercises(),
+      findAllMeasurements(),
+      findAllPlans(),
+    ]);
 
-        // Toutes les performances en une requête, pas une par activité.
-        const ids = allSessions
-          .flatMap((session) => session.activities)
-          .map((activity) => activity.performanceId)
-          .filter((id): id is string => id !== null);
-
-        setSessions(allSessions);
-        setExercises(allExercises);
-        setMeasurements(allMeasurements);
-        setPlans(allPlans);
-      setPerformances(await findByIds(ids));
-    }
+    setSummaries(allSummaries);
+    setExercises(allExercises);
+    setMeasurements(allMeasurements);
+    setPlans(allPlans);
   }, []);
 
   useFocusEffect(
@@ -95,10 +79,10 @@ export default function HistoryScreen() {
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
 
-  const thisMonth = sessions.filter(
-    (s) =>
-      s.startedAt.getMonth() === new Date().getMonth() &&
-      s.startedAt.getFullYear() === new Date().getFullYear(),
+  const thisMonth = summaries.filter(
+    ({ session }) =>
+      session.startedAt.getMonth() === new Date().getMonth() &&
+      session.startedAt.getFullYear() === new Date().getFullYear(),
   ).length;
 
   return (
@@ -106,30 +90,22 @@ export default function HistoryScreen() {
       <View className="px-5 pt-4">
         <SectionHeader
           title="Historique"
-          subtitle={`${sessions.length} séance${sessions.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
+          subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
         />
       </View>
 
       <ScrollView contentContainerClassName="gap-3 px-5 pb-6">
         {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
-        {sessions.length === 0 && (
+        {summaries.length === 0 && (
           <EmptyState
             title="Aucun historique"
             description="Tes séances terminées apparaîtront ici, avec leurs séries et leurs temps de repos."
           />
         )}
 
-        {sessions.map((session) => {
+        {summaries.map(({ session, duration, restTotal, completedSetCount, activities }) => {
           const plan = plans.find((p) => p.id === session.plannedWorkoutId);
           const date = session.startedAt;
-          const duration = sessionDuration(session);
-          const rest = totalRest(session);
-          const completed = session.activities.reduce((total, activity) => {
-            const performance = activity.performanceId
-              ? performances.get(activity.performanceId)
-              : undefined;
-            return total + (performance?.completedSets.length ?? 0);
-          }, 0);
 
           return (
             <Card key={session.id} density="titled" className="gap-2">
@@ -149,63 +125,55 @@ export default function HistoryScreen() {
 
               <View className="flex-row gap-3">
                 <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
-                <Stat label="repos" value={formatClock(rest)} />
-                <Stat label="séries" value={String(completed)} />
+                <Stat label="repos" value={formatClock(restTotal)} />
+                <Stat label="séries" value={String(completedSetCount)} />
               </View>
 
-              {session.activities.map((activity, index) => {
-                const performance = activity.performanceId
-                  ? performances.get(activity.performanceId)
-                  : undefined;
-                // Seules les séries COMPLETED comptent comme performance.
-                const done = performance?.completedSets ?? [];
-                const restsBefore = restBeforeEachSet(done, session.rests);
+              {activities.map((activity, index) => (
+                <View key={index} className="mt-2 gap-1.5">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    {nameOf(activity.exerciseId)}
+                  </Text>
 
-                return (
-                  <View key={index} className="mt-2 gap-1.5">
-                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                      {nameOf(activity.exerciseId)}
+                  {activity.completedSets.length === 0 ? (
+                    <Text className="text-[13px] text-muted dark:text-muted-dark">
+                      aucune série complétée
                     </Text>
-                    {done.length === 0 ? (
-                      <Text className="text-[13px] text-muted dark:text-muted-dark">
-                        aucune série complétée
-                      </Text>
-                    ) : (
-                      done.map((set, setIndex) => (
-                        <View key={setIndex} className="gap-1.5">
-                          {restsBefore[setIndex] ? (
-                            <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
-                              repos {formatClock(restsBefore[setIndex]!)}
-                            </Text>
-                          ) : null}
-                          <SetRow
-                            index={setIndex + 1}
-                            status="completed"
-                            values={Object.entries(set.values)
-                              .map(([id, value]) => `${value} ${unitOf(id)}`)
-                              .join(' · ')}
-                            // Une faute de saisie doit pouvoir se réparer,
-                            // même des semaines plus tard.
-                            onPress={
-                              performance
-                                ? () =>
-                                    setEditing({
-                                      performanceId: performance.id,
-                                      // L'index porte sur TOUTES les séries,
-                                      // pas seulement les complétées.
-                                      setIndex: performance.sets.indexOf(set),
-                                      measurementIds: performance.measurementIds,
-                                      values: { ...set.values },
-                                    })
-                                : undefined
-                            }
-                          />
-                        </View>
-                      ))
-                    )}
-                  </View>
-                );
-              })}
+                  ) : (
+                    activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
+                      <View key={setIndex} className="gap-1.5">
+                        {restBefore ? (
+                          <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
+                            repos {formatClock(restBefore)}
+                          </Text>
+                        ) : null}
+                        <SetRow
+                          index={position + 1}
+                          status="completed"
+                          values={Object.entries(set.values)
+                            .map(([id, value]) => `${value} ${unitOf(id)}`)
+                            .join(' · ')}
+                          // Une faute de saisie doit pouvoir se réparer, même
+                          // des semaines plus tard.
+                          onPress={
+                            activity.performanceId
+                              ? () =>
+                                  setEditing({
+                                    performanceId: activity.performanceId!,
+                                    // Le rang réel dans la performance, fourni
+                                    // par le résumé.
+                                    setIndex,
+                                    measurementIds: activity.measurementIds,
+                                    values: { ...set.values },
+                                  })
+                              : undefined
+                          }
+                        />
+                      </View>
+                    ))
+                  )}
+                </View>
+              ))}
             </Card>
           );
         })}

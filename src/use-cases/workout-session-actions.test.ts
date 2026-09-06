@@ -3,10 +3,12 @@ import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
 import { findById as findPerformanceById } from '../infra/performance-repository';
 import { findAll as findAllSessions, findActive } from '../infra/workout-session-repository';
 import { findAll as findAllSchedule } from '../infra/scheduled-workout-repository';
+import { createPlannedWorkout } from './create-planned-workout';
 import { scheduleWorkout } from './scheduling-actions';
 import {
   cancelWorkoutSession,
   completePerformanceSet,
+  finishActivity,
   finishWorkoutSession,
   goToNextExercise,
   startActivity,
@@ -128,6 +130,53 @@ describe('Séries prévues non faites', () => {
     const performance = await findPerformanceById(performanceId);
     expect(performance!.completedSets).toHaveLength(1);
     expect(performance!.sets).toHaveLength(3);
+  });
+});
+
+describe('Passer à l exercice suivant', () => {
+  it('enchaîne sur l exercice suivant du plan', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    const plan = await createPlannedWorkout({
+      name: 'Pull day',
+      exercises: [
+        { exerciseId: first.id, sets: [{ targets: { duration: 10 } }] },
+        { exerciseId: second.id, sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+    await startWorkoutSession(plan.id);
+
+    const session = await goToNextExercise();
+
+    expect(session.currentActivity?.exerciseId).toBe(second.id);
+    expect(session.currentActivity?.plannedPosition).toBe(1);
+  });
+
+  it('ne démarre rien depuis un exercice ajouté hors programme', async () => {
+    const planned = await anExercise('Advanced Tuck');
+    const free = await anExercise('Dips', ['reps']);
+    const plan = await aWorkoutOf(planned.id, 2);
+    await startWorkoutSession(plan.id);
+
+    // On quitte le plan pour un exercice libre, sans position planifiée.
+    await finishActivity();
+    await startActivity(free.id);
+    const session = await goToNextExercise();
+
+    // Sans position dans le plan, il n'y a pas de "suivant" à enchaîner.
+    expect(session.currentActivity).toBeNull();
+  });
+
+  it('ne démarre rien quand aucun exercice n est en cours', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 2);
+    await startWorkoutSession(plan.id);
+    await finishActivity();
+
+    const session = await goToNextExercise();
+
+    // Le calcul de position ne doit pas retomber sur le premier exercice.
+    expect(session.currentActivity).toBeNull();
   });
 });
 
