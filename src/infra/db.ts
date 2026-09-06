@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -425,8 +425,74 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
     await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
+  // Migration 16 : mensurations et relevés (suivi corporel).
+  //
+  // Une seconde source de données, à côté des performances : un tour de
+  // cuisse ne sort d'aucune série, il se relève à la main.
+  if (version < 16) {
+    await db.execAsync(`
+      CREATE TABLE body_metrics (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        -- Le catalogue de départ ne se supprime pas.
+        built_in INTEGER NOT NULL DEFAULT 0
+      );
+
+      -- Quels muscles la mensuration concerne : c'est par eux qu'on
+      -- retrouvera les exercices qui la soutiennent.
+      CREATE TABLE body_metric_muscles (
+        metric_id TEXT NOT NULL REFERENCES body_metrics(id) ON DELETE CASCADE,
+        muscle_id TEXT NOT NULL REFERENCES muscles(id),
+        PRIMARY KEY (metric_id, muscle_id)
+      );
+
+      CREATE TABLE body_readings (
+        id TEXT PRIMARY KEY NOT NULL,
+        metric_id TEXT NOT NULL REFERENCES body_metrics(id) ON DELETE CASCADE,
+        value REAL NOT NULL,
+        taken_at TEXT NOT NULL
+      );
+    `);
+    await seedBodyMetrics(db);
+  }
+
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   return db;
+}
+
+/**
+ * Catalogue de départ des mensurations, avec les muscles que chacune
+ * concerne. Le poids n'en concerne aucun en particulier.
+ */
+async function seedBodyMetrics(db: SQLite.SQLiteDatabase): Promise<void> {
+  const metrics: [string, string, string, string[]][] = [
+    ['poids', 'Poids', 'kg', []],
+    ['tourdecuisse', 'Tour de cuisse', 'cm', ['quadriceps', 'ischiojambiers', 'fessiers']],
+    ['tourdebras', 'Tour de bras', 'cm', ['biceps', 'triceps']],
+    ['tourdemollet', 'Tour de mollet', 'cm', ['mollets']],
+    ['tourdetaille', 'Tour de taille', 'cm', ['abdominaux']],
+    ['tourdepoitrine', 'Tour de poitrine', 'cm', ['pectoraux']],
+    ['tourdepaules', 'Tour d épaules', 'cm', ['epaules', 'dos']],
+  ];
+
+  for (const [position, [id, name, unit, muscles]] of metrics.entries()) {
+    await db.runAsync(
+      'INSERT INTO body_metrics (id, name, unit, position, built_in) VALUES (?, ?, ?, ?, 1);',
+      id,
+      name,
+      unit,
+      position,
+    );
+    for (const muscleId of muscles) {
+      await db.runAsync(
+        'INSERT INTO body_metric_muscles (metric_id, muscle_id) VALUES (?, ?);',
+        id,
+        muscleId,
+      );
+    }
+  }
 }
 
 /**

@@ -164,9 +164,12 @@ export default function GoalsScreen() {
         })}
       </ScrollView>
 
-      <View className="px-5 pb-2">
+      <View className="gap-2 px-5 pb-2">
         <Link href="/new-goal" asChild>
           <Button label="Nouvel objectif" size="lg" />
+        </Link>
+        <Link href="/body" asChild>
+          <Button label="Mes mensurations" variant="secondary" size="md" />
         </Link>
       </View>
     </SafeAreaView>

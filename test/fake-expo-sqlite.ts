@@ -10,8 +10,13 @@ import { DatabaseSync } from 'node:sqlite';
  */
 let db = new DatabaseSync(':memory:');
 
-/** Peuplés par les migrations et référencés partout : jamais effacés. */
-const CATALOGUES = ['measurements', 'muscles'];
+/**
+ * Peuplés par les MIGRATIONS, pas par les tests : les vider casserait les
+ * clés étrangères qui les visent, et personne ne les recréerait.
+ *
+ * Toute nouvelle table remplie par un `seed*` doit figurer ici.
+ */
+const CATALOGUES = ['measurements', 'muscles', 'body_metrics', 'body_metric_muscles'];
 
 /** Vide les données entre deux tests, en gardant schéma et catalogue. */
 export function __clearData(): void {
