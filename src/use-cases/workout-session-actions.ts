@@ -102,19 +102,31 @@ export async function startActivity(
  * n'a pas été exécuté, sans jamais les compter comme des performances (n°18).
  */
 export async function finishActivity(): Promise<WorkoutSession> {
+  await abandonRemainingSets();
+  return onActiveSession((current, now) => current.finishCurrentActivity(now));
+}
+
+/**
+ * Clôt les séries prévues de l'exercice en cours (décidé le 2026-09-06).
+ *
+ * Appelé par TOUTES les façons de quitter un exercice -- passer au suivant,
+ * terminer la séance, l'annuler. Sans cela, s'arrêter après 2 séries sur 4
+ * produisait deux historiques différents selon le bouton utilisé, alors que
+ * la même chose avait été faite.
+ *
+ * À lire avant que la séance ne se referme : une fois close, elle n'a plus
+ * d'exercice en cours.
+ */
+async function abandonRemainingSets(): Promise<void> {
   const session = await findActive();
   const activity = session?.currentActivity;
+  if (!session || !activity?.performanceId) return;
 
-  if (session && activity?.performanceId) {
-    const performance = await findPerformanceById(activity.performanceId);
-    if (performance) {
-      const plannedCount = await plannedSetCount(session, activity);
-      performance.abandonRemainingPlannedSets(plannedCount, new Date());
-      await savePerformance(performance);
-    }
-  }
+  const performance = await findPerformanceById(activity.performanceId);
+  if (!performance) return;
 
-  return onActiveSession((current, now) => current.finishCurrentActivity(now));
+  performance.abandonRemainingPlannedSets(await plannedSetCount(session, activity), new Date());
+  await savePerformance(performance);
 }
 
 /**
@@ -215,6 +227,8 @@ async function onCurrentPerformance(
  * l'entraînement programmé devient EXECUTED.
  */
 export async function finishWorkoutSession(): Promise<WorkoutSession> {
+  await abandonRemainingSets();
+
   const session = await onActiveSession((current, now) => current.finish(now));
   if (session.scheduledWorkoutId) {
     await markScheduleExecuted(session.scheduledWorkoutId);
@@ -222,8 +236,15 @@ export async function finishWorkoutSession(): Promise<WorkoutSession> {
   return session;
 }
 
-export const cancelWorkoutSession = () =>
-  onActiveSession((session, now) => session.cancel(now));
+/**
+ * CancelWorkoutSession (§30). Les séries déjà validées sont conservées
+ * (n°15), et celles qui étaient prévues sans être faites sont consignées
+ * comme abandonnées -- c'est précisément la séance où cette trace compte.
+ */
+export async function cancelWorkoutSession(): Promise<WorkoutSession> {
+  await abandonRemainingSets();
+  return onActiveSession((session, now) => session.cancel(now));
+}
 
 async function onActiveSession(
   action: (session: WorkoutSession, now: Date) => void,
