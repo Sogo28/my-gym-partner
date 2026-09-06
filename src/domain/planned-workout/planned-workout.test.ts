@@ -64,6 +64,28 @@ describe('PlannedWorkout', () => {
     expect(workout.exercises.map((e) => e.exerciseId)).toEqual(['row', 'dip']);
   });
 
+  it('remplace son contenu d un coup', () => {
+    const workout = emptyWorkout();
+    workout.addExercise('pull-up');
+    workout.addSet(0, { reps: 8 });
+
+    workout.replaceExercises([
+      { exerciseId: 'row', sets: [{ targets: { reps: 10 } }, { targets: { reps: 9 } }] },
+    ]);
+
+    expect(workout.exercises).toHaveLength(1);
+    expect(workout.exercises[0].exerciseId).toBe('row');
+    expect(workout.exercises[0].sets).toHaveLength(2);
+  });
+
+  it('valide le contenu remplacé comme celui d origine', () => {
+    const workout = emptyWorkout();
+
+    expect(() =>
+      workout.replaceExercises([{ exerciseId: 'row', sets: [{ targets: {} }] }]),
+    ).toThrow(/au moins une mesure/);
+  });
+
   it('s archive sans toucher à son contenu', () => {
     const workout = emptyWorkout();
     workout.addExercise('pull-up');

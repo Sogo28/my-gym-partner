@@ -138,12 +138,22 @@ export default function WorkoutDetailScreen() {
           </Text>
         )}
         <Button label="Démarrer la séance" size="xl" onPress={start} />
-        <Button
-          label="Programmer à une date"
-          variant="secondary"
-          size="md"
-          onPress={() => setPicking(true)}
-        />
+        <View className="flex-row gap-2">
+          <Button
+            label="Programmer"
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onPress={() => setPicking(true)}
+          />
+          <Button
+            label="Modifier"
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onPress={() => router.push({ pathname: '/workouts/new', params: { id } })}
+          />
+        </View>
         {plan.isArchived ? (
           <Button
             label="Remettre au catalogue"

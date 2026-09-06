@@ -98,6 +98,18 @@ export class PlannedWorkout {
     this._isArchived = false;
   }
 
+  /**
+   * Remplace tout le contenu d'un coup.
+   *
+   * L'écran d'édition tient un brouillon complet et le remet tel quel : lui
+   * faire rejouer chaque ajout et chaque retrait un par un ne dirait rien de
+   * plus, et laisserait l'entraînement dans des états intermédiaires qui
+   * n'ont jamais existé pour l'utilisateur.
+   */
+  replaceExercises(exercises: readonly PlannedExercise[]): void {
+    this._exercises = exercises.map(normalizeExercise);
+  }
+
   addExercise(exerciseId: ExerciseId): void {
     this._exercises.push({ exerciseId, sets: [] });
   }

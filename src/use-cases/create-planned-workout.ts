@@ -25,11 +25,7 @@ export async function createPlannedWorkout(input: {
   name: string;
   exercises: readonly PlannedExercise[];
 }): Promise<PlannedWorkout> {
-  const measurementsByExercise = new Map<ExerciseId, readonly MeasurementId[]>(
-    (await findAllExercises()).map((exercise) => [exercise.id, exercise.measurementIds]),
-  );
-
-  assertTargetsAreMeasurable(input.exercises, measurementsByExercise);
+  await assertMeasurable(input.exercises);
 
   // Les règles internes à l'agrégat (nom non vide, cibles positives...) sont
   // vérifiées par le domaine lui-même, à la construction.
@@ -37,4 +33,37 @@ export async function createPlannedWorkout(input: {
 
   await save(workout);
   return workout;
+}
+
+/**
+ * UpdatePlannedWorkout (§27).
+ *
+ * Modifier un entraînement ne touche à AUCUNE séance passée : celles-ci ont
+ * enregistré ce qui a été fait, pas ce qui était prévu. Un plan corrigé
+ * aujourd'hui ne réécrit donc pas l'histoire (§2).
+ *
+ * La même règle croisée qu'à la création s'applique : elle vaut pour toute
+ * écriture, pas seulement pour la première.
+ */
+export async function updatePlannedWorkout(input: {
+  workout: PlannedWorkout;
+  name: string;
+  exercises: readonly PlannedExercise[];
+}): Promise<PlannedWorkout> {
+  await assertMeasurable(input.exercises);
+
+  input.workout.rename(input.name);
+  input.workout.replaceExercises(input.exercises);
+
+  await save(input.workout);
+  return input.workout;
+}
+
+/** Une série ne peut cibler que les mesures de son exercice. */
+async function assertMeasurable(exercises: readonly PlannedExercise[]): Promise<void> {
+  const measurementsByExercise = new Map<ExerciseId, readonly MeasurementId[]>(
+    (await findAllExercises()).map((exercise) => [exercise.id, exercise.measurementIds]),
+  );
+
+  assertTargetsAreMeasurable(exercises, measurementsByExercise);
 }

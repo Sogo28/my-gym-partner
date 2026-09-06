@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -13,12 +13,24 @@ import { Collapsible } from '../../src/ui/collapsible';
 import { NumberField } from '../../src/ui/number-field';
 import { BusinessNotice } from '../../src/ui/notice';
 import { BackHeader } from '../../src/ui/screen-header';
-import { createPlannedWorkout } from '../../src/use-cases/create-planned-workout';
+import {
+  createPlannedWorkout,
+  updatePlannedWorkout,
+} from '../../src/use-cases/create-planned-workout';
+import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
+/**
+ * Création ET édition : un identifiant dans la route fait passer l'écran en
+ * mode édition. Le brouillon vit dans l'écran, rien n'est écrit avant
+ * validation -- y compris quand on modifie un entraînement existant.
+ */
 export default function NewWorkoutScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const [existing, setExisting] = useState<PlannedWorkout | null>(null);
   const [available, setAvailable] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
@@ -34,7 +46,18 @@ export default function NewWorkoutScreen() {
         setMeasurements(allMeasurements);
       })
       .catch((e) => setError(messageOf(e)));
-  }, []);
+
+    if (!id) return;
+    findAllPlans()
+      .then((plans) => {
+        const plan = plans.find((candidate) => candidate.id === id);
+        if (!plan) return;
+        setExisting(plan);
+        setName(plan.name);
+        setDraft([...plan.exercises]);
+      })
+      .catch((e) => setError(messageOf(e)));
+  }, [id]);
 
   const exerciseOf = (id: string) => available.find((e) => e.id === id);
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -61,9 +84,27 @@ export default function NewWorkoutScreen() {
     setError(null);
   }
 
+  function removeExercise(position: number) {
+    setDraft((current) => current.filter((_, index) => index !== position));
+  }
+
+  function removeSet(position: number, setIndex: number) {
+    setDraft((current) =>
+      current.map((planned, index) =>
+        index === position
+          ? { ...planned, sets: planned.sets.filter((_, i) => i !== setIndex) }
+          : planned,
+      ),
+    );
+  }
+
   async function submit() {
     try {
-      await createPlannedWorkout({ name, exercises: draft });
+      if (existing) {
+        await updatePlannedWorkout({ workout: existing, name, exercises: draft });
+      } else {
+        await createPlannedWorkout({ name, exercises: draft });
+      }
       router.back();
     } catch (e) {
       setError(messageOf(e));
@@ -74,8 +115,10 @@ export default function NewWorkoutScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
-          title="Nouvel entraînement"
-          subtitle="valeurs cibles · aucune date"
+          title={existing ? "Modifier l'entraînement" : 'Nouvel entraînement'}
+          subtitle={
+            existing ? 'les séances passées ne changent pas' : 'valeurs cibles · aucune date'
+          }
           onBack={() => router.back()}
         />
       </View>
@@ -98,13 +141,23 @@ export default function NewWorkoutScreen() {
               summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
               defaultOpen
             >
-              {planned.sets.map((set, index) => (
-                <Text key={index} className="font-mono text-[14px] text-planned">
-                  Série {index + 1} ·{' '}
-                  {Object.entries(set.targets)
-                    .map(([id, value]) => `${value} ${unitOf(id)}`)
-                    .join(' · ')}
+              <Pressable onPress={() => removeExercise(position)} hitSlop={8} className="pb-1">
+                <Text className="text-[12px] text-danger dark:text-danger-dark">
+                  Retirer cet exercice
                 </Text>
+              </Pressable>
+              {planned.sets.map((set, index) => (
+                <View key={index} className="flex-row items-center justify-between gap-3">
+                  <Text className="shrink font-mono text-[14px] text-planned">
+                    Série {index + 1} ·{' '}
+                    {Object.entries(set.targets)
+                      .map(([id, value]) => `${value} ${unitOf(id)}`)
+                      .join(' · ')}
+                  </Text>
+                  <Pressable onPress={() => removeSet(position, index)} hitSlop={8}>
+                    <Text className="text-[12px] text-danger dark:text-danger-dark">retirer</Text>
+                  </Pressable>
+                </View>
               ))}
 
               <View className="mt-2 flex-row gap-2">
@@ -154,7 +207,11 @@ export default function NewWorkoutScreen() {
       </ScrollView>
 
       <View className="p-5 pt-2">
-        <Button label="Enregistrer" size="lg" onPress={submit} />
+        <Button
+          label={existing ? 'Enregistrer les modifications' : 'Créer l entraînement'}
+          size="lg"
+          onPress={submit}
+        />
       </View>
     </SafeAreaView>
   );
