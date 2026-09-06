@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -31,14 +31,17 @@ export function Sheet({
   actions,
   onClose,
   searchPlaceholder,
+  children,
 }: {
   visible: boolean;
   title: string;
   description?: string;
-  actions: SheetAction[];
+  actions?: SheetAction[];
   onClose: () => void;
   /** Fourni : la liste devient filtrable. Utile au-delà de quelques entrées. */
   searchPlaceholder?: string;
+  /** Contenu libre, pour une feuille qui n'est pas une liste d'actions. */
+  children?: ReactNode;
 }) {
   const [query, setQuery] = useState('');
 
@@ -47,9 +50,10 @@ export function Sheet({
     if (visible) setQuery('');
   }, [visible]);
 
+  const all = actions ?? [];
   const shown = searchPlaceholder
-    ? actions.filter((action) => action.label.toLowerCase().includes(query.trim().toLowerCase()))
-    : actions;
+    ? all.filter((action) => action.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : all;
 
   return (
     <Modal
@@ -80,9 +84,11 @@ export function Sheet({
           />
         )}
 
+        {children}
+
         {/* La liste défile plutôt que de pousser la feuille hors de l'écran. */}
         <ScrollView className="max-h-80 grow-0" contentContainerClassName="gap-2">
-        {shown.length === 0 && (
+        {shown.length === 0 && searchPlaceholder && (
           <Text className="py-2 text-[13px] text-muted dark:text-muted-dark">
             Aucun résultat.
           </Text>

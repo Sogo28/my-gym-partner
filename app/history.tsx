@@ -16,11 +16,15 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { findByIds } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { findAll as findAllSessions } from '../src/infra/workout-session-repository';
+import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
+import { NumberField } from '../src/ui/number-field';
+import { Sheet } from '../src/ui/sheet';
 import { EmptyState } from '../src/ui/empty-state';
 import { SectionHeader } from '../src/ui/screen-header';
 import { SetRow } from '../src/ui/set-row';
 import { formatClock } from '../src/ui/timer';
+import { correctPastSet } from '../src/use-cases/correct-past-set';
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: 'en cours',
@@ -35,10 +39,16 @@ export default function HistoryScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** La série ouverte à la correction, s'il y en a une. */
+  const [editing, setEditing] = useState<{
+    performanceId: string;
+    setIndex: number;
+    measurementIds: readonly string[];
+    values: Record<string, number>;
+  } | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
+  const load = useCallback(async () => {
+    {
         const [allSessions, allExercises, allMeasurements, allPlans] = await Promise.all([
           findAllSessions(),
           findAllExercises(),
@@ -56,10 +66,31 @@ export default function HistoryScreen() {
         setExercises(allExercises);
         setMeasurements(allMeasurements);
         setPlans(allPlans);
-        setPerformances(await findByIds(ids));
-      })().catch((e) => setError(String(e)));
-    }, []),
+      setPerformances(await findByIds(ids));
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load().catch((e) => setError(String(e)));
+    }, [load]),
   );
+
+  async function saveCorrection() {
+    if (!editing) return;
+    try {
+      await correctPastSet({
+        performanceId: editing.performanceId,
+        setIndex: editing.setIndex,
+        values: editing.values,
+      });
+      setEditing(null);
+      await load();
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -153,6 +184,21 @@ export default function HistoryScreen() {
                             values={Object.entries(set.values)
                               .map(([id, value]) => `${value} ${unitOf(id)}`)
                               .join(' · ')}
+                            // Une faute de saisie doit pouvoir se réparer,
+                            // même des semaines plus tard.
+                            onPress={
+                              performance
+                                ? () =>
+                                    setEditing({
+                                      performanceId: performance.id,
+                                      // L'index porte sur TOUTES les séries,
+                                      // pas seulement les complétées.
+                                      setIndex: performance.sets.indexOf(set),
+                                      measurementIds: performance.measurementIds,
+                                      values: { ...set.values },
+                                    })
+                                : undefined
+                            }
                           />
                         </View>
                       ))
@@ -164,6 +210,34 @@ export default function HistoryScreen() {
           );
         })}
       </ScrollView>
+
+      <Sheet
+        visible={editing !== null}
+        title={`Corriger la série ${(editing?.setIndex ?? 0) + 1}`}
+        description="La performance reste ce que tu déclares avoir fait."
+        onClose={() => setEditing(null)}
+      >
+        {editing && (
+          <View className="gap-3 pb-2">
+            <View className="flex-row gap-3">
+              {editing.measurementIds.map((id) => (
+                <NumberField
+                  key={id}
+                  unit={unitOf(id)}
+                  value={editing.values[id] ?? 0}
+                  step={id === 'weight' ? 2.5 : 1}
+                  onChange={(value) =>
+                    setEditing((current) =>
+                      current ? { ...current, values: { ...current.values, [id]: value } } : current,
+                    )
+                  }
+                />
+              ))}
+            </View>
+            <Button label="Enregistrer" size="md" onPress={saveCorrection} />
+          </View>
+        )}
+      </Sheet>
     </SafeAreaView>
   );
 }
