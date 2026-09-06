@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Condition, Goal } from '../src/domain/goal/goal';
+import type { Condition, EvaluationWindow, Goal } from '../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
@@ -58,6 +58,12 @@ export default function GoalsScreen() {
     setCount: 'séries complétées',
   };
 
+  /** La période que la condition observe : elle change tout son sens. */
+  const WINDOW_LABELS: Record<EvaluationWindow, string> = {
+    LAST_SESSION: 'sur la dernière séance',
+    ALL_TIME: 'sur tout l historique',
+  };
+
   function describe(condition: Condition): string {
     if (condition.aggregation === 'setCount') {
       return `séries complétées ${condition.operator} ${condition.target}`;
@@ -72,7 +78,7 @@ export default function GoalsScreen() {
       <View className="px-5 pt-4">
         <SectionHeader
           title="Objectifs"
-          subtitle={`${active.length} en cours · évalués sur ta dernière séance`}
+          subtitle={`${active.length} en cours · évalués sur tes performances`}
         />
       </View>
 
@@ -105,31 +111,31 @@ export default function GoalsScreen() {
                 {nameOf(goal.currentExerciseId)}
               </Text>
 
-              {/* Chaque condition, avec ce qu'elle demande et ce que la
-                  dernière séance a donné. */}
+              {/* Chaque condition, avec ce qu'elle demande, sur quelle
+                  période, et ce que cette période a réellement donné. */}
               {evaluation?.results.map((result, index) => (
-                <View key={index} className="flex-row items-center justify-between gap-3">
-                  <Text className="shrink text-[13px] text-muted dark:text-muted-dark">
-                    {describe(result.condition)}
-                  </Text>
-                  <Text
-                    className={
-                      result.satisfied
-                        ? 'font-mono-bold text-[14px] text-success dark:text-success-dark'
-                        : 'font-mono-bold text-[14px] text-muted dark:text-muted-dark'
-                    }
-                    style={{ fontVariant: ['tabular-nums'] }}
-                  >
-                    {result.actual === null ? '—' : Math.round(result.actual * 10) / 10}
+                <View key={index} className="gap-0.5">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Text className="shrink text-[13px] text-muted dark:text-muted-dark">
+                      {describe(result.condition)}
+                    </Text>
+                    <Text
+                      className={
+                        result.satisfied
+                          ? 'font-mono-bold text-[14px] text-success dark:text-success-dark'
+                          : 'font-mono-bold text-[14px] text-muted dark:text-muted-dark'
+                      }
+                      style={{ fontVariant: ['tabular-nums'] }}
+                    >
+                      {result.actual === null ? '—' : Math.round(result.actual * 10) / 10}
+                    </Text>
+                  </View>
+                  <Text className="font-mono text-[11px] text-planned">
+                    {WINDOW_LABELS[result.condition.window]}
+                    {result.hasData ? '' : ' · aucune donnée'}
                   </Text>
                 </View>
               ))}
-
-              {evaluation && !evaluation.hasData && (
-                <Text className="text-[13px] text-muted dark:text-muted-dark">
-                  Aucune séance enregistrée pour cet exercice.
-                </Text>
-              )}
 
               {/* La suggestion (§24) : proposée, jamais appliquée d'office. */}
               {evaluation === null && (

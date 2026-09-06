@@ -71,7 +71,30 @@ Une condition détermine :
 
 ## 6. Fenêtre d'évaluation
 
-En V1 : **la dernière session pertinente**. Pas de moyenne glissante.
+La fenêtre appartient à **chaque Condition** : deux conditions d'une même
+exigence peuvent porter sur des périodes différentes (décidé le 2026-09-06).
+
+    Requirement « passer au One Leg »
+      ├── moyenne des tenues ≥ 10 s   sur LAST_SESSION   ← la forme du jour
+      └── séries complétées  ≥ 12     sur ALL_TIME       ← le volume accumulé
+
+**`LAST_SESSION`** — la dernière séance où l'exercice a été **réellement
+travaillé**, c'est-à-dire contenant au moins une série COMPLETED pour lui. Une
+séance où rien n'a été validé ne masque pas la précédente.
+
+Si l'exercice y a été **repris une seconde fois** (un finisher en fin de
+séance), **ses deux performances comptent ensemble** (décidé le 2026-09-06) :
+
+    18h05  Advanced Tuck  10s · 11s · 9s
+    18h40  Advanced Tuck   6s · 5s        ← finisher
+    → moyenne évaluée : (10+11+9+6+5)/5 = 8,2 s
+
+Les séances **annulées** comptent : leurs séries validées restent des
+performances (décision gelée n°15).
+
+**`ALL_TIME`** — tout l'historique de l'exercice, séances confondues.
+
+Pas de moyenne glissante sur N séances en V1.
 
     Session précédente : 7s, 9s, 8s → moyenne 8s  → NON SATISFAIT
     Dernière session   : 10s, 11s, 9s → moyenne 10s → SATISFAIT
@@ -121,7 +144,9 @@ modification **ne réécrit jamais les performances historiques** :
 11. Une Condition évalue une métrique de performance.
 12. Une Condition possède une mesure, une fenêtre d'évaluation, une
     agrégation, un opérateur et une valeur cible.
-13. En V1, la fenêtre d'évaluation est la dernière session pertinente.
+13. Les fenêtres d'évaluation sont LAST_SESSION et ALL_TIME. LAST_SESSION
+    agrège toutes les performances de l'exercice au sein de cette séance.
+    Chaque Condition porte la sienne.
 14. Les métriques sont dérivées des performances.
 15. Les performances historiques restent immuables quand un Goal ou un
     Requirement est modifié.

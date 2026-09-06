@@ -72,30 +72,6 @@ export async function save(performance: ExercisePerformance): Promise<void> {
   });
 }
 
-/**
- * La performance la plus récente pour cet exercice qui contient au moins une
- * série complétée -- c'est ce que le cahier appelle "la dernière session
- * pertinente" (§22). Une performance sans série validée n'apprend rien et ne
- * doit pas masquer la précédente.
- */
-export async function findLatestCompletedFor(
-  exerciseId: string,
-): Promise<ExercisePerformance | null> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<{ id: string }>(
-    `SELECT p.id FROM exercise_performances p
-     WHERE p.exercise_id = ?
-       AND EXISTS (
-         SELECT 1 FROM performance_sets s
-         WHERE s.performance_id = p.id AND s.status = 'COMPLETED'
-       )
-     ORDER BY p.started_at DESC
-     LIMIT 1;`,
-    exerciseId,
-  );
-  return row ? findById(row.id) : null;
-}
-
 export async function findById(id: string): Promise<ExercisePerformance | null> {
   const performances = await findByIds([id]);
   return performances.get(id) ?? null;

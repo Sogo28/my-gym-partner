@@ -4,7 +4,12 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Aggregation, Condition, ProgressionStep } from '../src/domain/goal/goal';
+import type {
+  Aggregation,
+  Condition,
+  EvaluationWindow,
+  ProgressionStep,
+} from '../src/domain/goal/goal';
 import { findAllMeasurements } from '../src/infra/exercise-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
@@ -15,7 +20,7 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
 
-/** Ce que chaque agrégation calcule sur les séries de la dernière séance. */
+/** Ce que chaque agrégation calcule sur les séries de la période observée. */
 const AGGREGATIONS: { value: Aggregation; label: string }[] = [
   { value: 'average', label: 'Moyenne' },
   { value: 'max', label: 'Meilleure série' },
@@ -25,12 +30,26 @@ const AGGREGATIONS: { value: Aggregation; label: string }[] = [
 ];
 
 const AGGREGATION_PHRASES: Record<Aggregation, string> = {
-  average: 'moyenne des valeurs de la dernière séance',
-  max: 'meilleure valeur de la dernière séance',
-  min: 'plus faible valeur de la dernière séance',
-  total: 'somme des valeurs de la dernière séance',
-  setCount: 'nombre de séries complétées lors de la dernière séance',
+  average: 'moyenne des valeurs',
+  max: 'meilleure valeur',
+  min: 'plus faible valeur',
+  total: 'somme des valeurs',
+  setCount: 'nombre de séries complétées',
 };
+
+/**
+ * La période observée. Elle appartient à CHAQUE condition : une même exigence
+ * peut demander une forme du jour et un volume accumulé.
+ */
+const WINDOWS: { value: EvaluationWindow; label: string; phrase: string }[] = [
+  { value: 'LAST_SESSION', label: 'Dernière séance', phrase: 'lors de la dernière séance' },
+  { value: 'ALL_TIME', label: 'Tout l historique', phrase: 'sur tout l historique' },
+];
+
+function describeCondition(condition: Condition): string {
+  const window = WINDOWS.find((entry) => entry.value === condition.window);
+  return `${AGGREGATION_PHRASES[condition.aggregation]} ${window?.phrase ?? ''}`;
+}
 
 /** Une entrée de l'écran : un exercice et sa condition. */
 type Entry = { exerciseId: string; conditions: Condition[] };
@@ -148,7 +167,7 @@ export default function NewGoalScreen() {
       <View className="px-5 pt-4">
         <BackHeader
           title="Nouvel objectif"
-          subtitle="évalué sur ta dernière séance"
+          subtitle="chaque condition choisit sa période"
           onBack={() => router.back()}
         />
       </View>
@@ -256,10 +275,22 @@ export default function NewGoalScreen() {
                     />
                   </View>
 
+                  {/* La période observée : elle change le sens de la condition. */}
+                  <View className="flex-row flex-wrap gap-2">
+                    {WINDOWS.map(({ value, label }) => (
+                      <Chip
+                        key={value}
+                        label={label}
+                        selected={condition.window === value}
+                        onPress={() => update(index, conditionIndex, { window: value })}
+                      />
+                    ))}
+                  </View>
+
                   {/* La phrase exacte que cette condition signifie. */}
                   <View className="flex-row items-center justify-between gap-3">
                     <Text className="shrink font-mono text-[12px] text-planned">
-                      {AGGREGATION_PHRASES[condition.aggregation]}
+                      {describeCondition(condition)}
                     </Text>
                     {entry.conditions.length > 1 && (
                       <Pressable onPress={() => removeCondition(index, conditionIndex)}>

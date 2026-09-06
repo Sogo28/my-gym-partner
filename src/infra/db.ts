@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -302,6 +302,39 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       -- D'où vient la séance : d'une intention programmée, ou de rien.
       ALTER TABLE workout_sessions ADD COLUMN scheduled_workout_id TEXT
         REFERENCES scheduled_workouts(id);
+    `);
+  }
+
+  // Migration 12 : une condition peut désormais porter sur tout l'historique,
+  // pas seulement sur la dernière séance.
+  //
+  // SQLite ne sait pas modifier une contrainte CHECK : il faut recréer la
+  // table. On RECOPIE les conditions existantes au lieu de les effacer --
+  // contrairement aux migrations 8 et 9, des objectifs sont maintenant en
+  // service.
+  if (version < 12) {
+    await db.execAsync(`
+      CREATE TABLE goal_conditions_v12 (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        step_position INTEGER NOT NULL,
+        requirement_index INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        measurement_id TEXT REFERENCES measurements(id),
+        window TEXT NOT NULL CHECK (window IN ('LAST_SESSION', 'ALL_TIME')),
+        aggregation TEXT NOT NULL
+          CHECK (aggregation IN ('average', 'max', 'min', 'total', 'setCount')),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        target REAL NOT NULL,
+        PRIMARY KEY (goal_id, step_position, requirement_index, condition_index)
+      );
+
+      INSERT INTO goal_conditions_v12
+        SELECT goal_id, step_position, requirement_index, condition_index,
+               measurement_id, window, aggregation, operator, target
+        FROM goal_conditions;
+
+      DROP TABLE goal_conditions;
+      ALTER TABLE goal_conditions_v12 RENAME TO goal_conditions;
     `);
   }
 

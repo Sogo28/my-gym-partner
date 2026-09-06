@@ -10,11 +10,16 @@ export type Aggregation = 'average' | 'max' | 'min' | 'total' | 'setCount';
 /**
  * Sur quoi porte l'évaluation (§6).
  *
- * En V1 il n'existe qu'une fenêtre, mais elle appartient explicitement à la
- * Condition : c'est une donnée du modèle, pas une hypothèse du code qui
- * l'évalue.
+ * La fenêtre appartient à la CONDITION et non à l'objectif : deux conditions
+ * d'une même exigence peuvent regarder des périodes différentes -- la forme
+ * du jour d'un côté, le volume accumulé de l'autre.
+ *
+ * LAST_SESSION : la dernière séance où l'exercice a été réellement travaillé,
+ *   toutes ses performances confondues -- un exercice repris en fin de séance
+ *   compte avec celui du début.
+ * ALL_TIME     : tout l'historique de l'exercice.
  */
-export type EvaluationWindow = 'LAST_SESSION';
+export type EvaluationWindow = 'LAST_SESSION' | 'ALL_TIME';
 
 export type Operator = '>=' | '>' | '<=' | '<' | '==';
 
