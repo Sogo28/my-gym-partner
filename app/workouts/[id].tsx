@@ -1,3 +1,4 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
@@ -11,6 +12,7 @@ import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
 import { BackHeader } from '../../src/ui/screen-header';
 import { discardWorkout } from '../../src/use-cases/edit-catalogue';
+import { scheduleWorkout } from '../../src/use-cases/scheduling-actions';
 import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 
 /**
@@ -26,6 +28,8 @@ export default function WorkoutDetailScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [scheduled, setScheduled] = useState<Date | null>(null);
 
   useEffect(() => {
     Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
@@ -65,6 +69,18 @@ export default function WorkoutDetailScreen() {
   }
 
   const totalSets = plan.exercises.reduce((total, e) => total + e.sets.length, 0);
+
+  /** ScheduleWorkout : placer cet entraînement à une date, sans le démarrer. */
+  async function schedule(at: Date) {
+    setPicking(false);
+    try {
+      await scheduleWorkout({ plannedWorkoutId: id, at });
+      setScheduled(at);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   /** Archivé s'il a déjà produit des séances, supprimé sinon. */
   async function discard() {
@@ -114,7 +130,20 @@ export default function WorkoutDetailScreen() {
 
       {/* Action principale ancrée en bas, hors du défilement. */}
       <View className="gap-2 p-5 pt-2">
+        {scheduled && (
+          <Text className="text-center font-mono text-[12px] text-success dark:text-success-dark">
+            programmé le {scheduled.toLocaleDateString('fr-FR')} à{' '}
+            {String(scheduled.getHours()).padStart(2, '0')}:
+            {String(scheduled.getMinutes()).padStart(2, '0')}
+          </Text>
+        )}
         <Button label="Démarrer la séance" size="xl" onPress={start} />
+        <Button
+          label="Programmer à une date"
+          variant="secondary"
+          size="md"
+          onPress={() => setPicking(true)}
+        />
         <Button
           label="Retirer cet entraînement"
           variant="danger"
@@ -122,6 +151,21 @@ export default function WorkoutDetailScreen() {
           onPress={discard}
         />
       </View>
+
+      {picking && (
+        <DateTimePicker
+          value={new Date()}
+          mode="datetime"
+          // Le sélecteur natif rend null quand l'utilisateur annule.
+          onChange={(event, date) => {
+            if (event.type === 'dismissed' || !date) {
+              setPicking(false);
+              return;
+            }
+            schedule(date);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

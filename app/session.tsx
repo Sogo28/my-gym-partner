@@ -10,8 +10,14 @@ import type { WorkoutSession } from '../src/domain/workout-session/workout-sessi
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findById as findPerformanceById } from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
+import type { ScheduledWorkout } from '../src/domain/scheduling/scheduled-workout';
+import {
+  cancelScheduledWorkout,
+  listSchedule,
+} from '../src/use-cases/scheduling-actions';
 import { findActive } from '../src/infra/workout-session-repository';
 import { Button } from '../src/ui/button';
+import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
@@ -43,6 +49,7 @@ export default function SessionScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
+  const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
@@ -55,16 +62,19 @@ export default function SessionScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [active, allExercises, allPlans, allMeasurements] = await Promise.all([
+    const [active, allExercises, allPlans, allMeasurements, allSchedule] = await Promise.all([
       findActive(),
       findAllExercises(),
       findAllPlans(),
       findAllMeasurements(),
+      listSchedule(),
     ]);
     setSession(active);
     setExercises(allExercises);
     setPlans(allPlans);
     setMeasurements(allMeasurements);
+    // Seules les intentions encore ouvertes intéressent l'écran.
+    setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
 
     const performanceId = active?.currentActivity?.performanceId ?? null;
     setPerformance(performanceId ? await findPerformanceById(performanceId) : null);
@@ -235,23 +245,107 @@ export default function SessionScreen() {
   ];
 
   if (!session) {
-    return (
-      <SafeAreaView edges={['top']} className="flex-1 gap-4 bg-background p-5 pt-4 dark:bg-background-dark">
-        <SectionHeader title="Séance" subtitle="aucune séance en cours" />
-        <View className="flex-1 justify-center gap-4">
-        <EmptyState
-          title="Aucune séance en cours"
-          description="Choisis un entraînement pour démarrer, ou lance une séance libre."
-          actionLabel="Choisir un entraînement"
-          onAction={() => router.push('/workouts')}
-        />
+    const now = new Date();
+    const isToday = (date: Date) => date.toDateString() === now.toDateString();
+    const overdue = schedule.filter((entry) => entry.isOverdue(now) && !isToday(entry.scheduledAt));
+    const today = schedule.filter((entry) => isToday(entry.scheduledAt));
+    const upcoming = schedule.filter((entry) => entry.scheduledAt > now && !isToday(entry.scheduledAt));
+
+    const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
+
+    const entryCard = (entry: ScheduledWorkout, note?: string) => (
+      <Card key={entry.id} density="titled" className="gap-2">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="shrink">
+            <Text className="font-extrabold text-[17px] text-ink dark:text-ink-dark">
+              {planNameOf(entry.plannedWorkoutId)}
+            </Text>
+            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+              {note ??
+                `${entry.scheduledAt.toLocaleDateString('fr-FR')} · ${String(entry.scheduledAt.getHours()).padStart(2, '0')}:${String(entry.scheduledAt.getMinutes()).padStart(2, '0')}`}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => run(() => cancelScheduledWorkout(entry))}
+            hitSlop={8}
+            className="pt-1"
+          >
+            <Text className="text-[13px] text-danger dark:text-danger-dark">annuler</Text>
+          </Pressable>
+        </View>
         <Button
-          label="Séance libre"
-          variant="ghost"
+          label="Démarrer"
           size="md"
-          onPress={() => run(() => startWorkoutSession())}
+          onPress={() => run(() => startWorkoutSession(entry.plannedWorkoutId, entry.id))}
         />
-        {error && <BusinessNotice message={error} />}
+      </Card>
+    );
+
+    return (
+      <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+        <View className="px-5 pt-4">
+          <SectionHeader
+            title="Séance"
+            subtitle={
+              schedule.length > 0
+                ? `${schedule.length} entraînement${schedule.length > 1 ? 's' : ''} programmé${schedule.length > 1 ? 's' : ''}`
+                : 'aucune séance en cours'
+            }
+          />
+        </View>
+
+        <ScrollView contentContainerClassName="gap-3 px-5 pb-4">
+          {error && <BusinessNotice message={error} />}
+
+          {today.length > 0 && (
+            <>
+              <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                Aujourd'hui
+              </Text>
+              {today.map((entry) => entryCard(entry, "aujourd'hui"))}
+            </>
+          )}
+
+          {/* En retard, jamais "manqué" : la séance reste à faire. */}
+          {overdue.length > 0 && (
+            <>
+              <Text className="mt-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
+                En retard
+              </Text>
+              {overdue.map((entry) => entryCard(entry))}
+            </>
+          )}
+
+          {upcoming.length > 0 && (
+            <>
+              <Text className="mt-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
+                À venir
+              </Text>
+              {upcoming.map((entry) => entryCard(entry))}
+            </>
+          )}
+
+          {schedule.length === 0 && (
+            <EmptyState
+              title="Aucune séance en cours"
+              description="Programme un entraînement depuis sa fiche, ou démarre directement."
+            />
+          )}
+        </ScrollView>
+
+        <View className="gap-2 px-5 pb-2">
+          <Button
+            label="Choisir un entraînement"
+            variant="secondary"
+            size="md"
+            onPress={() => router.push('/workouts')}
+          />
+          <Button
+            label="Séance libre"
+            variant="ghost"
+            size="md"
+            onPress={() => run(() => startWorkoutSession())}
+          />
         </View>
       </SafeAreaView>
     );
