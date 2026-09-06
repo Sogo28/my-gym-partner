@@ -1,6 +1,7 @@
 import type { ExerciseId } from '../exercise/exercise';
 import type { ExercisePerformanceId } from '../performance/exercise-performance';
 import type { PlannedWorkoutId } from '../planned-workout/planned-workout';
+import type { ScheduledWorkoutId } from '../scheduling/scheduled-workout';
 
 export type WorkoutSessionId = string;
 
@@ -62,6 +63,8 @@ export class WorkoutSession {
   private constructor(
     readonly id: WorkoutSessionId,
     readonly plannedWorkoutId: PlannedWorkoutId | null,
+    /** L'intention programmée dont vient cette séance, s'il y en a une (§8). */
+    readonly scheduledWorkoutId: ScheduledWorkoutId | null,
     readonly startedAt: Date,
     private _status: WorkoutSessionStatus,
     private _endedAt: Date | null,
@@ -72,11 +75,13 @@ export class WorkoutSession {
   static start(input: {
     id: WorkoutSessionId;
     plannedWorkoutId?: PlannedWorkoutId | null;
+    scheduledWorkoutId?: ScheduledWorkoutId | null;
     at: Date;
   }): WorkoutSession {
     return new WorkoutSession(
       input.id,
       input.plannedWorkoutId ?? null,
+      input.scheduledWorkoutId ?? null,
       input.at,
       'ACTIVE',
       null,
@@ -89,6 +94,7 @@ export class WorkoutSession {
   static restore(input: {
     id: WorkoutSessionId;
     plannedWorkoutId: PlannedWorkoutId | null;
+    scheduledWorkoutId?: ScheduledWorkoutId | null;
     startedAt: Date;
     status: WorkoutSessionStatus;
     endedAt: Date | null;
@@ -98,6 +104,7 @@ export class WorkoutSession {
     return new WorkoutSession(
       input.id,
       input.plannedWorkoutId,
+      input.scheduledWorkoutId ?? null,
       input.startedAt,
       input.status,
       input.endedAt,

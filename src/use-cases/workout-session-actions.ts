@@ -13,6 +13,7 @@ import {
   save as savePerformance,
 } from '../infra/performance-repository';
 import { findActive, save } from '../infra/workout-session-repository';
+import { markScheduleExecuted } from './scheduling-actions';
 
 /**
  * Use cases de la séance (§29). Chacun fait le même geste : charger la séance
@@ -34,6 +35,7 @@ import { findActive, save } from '../infra/workout-session-repository';
  */
 export async function startWorkoutSession(
   plannedWorkoutId?: PlannedWorkoutId | null,
+  scheduledWorkoutId?: string | null,
 ): Promise<WorkoutSession> {
   if (await findActive()) {
     throw new Error('Une séance est déjà en cours. Termine-la ou annule-la d abord.');
@@ -42,6 +44,7 @@ export async function startWorkoutSession(
   const session = WorkoutSession.start({
     id: randomUUID(),
     plannedWorkoutId: plannedWorkoutId ?? null,
+    scheduledWorkoutId: scheduledWorkoutId ?? null,
     at: new Date(),
   });
 
@@ -207,8 +210,17 @@ async function onCurrentPerformance(
   return performance;
 }
 
-export const finishWorkoutSession = () =>
-  onActiveSession((session, now) => session.finish(now));
+/**
+ * FinishWorkoutSession (§30). C'est ici, et pas au démarrage, que
+ * l'entraînement programmé devient EXECUTED.
+ */
+export async function finishWorkoutSession(): Promise<WorkoutSession> {
+  const session = await onActiveSession((current, now) => current.finish(now));
+  if (session.scheduledWorkoutId) {
+    await markScheduleExecuted(session.scheduledWorkoutId);
+  }
+  return session;
+}
 
 export const cancelWorkoutSession = () =>
   onActiveSession((session, now) => session.cancel(now));

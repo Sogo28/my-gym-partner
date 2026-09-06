@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -286,6 +286,22 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
     await db.execAsync(`
       ALTER TABLE exercises ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE planned_workouts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+    `);
+  }
+
+  // Migration 11 : programmation des entraînements (Slice 5).
+  if (version < 11) {
+    await db.execAsync(`
+      CREATE TABLE scheduled_workouts (
+        id TEXT PRIMARY KEY NOT NULL,
+        planned_workout_id TEXT NOT NULL REFERENCES planned_workouts(id),
+        scheduled_at TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('SCHEDULED', 'EXECUTED', 'CANCELLED'))
+      );
+
+      -- D'où vient la séance : d'une intention programmée, ou de rien.
+      ALTER TABLE workout_sessions ADD COLUMN scheduled_workout_id TEXT
+        REFERENCES scheduled_workouts(id);
     `);
   }
 

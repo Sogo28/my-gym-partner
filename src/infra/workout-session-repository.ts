@@ -9,6 +9,7 @@ import { getDatabase } from './db';
 type SessionRow = {
   id: string;
   planned_workout_id: string | null;
+  scheduled_workout_id: string | null;
   started_at: string;
   ended_at: string | null;
   status: WorkoutSessionStatus;
@@ -34,11 +35,13 @@ export async function save(session: WorkoutSession): Promise<void> {
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO workout_sessions (id, planned_workout_id, started_at, ended_at, status)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO workout_sessions
+         (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET ended_at = excluded.ended_at, status = excluded.status;`,
       session.id,
       session.plannedWorkoutId,
+      session.scheduledWorkoutId,
       session.startedAt.toISOString(),
       session.endedAt?.toISOString() ?? null,
       session.status,
@@ -145,6 +148,7 @@ function restore(row: SessionRow, activities: Activity[], rests: Rest[]): Workou
   return WorkoutSession.restore({
     id: row.id,
     plannedWorkoutId: row.planned_workout_id,
+    scheduledWorkoutId: row.scheduled_workout_id,
     startedAt: new Date(row.started_at),
     status: row.status,
     endedAt: row.ended_at ? new Date(row.ended_at) : null,
