@@ -30,12 +30,14 @@ export const AGGREGATION_PHRASES: Record<Aggregation, string> = {
 export const WINDOW_PHRASES: Record<EvaluationWindow, string> = {
   LAST_SESSION: 'lors de la dernière séance',
   ALL_TIME: 'sur tout l historique',
+  LATEST_READING: 'au dernier relevé',
 };
 
 /** Pour les boutons de choix. */
 export const WINDOW_LABELS: { value: EvaluationWindow; label: string }[] = [
   { value: 'LAST_SESSION', label: 'Dernière séance' },
   { value: 'ALL_TIME', label: 'Tout l historique' },
+  { value: 'LATEST_READING', label: 'Dernier relevé' },
 ];
 
 /** « moyenne des valeurs lors de la dernière séance ». */

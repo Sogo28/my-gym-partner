@@ -10,9 +10,12 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Condition, ProgressionStep } from '../src/domain/goal/goal';
+import type { BodyMetric } from '../src/domain/body/body-metric';
+import type { Condition, GoalSubject, ProgressionStep } from '../src/domain/goal/goal';
+import { windowsFor } from '../src/domain/goal/goal';
 import { findAllMeasurements } from '../src/infra/exercise-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
+import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
@@ -21,14 +24,19 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
 
-/** Une entrée de l'écran : un exercice et sa condition. */
-type Entry = { exerciseId: string; conditions: Condition[] };
+/** Une entrée de l'écran : ce qui est visé, et ses conditions. */
+type Entry = { subject: GoalSubject; conditions: Condition[] };
 
-function defaultCondition(measurementId: string): Condition {
+/**
+ * La condition de départ dépend du sujet : une mensuration s'observe au
+ * dernier relevé, un exercice sur sa dernière séance.
+ */
+function defaultCondition(subject: GoalSubject, measurementId: string): Condition {
+  const isBody = subject.kind === 'body';
   return {
     measurementId,
-    window: 'LAST_SESSION',
-    aggregation: 'average',
+    window: isBody ? 'LATEST_READING' : 'LAST_SESSION',
+    aggregation: isBody ? 'max' : 'average',
     operator: '>=',
     target: 10,
   };
@@ -37,31 +45,48 @@ function defaultCondition(measurementId: string): Condition {
 export default function NewGoalScreen() {
   const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  /** Ce que le sélecteur propose : des exercices, ou des mensurations. */
+  const [picking, setPicking] = useState<'none' | 'exercise' | 'body'>('none');
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([listActiveExercises(), findAllMeasurements()])
-      .then(([all, allMeasurements]) => {
+    Promise.all([listActiveExercises(), findAllMeasurements(), listMetrics()])
+      .then(([all, allMeasurements, allMetrics]) => {
         setExercises(all);
         setMeasurements(allMeasurements);
+        setMetrics(allMetrics);
       })
       .catch((e) => setError(messageOf(e)));
   }, []);
 
   const exerciseOf = (id: string) => exercises.find((e) => e.id === id);
-  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
+  const metricOf = (id: string) => metrics.find((m) => m.id === id);
+  const unitOf = (id: string) =>
+    measurements.find((m) => m.id === id)?.unit ?? metricOf(id)?.unit ?? id;
 
-  function addEntry(exerciseId: string) {
-    const measurementId = exerciseOf(exerciseId)?.measurementIds[0];
+  /** Le nom de ce qui est visé, et les mesures qu'on peut y observer. */
+  const subjectName = (subject: GoalSubject) =>
+    subject.kind === 'exercise'
+      ? (exerciseOf(subject.exerciseId)?.name ?? subject.exerciseId)
+      : (metricOf(subject.metricId)?.name ?? subject.metricId);
+
+  const measurementsOf = (subject: GoalSubject): readonly string[] =>
+    subject.kind === 'exercise'
+      ? (exerciseOf(subject.exerciseId)?.measurementIds ?? [])
+      : // Une mensuration ne se mesure qu'elle-même : « tour de cuisse en cm ».
+        [subject.metricId];
+
+  function addEntry(subject: GoalSubject) {
+    const measurementId = measurementsOf(subject)[0];
     if (!measurementId) return;
 
-    const entry: Entry = { exerciseId, conditions: [defaultCondition(measurementId)] };
-    // Un objectif simple ne vise qu'un exercice : le nouveau remplace l'ancien.
+    const entry: Entry = { subject, conditions: [defaultCondition(subject, measurementId)] };
+    // Un objectif simple ne vise qu'une chose : le nouveau remplace l'ancien.
     setEntries((current) => (progressive ? [...current, entry] : [entry]));
   }
 
@@ -82,13 +107,17 @@ export default function NewGoalScreen() {
 
   /** Toutes les conditions d'un requirement doivent tenir : c'est un ET. */
   function addCondition(index: number) {
-    const measurementId = exerciseOf(entries[index].exerciseId)?.measurementIds[0];
+    const entry = entries[index];
+    const measurementId = measurementsOf(entry.subject)[0];
     if (!measurementId) return;
     setEntries((current) =>
-      current.map((entry, i) =>
+      current.map((item, i) =>
         i === index
-          ? { ...entry, conditions: [...entry.conditions, defaultCondition(measurementId)] }
-          : entry,
+          ? {
+              ...item,
+              conditions: [...item.conditions, defaultCondition(item.subject, measurementId)],
+            }
+          : item,
       ),
     );
   }
@@ -106,12 +135,12 @@ export default function NewGoalScreen() {
   async function submit() {
     try {
       if (entries.length === 0) {
-        throw new Error('Ajoute au moins un exercice à cet objectif.');
+        throw new Error('Ajoute au moins un exercice ou une mensuration à cet objectif.');
       }
 
       if (progressive) {
         const steps: ProgressionStep[] = entries.map((entry) => ({
-          exerciseId: entry.exerciseId,
+          subject: entry.subject,
           requirements: [{ conditions: entry.conditions }],
         }));
         await createGoal({ name, target: { kind: 'progressive', steps } });
@@ -121,7 +150,7 @@ export default function NewGoalScreen() {
           name,
           target: {
             kind: 'simple',
-            exerciseId: entries[0].exerciseId,
+            subject: entries[0].subject,
             requirements: [{ conditions: entries[0].conditions }],
           },
         });
@@ -172,14 +201,15 @@ export default function NewGoalScreen() {
         </View>
 
         {entries.map((entry, index) => {
-          const exercise = exerciseOf(entry.exerciseId);
+          const available = measurementsOf(entry.subject);
+          const windows = windowsFor(entry.subject);
 
           return (
-            <Card key={`${entry.exerciseId}-${index}`} density="titled" className="gap-3">
+            <Card key={index} density="titled" className="gap-3">
               <View className="flex-row items-center justify-between">
                 <Text className="shrink font-bold text-[16px] text-ink dark:text-ink-dark">
                   {progressive ? `${index + 1}. ` : ''}
-                  {exercise?.name ?? entry.exerciseId}
+                  {subjectName(entry.subject)}
                 </Text>
                 <Pressable onPress={() => setEntries((c) => c.filter((_, i) => i !== index))}>
                   <Text className="text-[13px] text-danger dark:text-danger-dark">retirer</Text>
@@ -209,17 +239,16 @@ export default function NewGoalScreen() {
                             measurementId:
                               value === 'setCount'
                                 ? null
-                                : (condition.measurementId ?? exercise?.measurementIds[0] ?? null),
+                                : (condition.measurementId ?? available[0] ?? null),
                           })
                         }
                       />
                     ))}
                   </View>
 
-                  {condition.aggregation !== 'setCount' &&
-                    (exercise?.measurementIds.length ?? 0) > 1 && (
+                  {condition.aggregation !== 'setCount' && available.length > 1 && (
                       <View className="flex-row flex-wrap gap-2">
-                        {exercise?.measurementIds.map((measurementId) => (
+                        {available.map((measurementId) => (
                           <Chip
                             key={measurementId}
                             label={unitOf(measurementId)}
@@ -245,9 +274,10 @@ export default function NewGoalScreen() {
                     />
                   </View>
 
-                  {/* La période observée : elle change le sens de la condition. */}
+                  {/* Les périodes que ce sujet sait alimenter : une
+                      mensuration n'a pas de séances. */}
                   <View className="flex-row flex-wrap gap-2">
-                    {WINDOW_LABELS.map(({ value, label }) => (
+                    {WINDOW_LABELS.filter((entry) => windows.includes(entry.value)).map(({ value, label }) => (
                       <Chip
                         key={value}
                         label={label}
@@ -283,12 +313,23 @@ export default function NewGoalScreen() {
           );
         })}
 
-        <Button
-          label={progressive ? '+ Ajouter une étape' : entries.length ? "Changer d'exercice" : "Choisir l'exercice"}
-          variant="secondary"
-          size="md"
-          onPress={() => setPicking(true)}
-        />
+        {/* Deux sources possibles : ce qu'on exécute, ou ce qu'on mesure. */}
+        <View className="flex-row gap-2">
+          <Button
+            label={progressive ? '+ Exercice' : 'Un exercice'}
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onPress={() => setPicking('exercise')}
+          />
+          <Button
+            label={progressive ? '+ Mensuration' : 'Une mensuration'}
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onPress={() => setPicking('body')}
+          />
+        </View>
 
         {error && <BusinessNotice message={error} />}
       </ScrollView>
@@ -298,17 +339,27 @@ export default function NewGoalScreen() {
       </View>
 
       <Sheet
-        visible={picking}
-        title={progressive ? 'Ajouter une étape' : "Choisir l'exercice"}
-        description={
-          progressive ? "Chaque étape est un exercice. L'ordre définit la progression." : undefined
-        }
+        visible={picking === 'exercise'}
+        title={progressive ? 'Ajouter un exercice' : "Choisir l'exercice"}
+        description={progressive ? "L'ordre des étapes définit la progression." : undefined}
         searchPlaceholder="Rechercher un exercice"
         actions={exercises.map((exercise) => ({
           label: exercise.name,
-          onPress: () => addEntry(exercise.id),
+          onPress: () => addEntry({ kind: 'exercise', exerciseId: exercise.id }),
         }))}
-        onClose={() => setPicking(false)}
+        onClose={() => setPicking('none')}
+      />
+
+      <Sheet
+        visible={picking === 'body'}
+        title="Choisir une mensuration"
+        description="Évaluée sur ton dernier relevé, pas sur tes séances."
+        searchPlaceholder="Rechercher une mensuration"
+        actions={metrics.map((metric) => ({
+          label: `${metric.name} (${metric.unit})`,
+          onPress: () => addEntry({ kind: 'body', metricId: metric.id }),
+        }))}
+        onClose={() => setPicking('none')}
       />
     </SafeAreaView>
   );

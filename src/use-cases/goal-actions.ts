@@ -5,7 +5,7 @@ import {
   type RequirementEvaluation,
 } from '../domain/goal/evaluation';
 import { Goal, type GoalTarget } from '../domain/goal/goal';
-import { loadSetsForWindows } from '../infra/evaluation-source';
+import { loadSamplesForWindows } from '../infra/evaluation-source';
 import { findAll, save } from '../infra/goal-repository';
 
 /** CreateGoal (§25). */
@@ -31,8 +31,8 @@ export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation | null> {
   const requirements = goal.currentRequirements;
   if (requirements.length === 0) return null;
 
-  const sets = await loadSetsForWindows(goal.currentExerciseId, windowsUsedBy(requirements));
-  return evaluateRequirements(requirements, sets);
+  const samples = await loadSamplesForWindows(goal.currentSubject, windowsUsedBy(requirements));
+  return evaluateRequirements(requirements, samples);
 }
 
 /** AdvanceProgression (§25) : l'utilisateur accepte de passer à l'étape suivante. */

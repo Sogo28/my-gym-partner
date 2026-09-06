@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { PerformanceSet } from '../performance/exercise-performance';
 import { evaluateRequirement, evaluateRequirements, windowsUsedBy } from './evaluation';
 import type { Condition, Requirement } from './goal';
 
-const at = new Date(2026, 8, 5, 18, 0);
-
-const set = (duration: number, status: PerformanceSet['status'] = 'COMPLETED'): PerformanceSet => ({
-  status,
-  values: { BOTH: { duration } },
-  startedAt: at,
-  endedAt: at,
-});
+/** Un échantillon : ce qu'une série ou un relevé a donné. */
+const set = (duration: number) => ({ duration });
 
 const condition = (over: Partial<Condition> = {}): Condition => ({
   measurementId: 'duration',
@@ -24,7 +17,7 @@ const condition = (over: Partial<Condition> = {}): Condition => ({
 const holdAtLeast10: Requirement = { conditions: [condition()] };
 
 /** Raccourci : des séries pour la seule fenêtre de la dernière séance. */
-const lastSession = (sets: PerformanceSet[]) => ({ LAST_SESSION: sets });
+const lastSession = (samples: { duration: number }[]) => ({ LAST_SESSION: samples });
 
 describe('evaluateRequirement', () => {
   // L'exemple exact du modèle métier (§6).
@@ -42,16 +35,9 @@ describe('evaluateRequirement', () => {
     expect(result.results[0].actual).toBe(10);
   });
 
-  it('ignore les séries abandonnées et en cours', () => {
-    // Sans le filtre, la moyenne tomberait à 7 et la condition échouerait.
-    const result = evaluateRequirement(
-      holdAtLeast10,
-      lastSession([set(10), set(1, 'ABANDONED'), set(0, 'IN_PROGRESS'), set(10)]),
-    );
-
-    expect(result.satisfied).toBe(true);
-    expect(result.results[0].actual).toBe(10);
-  });
+  // Le tri des séries abandonnées ne se fait plus ici : l'évaluation reçoit
+  // des échantillons déjà retenus. La règle est vérifiée au niveau du use
+  // case, là où le filtrage vit désormais.
 
   it('n est pas satisfaite quand aucune série ne renseigne la mesure', () => {
     const result = evaluateRequirement(holdAtLeast10, lastSession([]));
@@ -125,14 +111,13 @@ describe('evaluateRequirement', () => {
     expect(actual('total')).toBe(27);
   });
 
-  it('compte les séries complétées, sans regarder les mesures', () => {
+  it('compte les échantillons, sans regarder les mesures', () => {
     const requirement: Requirement = {
       conditions: [condition({ aggregation: 'setCount', measurementId: null, target: 2 })],
     };
 
     expect(
-      evaluateRequirement(requirement, lastSession([set(3), set(3), set(1, 'ABANDONED')]))
-        .results[0].actual,
+      evaluateRequirement(requirement, lastSession([set(3), set(3)])).results[0].actual,
     ).toBe(2);
   });
 });

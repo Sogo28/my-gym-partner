@@ -6,6 +6,7 @@ import {
   type GoalStatus,
   type GoalTarget,
   type Operator,
+  type GoalSubject,
   type ProgressionStep,
   type Requirement,
 } from '../domain/goal/goal';
@@ -18,11 +19,19 @@ type GoalRow = {
   id: string;
   name: string;
   kind: 'simple' | 'progressive';
+  subject_kind: 'exercise' | 'body';
   exercise_id: string | null;
+  metric_id: string | null;
   current_step: number;
   status: GoalStatus;
 };
-type StepRow = { goal_id: string; position: number; exercise_id: string };
+type StepRow = {
+  goal_id: string;
+  position: number;
+  subject_kind: 'exercise' | 'body';
+  exercise_id: string | null;
+  metric_id: string | null;
+};
 type ConditionRow = {
   goal_id: string;
   step_position: number;
@@ -39,16 +48,22 @@ export async function save(goal: Goal): Promise<void> {
   const target = goal.target;
 
   await db.withTransactionAsync(async () => {
+    const subject = target.kind === 'simple' ? target.subject : null;
+
     await db.runAsync(
-      `INSERT INTO goals (id, name, kind, exercise_id, current_step, status)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO goals
+         (id, name, kind, subject_kind, exercise_id, metric_id, current_step, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
-         name = excluded.name, kind = excluded.kind, exercise_id = excluded.exercise_id,
+         name = excluded.name, kind = excluded.kind, subject_kind = excluded.subject_kind,
+         exercise_id = excluded.exercise_id, metric_id = excluded.metric_id,
          current_step = excluded.current_step, status = excluded.status;`,
       goal.id,
       goal.name,
       target.kind,
-      target.kind === 'simple' ? target.exerciseId : null,
+      subject?.kind ?? 'exercise',
+      subject?.kind === 'exercise' ? subject.exerciseId : null,
+      subject?.kind === 'body' ? subject.metricId : null,
       goal.currentStepIndex,
       goal.status,
     );
@@ -63,10 +78,13 @@ export async function save(goal: Goal): Promise<void> {
 
     for (const [position, step] of target.steps.entries()) {
       await db.runAsync(
-        'INSERT INTO goal_steps (goal_id, position, exercise_id) VALUES (?, ?, ?);',
+        `INSERT INTO goal_steps (goal_id, position, subject_kind, exercise_id, metric_id)
+         VALUES (?, ?, ?, ?, ?);`,
         goal.id,
         position,
-        step.exerciseId,
+        step.subject.kind,
+        step.subject.kind === 'exercise' ? step.subject.exerciseId : null,
+        step.subject.kind === 'body' ? step.subject.metricId : null,
       );
       await saveRequirements(db, goal.id, position, step.requirements);
     }
@@ -98,6 +116,17 @@ async function saveRequirements(
       );
     }
   }
+}
+
+/** Le sujet stocké : un exercice, ou une mensuration. */
+function toSubject(row: {
+  subject_kind: 'exercise' | 'body';
+  exercise_id: string | null;
+  metric_id: string | null;
+}): GoalSubject {
+  return row.subject_kind === 'body'
+    ? { kind: 'body', metricId: row.metric_id! }
+    : { kind: 'exercise', exerciseId: row.exercise_id! };
 }
 
 export async function findAll(): Promise<Goal[]> {
@@ -138,7 +167,7 @@ export async function findAll(): Promise<Goal[]> {
   for (const row of stepRows) {
     const list = stepsOf.get(row.goal_id) ?? [];
     list.push({
-      exerciseId: row.exercise_id,
+      subject: toSubject(row),
       requirements: requirementsAt(`${row.goal_id}|${row.position}`),
     });
     stepsOf.set(row.goal_id, list);
@@ -149,7 +178,7 @@ export async function findAll(): Promise<Goal[]> {
       row.kind === 'simple'
         ? {
             kind: 'simple',
-            exerciseId: row.exercise_id!,
+            subject: toSubject(row),
             requirements: requirementsAt(`${row.id}|${GOAL_ITSELF}`),
           }
         : { kind: 'progressive', steps: stepsOf.get(row.id) ?? [] };

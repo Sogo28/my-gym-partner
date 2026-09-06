@@ -1,3 +1,4 @@
+import type { BodyMetricId } from '../body/body-metric';
 import type { ExerciseId } from '../exercise/exercise';
 import type { MeasurementId } from '../exercise/measurement';
 import { DomainError } from '../domain-error';
@@ -20,7 +21,24 @@ export type Aggregation = 'average' | 'max' | 'min' | 'total' | 'setCount';
  *   compte avec celui du début.
  * ALL_TIME     : tout l'historique de l'exercice.
  */
-export type EvaluationWindow = 'LAST_SESSION' | 'ALL_TIME';
+export type EvaluationWindow = 'LAST_SESSION' | 'ALL_TIME' | 'LATEST_READING';
+
+/**
+ * Sur quoi porte un objectif ou une étape.
+ *
+ * Un exercice, dont les performances se produisent en séance -- ou une
+ * mensuration, qui ne sort d'aucune séance et se relève à la main. Les deux
+ * s'évaluent de la même façon une fois les données rassemblées, mais elles ne
+ * viennent pas du même endroit.
+ */
+export type GoalSubject =
+  | { readonly kind: 'exercise'; readonly exerciseId: ExerciseId }
+  | { readonly kind: 'body'; readonly metricId: BodyMetricId };
+
+/** Les fenêtres qu'un sujet sait alimenter. */
+export function windowsFor(subject: GoalSubject): EvaluationWindow[] {
+  return subject.kind === 'exercise' ? ['LAST_SESSION', 'ALL_TIME'] : ['LATEST_READING'];
+}
 
 export type Operator = '>=' | '>' | '<=' | '<' | '==';
 
@@ -52,7 +70,7 @@ export type Requirement = {
  * le sont.
  */
 export type ProgressionStep = {
-  readonly exerciseId: ExerciseId;
+  readonly subject: GoalSubject;
   readonly requirements: readonly Requirement[];
 };
 
@@ -62,7 +80,7 @@ export type ProgressionStep = {
  */
 export type SimpleTarget = {
   readonly kind: 'simple';
-  readonly exerciseId: ExerciseId;
+  readonly subject: GoalSubject;
   readonly requirements: readonly Requirement[];
 };
 
@@ -128,11 +146,11 @@ export class Goal {
     return this._currentStep;
   }
 
-  /** L'exercice actuellement visé, quelle que soit la forme de l'objectif. */
-  get currentExerciseId(): ExerciseId {
+  /** Ce qui est actuellement visé, quelle que soit la forme de l'objectif. */
+  get currentSubject(): GoalSubject {
     return this._target.kind === 'simple'
-      ? this._target.exerciseId
-      : this._target.steps[this._currentStep].exerciseId;
+      ? this._target.subject
+      : this._target.steps[this._currentStep].subject;
   }
 
   /** Ce qu'il faut satisfaire aujourd'hui. Vide si rien n'est imposé. */
@@ -194,7 +212,7 @@ function checkTarget(target: GoalTarget): GoalTarget {
     if (target.requirements.length === 0) {
       throw new DomainError('Un objectif simple doit avoir au moins un requirement.');
     }
-    target.requirements.forEach(checkRequirement);
+    target.requirements.forEach((requirement) => checkRequirement(requirement, target.subject));
     return target;
   }
 
@@ -202,18 +220,29 @@ function checkTarget(target: GoalTarget): GoalTarget {
     throw new DomainError('Une progression doit avoir au moins une étape.');
   }
   for (const step of target.steps) {
-    step.requirements.forEach(checkRequirement);
+    step.requirements.forEach((requirement) => checkRequirement(requirement, step.subject));
   }
   return { kind: 'progressive', steps: [...target.steps] };
 }
 
-function checkRequirement(requirement: Requirement): void {
+function checkRequirement(requirement: Requirement, subject: GoalSubject): void {
   if (requirement.conditions.length === 0) {
     throw new DomainError('Un requirement sans condition ne pourrait jamais être évalué.');
   }
+
+  const allowed = windowsFor(subject);
   for (const condition of requirement.conditions) {
     if (condition.aggregation !== 'setCount' && condition.measurementId === null) {
       throw new DomainError('Cette condition doit préciser la mesure qu elle observe.');
+    }
+    // Une mensuration n'a pas de séances, un exercice n'a pas de relevés :
+    // une condition ne peut pas demander une période que son sujet ignore.
+    if (!allowed.includes(condition.window)) {
+      throw new DomainError(
+        subject.kind === 'body'
+          ? 'Une mensuration ne s évalue que sur son dernier relevé.'
+          : 'Un exercice ne s évalue pas sur un relevé corporel.',
+      );
     }
   }
 }

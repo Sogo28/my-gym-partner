@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { anExercise, useCleanDatabase } from '../../test/support';
 import type { Condition } from '../domain/goal/goal';
+import { recordReading } from './body-actions';
 import { createGoal, evaluateGoal } from './goal-actions';
 import {
   completePerformanceSet,
@@ -41,7 +42,11 @@ async function aSessionOf(exerciseId: string, durations: number[]) {
 async function goalOn(exerciseId: string, conditions: Condition[]) {
   return createGoal({
     name: 'Front Lever',
-    target: { kind: 'simple', exerciseId, requirements: [{ conditions }] },
+    target: {
+      kind: 'simple',
+      subject: { kind: 'exercise', exerciseId },
+      requirements: [{ conditions }],
+    },
   });
 }
 
@@ -143,6 +148,94 @@ describe('Deux fenêtres dans la même exigence', () => {
     // …le volume accumulé voit les deux.
     expect(evaluation!.results[1].actual).toBe(6);
     expect(evaluation!.satisfied).toBe(true);
+  });
+});
+
+describe('Objectif de mensuration', () => {
+  it('s évalue sur le dernier relevé, pas sur les séances', async () => {
+    await recordReading({ metricId: 'tourdecuisse', value: 56, at: new Date(2026, 7, 1) });
+    await recordReading({ metricId: 'tourdecuisse', value: 58.5, at: new Date(2026, 8, 1) });
+
+    const goal = await createGoal({
+      name: 'Des cuisses à la hauteur',
+      target: {
+        kind: 'simple',
+        subject: { kind: 'body', metricId: 'tourdecuisse' },
+        requirements: [
+          {
+            conditions: [
+              {
+                measurementId: 'tourdecuisse',
+                window: 'LATEST_READING',
+                aggregation: 'max',
+                operator: '>=',
+                target: 60,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const evaluation = await evaluateGoal(goal);
+
+    // Le dernier relevé, pas le plus grand jamais atteint ni une moyenne.
+    expect(evaluation!.results[0].actual).toBe(58.5);
+    expect(evaluation!.satisfied).toBe(false);
+  });
+
+  it('n a aucune donnée tant que rien n a été relevé', async () => {
+    const goal = await createGoal({
+      name: 'Poids de forme',
+      target: {
+        kind: 'simple',
+        subject: { kind: 'body', metricId: 'poids' },
+        requirements: [
+          {
+            conditions: [
+              {
+                measurementId: 'poids',
+                window: 'LATEST_READING',
+                aggregation: 'max',
+                operator: '>=',
+                target: 75,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const evaluation = await evaluateGoal(goal);
+
+    expect(evaluation!.results[0].hasData).toBe(false);
+    expect(evaluation!.results[0].actual).toBeNull();
+  });
+
+  it('refuse une condition qui demande une période inexistante pour son sujet', async () => {
+    // Une mensuration n'a pas de séances.
+    await expect(
+      createGoal({
+        name: 'Incohérent',
+        target: {
+          kind: 'simple',
+          subject: { kind: 'body', metricId: 'poids' },
+          requirements: [
+            {
+              conditions: [
+                {
+                  measurementId: 'poids',
+                  window: 'LAST_SESSION',
+                  aggregation: 'average',
+                  operator: '>=',
+                  target: 75,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow(/dernier relevé/);
   });
 });
 

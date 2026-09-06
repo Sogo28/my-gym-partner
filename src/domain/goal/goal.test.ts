@@ -10,7 +10,7 @@ const hold10: Condition = {
 };
 
 const step = (exerciseId: string): ProgressionStep => ({
-  exerciseId,
+  subject: { kind: 'exercise', exerciseId },
   requirements: [{ conditions: [hold10] }],
 });
 
@@ -27,7 +27,7 @@ const simple = () =>
     name: 'Tenir 10 secondes',
     target: {
       kind: 'simple',
-      exerciseId: 'advanced-tuck',
+      subject: { kind: 'exercise', exerciseId: 'advanced-tuck' },
       requirements: [{ conditions: [hold10] }],
     },
   });
@@ -38,7 +38,7 @@ describe('Goal simple', () => {
 
     expect(goal.isProgressive).toBe(false);
     expect(goal.steps).toHaveLength(0);
-    expect(goal.currentExerciseId).toBe('advanced-tuck');
+    expect(goal.currentSubject).toEqual({ kind: 'exercise', exerciseId: 'advanced-tuck' });
     expect(goal.currentRequirements[0].conditions).toEqual([hold10]);
   });
 
@@ -55,7 +55,7 @@ describe('Goal progressif', () => {
     const goal = frontLever();
 
     expect(goal.currentStepIndex).toBe(0);
-    expect(goal.currentExerciseId).toBe('tuck');
+    expect(goal.currentSubject).toEqual({ kind: 'exercise', exerciseId: 'tuck' });
   });
 
   it('avance d une étape sur décision de l utilisateur', () => {
@@ -63,7 +63,7 @@ describe('Goal progressif', () => {
 
     goal.advance();
 
-    expect(goal.currentExerciseId).toBe('advanced-tuck');
+    expect(goal.currentSubject).toEqual({ kind: 'exercise', exerciseId: 'advanced-tuck' });
   });
 
   it('refuse d avancer au-delà de la dernière étape', () => {
@@ -79,7 +79,10 @@ describe('Goal progressif', () => {
     const goal = Goal.create({
       id: 'g',
       name: 'Libre',
-      target: { kind: 'progressive', steps: [{ exerciseId: 'tuck', requirements: [] }] },
+      target: {
+        kind: 'progressive',
+        steps: [{ subject: { kind: 'exercise', exerciseId: 'tuck' }, requirements: [] }],
+      },
     });
 
     expect(goal.currentRequirements).toHaveLength(0);
@@ -93,7 +96,7 @@ describe('Goal progressif', () => {
         kind: 'progressive',
         steps: [
           {
-            exerciseId: 'tuck',
+            subject: { kind: 'exercise', exerciseId: 'tuck' },
             requirements: [{ conditions: [hold10] }, { conditions: [hold10] }],
           },
         ],
@@ -124,7 +127,7 @@ describe('Goal', () => {
 
     goal.changeTarget({
       kind: 'simple',
-      exerciseId: 'advanced-tuck',
+      subject: { kind: 'exercise', exerciseId: 'advanced-tuck' },
       requirements: [{ conditions: [{ ...hold10, target: 12 }] }],
     });
 
@@ -136,7 +139,11 @@ describe('Goal', () => {
       Goal.create({
         id: 'g',
         name: 'X',
-        target: { kind: 'simple', exerciseId: 'e', requirements: [{ conditions: [] }] },
+        target: {
+          kind: 'simple',
+          subject: { kind: 'exercise', exerciseId: 'e' },
+          requirements: [{ conditions: [] }],
+        },
       }),
     ).toThrow(/jamais être évalué/);
   });
@@ -148,7 +155,7 @@ describe('Goal', () => {
         name: 'X',
         target: {
           kind: 'simple',
-          exerciseId: 'e',
+          subject: { kind: 'exercise', exerciseId: 'e' },
           requirements: [{ conditions: [{ ...hold10, measurementId: null }] }],
         },
       }),

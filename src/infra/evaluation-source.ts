@@ -1,6 +1,7 @@
-import type { SetsByWindow } from '../domain/goal/evaluation';
-import type { EvaluationWindow } from '../domain/goal/goal';
-import type { PerformanceSet } from '../domain/performance/exercise-performance';
+import type { Sample, SamplesByWindow } from '../domain/goal/evaluation';
+import type { EvaluationWindow, GoalSubject } from '../domain/goal/goal';
+import { weakestValues, type PerformanceSet } from '../domain/performance/exercise-performance';
+import { findLatestReading } from './body-repository';
 import { getDatabase } from './db';
 import { findByIds } from './performance-repository';
 
@@ -12,18 +13,42 @@ import { findByIds } from './performance-repository';
  * seul l'évaluateur se pose. La ranger parmi les repositories laisserait
  * croire que la séance possède les performances, ce que le modèle interdit.
  */
-export async function loadSetsForWindows(
-  exerciseId: string,
+export async function loadSamplesForWindows(
+  subject: GoalSubject,
   windows: readonly EvaluationWindow[],
-): Promise<SetsByWindow> {
-  const result: { -readonly [K in EvaluationWindow]?: readonly PerformanceSet[] } = {};
+): Promise<SamplesByWindow> {
+  const result: { -readonly [K in EvaluationWindow]?: readonly Sample[] } = {};
 
   for (const window of windows) {
-    result[window] =
-      window === 'LAST_SESSION' ? await lastSessionSets(exerciseId) : await allTimeSets(exerciseId);
+    result[window] = await samplesFor(subject, window);
   }
 
   return result;
+}
+
+async function samplesFor(
+  subject: GoalSubject,
+  window: EvaluationWindow,
+): Promise<readonly Sample[]> {
+  if (subject.kind === 'body') {
+    // Un relevé donne un seul échantillon, porté par l'identifiant de la
+    // mensuration : c'est lui que la condition observe.
+    const reading = await findLatestReading(subject.metricId);
+    return reading ? [{ [subject.metricId]: reading.value }] : [];
+  }
+
+  const sets =
+    window === 'LAST_SESSION'
+      ? await lastSessionSets(subject.exerciseId)
+      : await allTimeSets(subject.exerciseId);
+
+  return (
+    sets
+      // Seules les séries COMPLETED sont des performances (n°18).
+      .filter((set) => set.status === 'COMPLETED')
+      // Pour un exercice unilatéral, c'est le côté le plus faible qui compte.
+      .map((set) => weakestValues(set.values))
+  );
 }
 
 /**

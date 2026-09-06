@@ -4,8 +4,10 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Goal } from '../src/domain/goal/goal';
+import type { BodyMetric } from '../src/domain/body/body-metric';
+import type { Goal, GoalSubject } from '../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
+import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
@@ -26,17 +28,20 @@ export default function GoalsScreen() {
   const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [all, allExercises, allMeasurements] = await Promise.all([
+    const [all, allExercises, allMeasurements, allMetrics] = await Promise.all([
       listGoals(),
       findAllExercises(),
       findAllMeasurements(),
+      listMetrics(),
     ]);
     setGoals(all);
     setExercises(allExercises);
     setMeasurements(allMeasurements);
+    setMetrics(allMetrics);
 
     // L'évaluation est recalculée à chaque affichage : elle dérive des
     // performances et n'est jamais stockée (§23).
@@ -51,7 +56,20 @@ export default function GoalsScreen() {
   );
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
-  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
+  const metricOf = (id: string) => metrics.find((m) => m.id === id);
+
+  /**
+   * L'unité d'une condition : celle d'une mesure de performance, ou celle
+   * d'une mensuration -- une condition sur un tour de cuisse s'exprime en cm.
+   */
+  const unitOf = (id: string) =>
+    measurements.find((m) => m.id === id)?.unit ?? metricOf(id)?.unit ?? id;
+
+  /** Ce que l'objectif vise, exercice ou mensuration. */
+  const subjectName = (subject: GoalSubject) =>
+    subject.kind === 'exercise'
+      ? nameOf(subject.exerciseId)
+      : (metricOf(subject.metricId)?.name ?? subject.metricId);
 
   const active = goals.filter((goal) => goal.status === 'ACTIVE');
 
@@ -102,8 +120,17 @@ export default function GoalsScreen() {
               </View>
 
               <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
-                {nameOf(goal.currentExerciseId)}
+                {subjectName(goal.currentSubject)}
               </Text>
+
+              {/* Ce qui soutient la progression sans jamais la décider : les
+                  exercices qui travaillent les mêmes muscles. */}
+              {goal.currentSubject.kind === 'body' && (
+                <SupportingExercises
+                  muscleIds={metricOf(goal.currentSubject.metricId)?.muscleIds ?? []}
+                  exercises={exercises}
+                />
+              )}
 
               {/* Chaque condition, avec ce qu'elle demande, sur quelle
                   période, et ce que cette période a réellement donné. */}
@@ -142,7 +169,7 @@ export default function GoalsScreen() {
                 <View className="mt-1 gap-2">
                   <BusinessNotice
                     message="Étape atteinte"
-                    detail={`Tu peux passer à ${nameOf(goal.steps[goal.currentStepIndex + 1].exerciseId)}.`}
+                    detail={`Tu peux passer à ${subjectName(goal.steps[goal.currentStepIndex + 1].subject)}.`}
                   />
                   <Button
                     label="Passer à l'étape suivante"
@@ -173,5 +200,37 @@ export default function GoalsScreen() {
         </Link>
       </View>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Les exercices qui travaillent les muscles concernés par la mensuration.
+ *
+ * Ils éclairent la progression -- « voilà ce que tu fais pour ça » -- sans
+ * entrer dans l'évaluation : seul le mètre ruban décide.
+ */
+function SupportingExercises({
+  muscleIds,
+  exercises,
+}: {
+  muscleIds: readonly string[];
+  exercises: Exercise[];
+}) {
+  const supporting = exercises.filter(
+    (exercise) =>
+      !exercise.isArchived && exercise.muscleIds.some((id) => muscleIds.includes(id)),
+  );
+
+  if (supporting.length === 0) return null;
+
+  return (
+    <View className="mt-1 gap-1">
+      <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+        Ce qui soutient
+      </Text>
+      <Text className="text-[13px] text-muted dark:text-muted-dark">
+        {supporting.map((exercise) => exercise.name).join(' · ')}
+      </Text>
+    </View>
   );
 }

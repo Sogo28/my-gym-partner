@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -456,6 +456,57 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       );
     `);
     await seedBodyMetrics(db);
+  }
+
+  // Migration 17 : un objectif peut viser une mensuration, pas seulement un
+  // exercice. Le sujet devient explicite plutôt qu'un exercice sous-entendu.
+  if (version < 17) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      ALTER TABLE goals ADD COLUMN subject_kind TEXT NOT NULL DEFAULT 'exercise';
+      ALTER TABLE goals ADD COLUMN metric_id TEXT REFERENCES body_metrics(id);
+
+      -- Une étape porte le même choix, et son exercice devient facultatif.
+      CREATE TABLE goal_steps_v17 (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        subject_kind TEXT NOT NULL CHECK (subject_kind IN ('exercise', 'body')),
+        exercise_id TEXT REFERENCES exercises(id),
+        metric_id TEXT REFERENCES body_metrics(id),
+        PRIMARY KEY (goal_id, position)
+      );
+
+      INSERT INTO goal_steps_v17 (goal_id, position, subject_kind, exercise_id, metric_id)
+        SELECT goal_id, position, 'exercise', exercise_id, NULL FROM goal_steps;
+
+      DROP TABLE goal_steps;
+      ALTER TABLE goal_steps_v17 RENAME TO goal_steps;
+
+      -- La fenêtre du dernier relevé rejoint les deux autres.
+      CREATE TABLE goal_conditions_v17 (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        step_position INTEGER NOT NULL,
+        requirement_index INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        measurement_id TEXT,
+        window TEXT NOT NULL
+          CHECK (window IN ('LAST_SESSION', 'ALL_TIME', 'LATEST_READING')),
+        aggregation TEXT NOT NULL
+          CHECK (aggregation IN ('average', 'max', 'min', 'total', 'setCount')),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        target REAL NOT NULL,
+        PRIMARY KEY (goal_id, step_position, requirement_index, condition_index)
+      );
+
+      INSERT INTO goal_conditions_v17
+        SELECT goal_id, step_position, requirement_index, condition_index,
+               measurement_id, window, aggregation, operator, target
+        FROM goal_conditions;
+
+      DROP TABLE goal_conditions;
+      ALTER TABLE goal_conditions_v17 RENAME TO goal_conditions;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
