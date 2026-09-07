@@ -10,7 +10,7 @@ import type {
   Side,
   ValuesBySide,
 } from '../src/domain/performance/exercise-performance';
-import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import type { PlannedWorkout, TargetValues } from '../src/domain/planned-workout/planned-workout';
 import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findById as findPerformanceById } from '../src/infra/performance-repository';
@@ -33,7 +33,12 @@ import { SetChip } from '../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../src/ui/set-row';
 import { NumberField } from '../src/ui/number-field';
 import { Timer } from '../src/ui/timer';
-import { formatSetValues, formatSetValuesShort } from '../src/ui/set-values';
+import {
+  formatSetValues,
+  formatSetValuesShort,
+  formatTargets,
+  formatTargetsShort,
+} from '../src/ui/set-values';
 import { formatDateTime } from '../src/ui/format';
 import {
   abandonPerformanceSet,
@@ -144,6 +149,8 @@ export default function SessionScreen() {
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
   const format = (v: ValuesBySide) => formatSetValues(v, unitOf);
   const formatShort = (v: ValuesBySide) => formatSetValuesShort(v, unitOf);
+  const formatPlanned = (t: TargetValues) => formatTargets(t, unitOf);
+  const formatPlannedShort = (t: TargetValues) => formatTargetsShort(t, unitOf);
 
   /**
    * Les côtés à saisir. Un exercice unilatéral en a deux : c'est UNE série
@@ -460,7 +467,7 @@ export default function SessionScreen() {
                   key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
                   status="planned"
-                  values={format(set.targets)}
+                  values={formatPlanned(set.targets)}
                 />
               ))}
             </ScrollView>
@@ -487,7 +494,7 @@ export default function SessionScreen() {
                   key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
                   status="planned"
-                  values={formatShort(set.targets)}
+                  values={formatPlannedShort(set.targets)}
                 />
               ))}
             </ScrollView>

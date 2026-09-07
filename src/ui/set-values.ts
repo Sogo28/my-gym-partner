@@ -1,4 +1,5 @@
 import type { ValuesBySide } from '../domain/performance/exercise-performance';
+import type { TargetValues } from '../domain/planned-workout/planned-workout';
 
 /**
  * Mise en forme des valeurs d'une série, quel que soit le nombre de côtés.
@@ -36,4 +37,27 @@ export function formatSetValuesShort(
         .join('·'),
     )
     .join(' · ');
+}
+
+/**
+ * Ce qu'une série PRÉVUE annonce : « 10 reps · 20 kg ».
+ *
+ * Le plan ne distingue pas les côtés -- les mêmes cibles valent pour chacun --
+ * là où une série faite les porte séparément. Sans cette conversion, les
+ * cibles passées telles quelles au formateur des séries faites ressortaient
+ * vides : leurs clés sont des mesures, pas des côtés.
+ */
+export function formatTargets(
+  targets: TargetValues,
+  unitOf: (measurementId: string) => string,
+): string {
+  return formatSetValues({ BOTH: targets }, unitOf);
+}
+
+/** La même chose en version courte, pour les pastilles. */
+export function formatTargetsShort(
+  targets: TargetValues,
+  unitOf: (measurementId: string) => string,
+): string {
+  return formatSetValuesShort({ BOTH: targets }, unitOf);
 }
