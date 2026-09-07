@@ -63,11 +63,19 @@ export default function NewGoalScreen() {
   // mensuration créés entre-temps doivent apparaître ici.
   useFocusEffect(
     useCallback(() => {
-      Promise.all([listActiveExercises(), findAllMeasurements(), listMetrics()])
-        .then(([all, allMeasurements, allMetrics]) => {
+      Promise.all([
+        listActiveExercises(),
+        findAllMeasurements(),
+        listMetrics(),
+        findAllMuscles(),
+        findRecentExerciseIds(),
+      ])
+        .then(([all, allMeasurements, allMetrics, allMuscles, recent]) => {
           setExercises(all);
           setMeasurements(allMeasurements);
           setMetrics(allMetrics);
+          setMuscles(allMuscles);
+          setRecentIds(recent);
         })
         .catch((e) => setError(messageOf(e)));
     }, []),

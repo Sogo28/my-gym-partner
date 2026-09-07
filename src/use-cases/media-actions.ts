@@ -7,8 +7,18 @@ import { findAll } from '../infra/exercise-repository';
 /** Où vivent les vidéos importées, à côté de la base et jamais dans le cache. */
 const FOLDER = 'media';
 
+/**
+ * Le dossier, sans le créer : `mediaUri` est appelé pendant un RENDU, et
+ * écrire sur le disque en dessinant un écran est une surprise qu'on finit
+ * toujours par payer.
+ */
 function mediaDirectory(): Directory {
-  const directory = new Directory(Paths.document, FOLDER);
+  return new Directory(Paths.document, FOLDER);
+}
+
+/** Sa création n'a lieu qu'au moment d'y déposer un fichier. */
+function ensureMediaDirectory(): Directory {
+  const directory = mediaDirectory();
   if (!directory.exists) directory.create({ intermediates: true });
   return directory;
 }
@@ -43,7 +53,7 @@ export async function pickVideo(): Promise<ExerciseMedia | null> {
 
   const source = picked.result;
   const extension = source.extension.replace('.', '') || 'mp4';
-  const copy = new File(mediaDirectory(), `${randomUUID()}.${extension}`);
+  const copy = new File(ensureMediaDirectory(), `${randomUUID()}.${extension}`);
 
   try {
     await source.copy(copy);
@@ -64,6 +74,7 @@ export async function pickVideo(): Promise<ExerciseMedia | null> {
  */
 export async function forgetUnusedMedia(): Promise<void> {
   const directory = mediaDirectory();
+  if (!directory.exists) return;
   const kept = new Set(
     (await findAll()).flatMap((exercise) =>
       exercise.media.filter((media) => media.kind === 'file').map((media) => media.uri),

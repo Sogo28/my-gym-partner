@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';

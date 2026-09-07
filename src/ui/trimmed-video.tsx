@@ -4,6 +4,26 @@ import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import type { MediaTrim } from '../domain/exercise/media';
 
 /**
+ * Place le lecteur à un instant donné dès que sa source est prête.
+ *
+ * Le demander à la CRÉATION du lecteur ne sert à rien : la source n'est pas
+ * encore chargée, la position est perdue, et la lecture repart de zéro. Et si
+ * la source était déjà prête avant que l'écouteur n'existe -- un fichier
+ * local se charge vite --, son événement est passé : on regarde alors l'état.
+ *
+ * @returns de quoi retirer l'écouteur.
+ */
+export function seekOnLoad(player: VideoPlayer, seconds: number, then?: () => void) {
+  const apply = () => {
+    player.currentTime = seconds;
+    then?.();
+  };
+  const loaded = player.addListener('sourceLoad', apply);
+  if (player.status === 'readyToPlay') apply();
+  return loaded;
+}
+
+/**
  * Un lecteur qui ne joue qu'un extrait, en boucle, sans commandes.
  *
  * Le lecteur natif ne sait boucler que sur un fichier entier : la boucle sur
@@ -20,20 +40,7 @@ function useLoopedExcerpt(uri: string | null, trim: MediaTrim | null): VideoPlay
   useEffect(() => {
     if (uri === null) return;
 
-    /**
-     * Se placer et démarrer dès la CRÉATION du lecteur ne servirait à rien :
-     * la source n'est pas encore chargée, la position demandée est perdue, et
-     * la lecture repartirait de zéro -- donc de toute la vidéo.
-     */
-    function start() {
-      if (trim) player.currentTime = trim.from;
-      player.play();
-    }
-
-    const loaded = player.addListener('sourceLoad', start);
-    // Si la source était déjà prête avant que l'écouteur n'existe, son
-    // événement est passé : on démarre tout de suite.
-    if (player.status === 'readyToPlay') start();
+    const loaded = seekOnLoad(player, trim?.from ?? 0, () => player.play());
 
     if (!trim) return () => loaded.remove();
 
