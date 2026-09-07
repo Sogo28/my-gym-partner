@@ -32,9 +32,12 @@ export default function NewExerciseScreen() {
   const [isUnilateral, setIsUnilateral] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
-  const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
+  const [primaryMuscle, setPrimaryMuscle] = useState<string | null>(null);
+  const [secondaryMuscles, setSecondaryMuscles] = useState<string[]>([]);
   /** La feuille de choix ouverte, s'il y en a une. */
-  const [choosing, setChoosing] = useState<'none' | 'measurements' | 'muscles'>('none');
+  const [choosing, setChoosing] = useState<'none' | 'measurements' | 'primary' | 'secondary'>(
+    'none',
+  );
   const [error, setError] = useState<string | null>(null);
 
   const toggle =
@@ -64,7 +67,8 @@ export default function NewExerciseScreen() {
         setName(exercise.name);
         setIsUnilateral(exercise.isUnilateral);
         setSelected([...exercise.measurementIds]);
-        setSelectedMuscles([...exercise.muscleIds]);
+        setPrimaryMuscle(exercise.primaryMuscleId);
+        setSecondaryMuscles([...exercise.secondaryMuscleIds]);
       })
       .catch((e) => setError(messageOf(e)));
   }, [id]);
@@ -77,14 +81,16 @@ export default function NewExerciseScreen() {
           exercise: existing,
           name,
           measurementIds: selected,
-          muscleIds: selectedMuscles,
+          primaryMuscleId: primaryMuscle,
+          secondaryMuscleIds: secondaryMuscles,
         });
       } else {
         await createExercise({
           name,
           isUnilateral,
           measurementIds: selected,
-          muscleIds: selectedMuscles,
+          primaryMuscleId: primaryMuscle,
+          secondaryMuscleIds: secondaryMuscles,
         });
       }
       router.back();
@@ -144,17 +150,34 @@ export default function NewExerciseScreen() {
 
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            Muscles sollicités
+            Muscle principal
           </Text>
           <Text className="text-[13px] text-muted dark:text-muted-dark">
-            Facultatif. Sert à retrouver l'exercice, jamais à juger une performance.
+            Facultatif. Ce que l'exercice vise en premier.
           </Text>
           <OptionChip
             options={muscles}
-            selected={selectedMuscles}
-            emptyLabel="Aucun muscle"
+            selected={primaryMuscle ? [primaryMuscle] : []}
+            emptyLabel="Aucun muscle principal"
             plural="muscles"
-            onPress={() => setChoosing('muscles')}
+            onPress={() => setChoosing('primary')}
+          />
+        </View>
+
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Muscles secondaires
+          </Text>
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Ceux qui travaillent en soutien. Sert à retrouver l'exercice, jamais à juger une
+            performance.
+          </Text>
+          <OptionChip
+            options={muscles}
+            selected={secondaryMuscles}
+            emptyLabel="Aucun muscle secondaire"
+            plural="muscles"
+            onPress={() => setChoosing('secondary')}
           />
         </View>
 
@@ -229,14 +252,33 @@ export default function NewExerciseScreen() {
       />
 
       <OptionSheet
-        visible={choosing === 'muscles'}
-        title="Muscles sollicités"
+        visible={choosing === 'primary'}
+        title="Muscle principal"
+        mode="single"
         options={muscles}
-        selected={selectedMuscles}
+        selected={primaryMuscle ? [primaryMuscle] : []}
+        clearLabel="Aucun"
+        confirmLabel="Fermer"
+        // Choisir un muscle principal le retire des secondaires : il ne peut
+        // pas soutenir un mouvement dont il est déjà la cible.
+        onToggle={(id) => {
+          setPrimaryMuscle(id);
+          setSecondaryMuscles((current) => current.filter((other) => other !== id));
+        }}
+        onClear={() => setPrimaryMuscle(null)}
+        onClose={() => setChoosing('none')}
+      />
+
+      <OptionSheet
+        visible={choosing === 'secondary'}
+        title="Muscles secondaires"
+        // Le muscle principal ne se propose pas ici : il a déjà son rôle.
+        options={muscles.filter((muscle) => muscle.id !== primaryMuscle)}
+        selected={secondaryMuscles}
         clearLabel="Tout décocher"
-        confirmLabel={`${selectedMuscles.length} muscle${selectedMuscles.length > 1 ? 's' : ''}`}
-        onToggle={toggle(setSelectedMuscles)}
-        onClear={() => setSelectedMuscles([])}
+        confirmLabel={`${secondaryMuscles.length} muscle${secondaryMuscles.length > 1 ? 's' : ''}`}
+        onToggle={toggle(setSecondaryMuscles)}
+        onClear={() => setSecondaryMuscles([])}
         onClose={() => setChoosing('none')}
       />
 

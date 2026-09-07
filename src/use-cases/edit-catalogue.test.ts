@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
 import { findAll as findAllExercises } from '../infra/exercise-repository';
 import { findAll as findAllWorkouts } from '../infra/planned-workout-repository';
-import { discardExercise, discardWorkout, listActiveExercises } from './edit-catalogue';
+import { discardExercise, discardWorkout, listActiveExercises, updateExercise } from './edit-catalogue';
 import { startActivity, startWorkoutSession } from './workout-session-actions';
 
 /**
@@ -66,5 +66,40 @@ describe('Retirer un entraînement', () => {
 
     expect(await discardWorkout(plan)).toBe('archived');
     expect((await findAllWorkouts())[0].isArchived).toBe(true);
+  });
+});
+
+describe('Muscles d un exercice', () => {
+  it('garde le principal et les secondaires distincts jusqu en base', async () => {
+    const exercise = await anExercise();
+
+    await updateExercise({
+      exercise,
+      name: exercise.name,
+      measurementIds: [...exercise.measurementIds],
+      primaryMuscleId: 'dos',
+      secondaryMuscleIds: ['biceps', 'abdominaux'],
+    });
+
+    // Relu depuis SQLite : c'est le rôle stocké qui doit revenir, pas l'ordre
+    // du catalogue des muscles.
+    const [reloaded] = await findAllExercises();
+    expect(reloaded.primaryMuscleId).toBe('dos');
+    expect([...reloaded.secondaryMuscleIds].sort()).toEqual(['abdominaux', 'biceps']);
+    expect(reloaded.muscleIds[0]).toBe('dos');
+  });
+
+  it('refuse de viser deux fois le même muscle', async () => {
+    const exercise = await anExercise();
+
+    await expect(
+      updateExercise({
+        exercise,
+        name: exercise.name,
+        measurementIds: [...exercise.measurementIds],
+        primaryMuscleId: 'dos',
+        secondaryMuscleIds: ['dos'],
+      }),
+    ).rejects.toThrow();
   });
 });

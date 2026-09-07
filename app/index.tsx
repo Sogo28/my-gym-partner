@@ -108,10 +108,13 @@ export default function ExercisesScreen() {
                   {item.measurementIds.map((id) => (
                     <Tag key={id} label={nameOf(id)} />
                   ))}
-                  {item.muscleIds.map((id) => (
-                    <Tag key={id} label={muscleNameOf(id)} accent />
+                  {item.primaryMuscleId && (
+                    <Tag label={muscleNameOf(item.primaryMuscleId)} variant="accent" />
+                  )}
+                  {item.secondaryMuscleIds.map((id) => (
+                    <Tag key={id} label={muscleNameOf(id)} variant="accent-outline" />
                   ))}
-                  {item.isUnilateral && <Tag label="unilatéral" accent />}
+                  {item.isUnilateral && <Tag label="unilatéral" variant="accent" />}
                   {item.isArchived && <Tag label="archivé" />}
                 </View>
               </Card>

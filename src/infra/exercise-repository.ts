@@ -5,7 +5,7 @@ import { getDatabase } from './db';
 
 type ExerciseRow = { id: string; name: string; is_unilateral: number; archived: number };
 type LinkRow = { exercise_id: string; measurement_id: string };
-type MuscleLinkRow = { exercise_id: string; muscle_id: string };
+type MuscleLinkRow = { exercise_id: string; muscle_id: string; role: 'PRIMARY' | 'SECONDARY' };
 
 /**
  * Repository : la seule porte d'entrée pour charger et sauvegarder l'agrégat
@@ -35,9 +35,17 @@ export async function save(exercise: Exercise): Promise<void> {
     await db.runAsync('DELETE FROM exercise_measurements WHERE exercise_id = ?;', exercise.id);
     await db.runAsync('DELETE FROM exercise_muscles WHERE exercise_id = ?;', exercise.id);
 
-    for (const muscleId of exercise.muscleIds) {
+    if (exercise.primaryMuscleId !== null) {
       await db.runAsync(
-        'INSERT INTO exercise_muscles (exercise_id, muscle_id) VALUES (?, ?);',
+        "INSERT INTO exercise_muscles (exercise_id, muscle_id, role) VALUES (?, ?, 'PRIMARY');",
+        exercise.id,
+        exercise.primaryMuscleId,
+      );
+    }
+
+    for (const muscleId of exercise.secondaryMuscleIds) {
+      await db.runAsync(
+        "INSERT INTO exercise_muscles (exercise_id, muscle_id, role) VALUES (?, ?, 'SECONDARY');",
         exercise.id,
         muscleId,
       );
@@ -66,7 +74,7 @@ export async function findAll(): Promise<Exercise[]> {
     'SELECT exercise_id, measurement_id FROM exercise_measurements ORDER BY exercise_id, position;',
   );
   const muscleLinks = await db.getAllAsync<MuscleLinkRow>(
-    `SELECT em.exercise_id, em.muscle_id FROM exercise_muscles em
+    `SELECT em.exercise_id, em.muscle_id, em.role FROM exercise_muscles em
      JOIN muscles m ON m.id = em.muscle_id
      ORDER BY em.exercise_id, m.position;`,
   );
@@ -78,11 +86,16 @@ export async function findAll(): Promise<Exercise[]> {
     measurementsByExercise.set(link.exercise_id, list);
   }
 
-  const musclesByExercise = new Map<string, string[]>();
+  const primaryByExercise = new Map<string, string>();
+  const secondariesByExercise = new Map<string, string[]>();
   for (const link of muscleLinks) {
-    const list = musclesByExercise.get(link.exercise_id) ?? [];
+    if (link.role === 'PRIMARY') {
+      primaryByExercise.set(link.exercise_id, link.muscle_id);
+      continue;
+    }
+    const list = secondariesByExercise.get(link.exercise_id) ?? [];
     list.push(link.muscle_id);
-    musclesByExercise.set(link.exercise_id, list);
+    secondariesByExercise.set(link.exercise_id, list);
   }
 
   // On reconstruit de vrais objets du domaine : ce qui sort du repository est
@@ -93,7 +106,8 @@ export async function findAll(): Promise<Exercise[]> {
       name: row.name,
       isUnilateral: row.is_unilateral === 1,
       measurementIds: measurementsByExercise.get(row.id) ?? [],
-      muscleIds: musclesByExercise.get(row.id) ?? [],
+      primaryMuscleId: primaryByExercise.get(row.id) ?? null,
+      secondaryMuscleIds: secondariesByExercise.get(row.id) ?? [],
       isArchived: row.archived === 1,
     }),
   );

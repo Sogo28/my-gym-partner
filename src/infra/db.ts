@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -505,6 +505,43 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
 
       DROP TABLE goal_conditions;
       ALTER TABLE goal_conditions_v17 RENAME TO goal_conditions;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+
+  // Migration 18 : un muscle est visé au premier plan ou en soutien.
+  //
+  // Les liens existants ne disaient pas lequel. Quand l'exercice n'en avait
+  // qu'un, il ne peut être que le principal ; dès qu'il en avait plusieurs,
+  // rien ne permet de trancher -- les deviner en inventerait le sens, donc ils
+  // passent en secondaires et attendent une décision.
+  if (version < 18) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      CREATE TABLE exercise_muscles_v18 (
+        exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        muscle_id TEXT NOT NULL REFERENCES muscles(id),
+        role TEXT NOT NULL CHECK (role IN ('PRIMARY', 'SECONDARY')),
+        PRIMARY KEY (exercise_id, muscle_id)
+      );
+
+      INSERT INTO exercise_muscles_v18 (exercise_id, muscle_id, role)
+        SELECT em.exercise_id, em.muscle_id,
+               CASE
+                 WHEN (SELECT COUNT(*) FROM exercise_muscles other
+                       WHERE other.exercise_id = em.exercise_id) = 1
+                 THEN 'PRIMARY'
+                 ELSE 'SECONDARY'
+               END
+        FROM exercise_muscles em;
+
+      DROP TABLE exercise_muscles;
+      ALTER TABLE exercise_muscles_v18 RENAME TO exercise_muscles;
+
+      -- Un seul muscle principal par exercice : la contrainte tient en base,
+      -- pas seulement dans l'agrégat.
+      CREATE UNIQUE INDEX exercise_primary_muscle
+        ON exercise_muscles (exercise_id) WHERE role = 'PRIMARY';
     `);
     await db.execAsync('PRAGMA foreign_keys = ON;');
   }

@@ -50,7 +50,7 @@ describe('Sauvegarde', () => {
 
   it('rend aussi le catalogue, muscles compris', async () => {
     const exercise = await anExercise('Front Lever', ['duration']);
-    exercise.changeMuscles(['dos', 'abdominaux']);
+    exercise.changeMuscles('dos', ['abdominaux']);
     const { save } = await import('./exercise-repository');
     await save(exercise);
 
@@ -61,7 +61,8 @@ describe('Sauvegarde', () => {
     const [restored] = await findAllExercises();
     expect(restored.name).toBe('Front Lever');
     expect(restored.measurementIds).toEqual(['duration']);
-    expect([...restored.muscleIds].sort()).toEqual(['abdominaux', 'dos']);
+    expect(restored.primaryMuscleId).toBe('dos');
+    expect(restored.secondaryMuscleIds).toEqual(['abdominaux']);
   });
 
   it('refuse une sauvegarde d une autre version du schéma', async () => {

@@ -10,8 +10,13 @@ export type CreateExerciseInput = {
   name: string;
   isUnilateral: boolean;
   measurementIds: readonly MeasurementId[];
-  /** Les groupes musculaires sollicités. Facultatif : aide au classement. */
-  muscleIds?: readonly MuscleId[];
+  /**
+   * Le muscle que l'exercice vise en premier. Facultatif : un exercice peut
+   * n'en cibler aucun, et rien ne dépend de ce choix.
+   */
+  primaryMuscleId?: MuscleId | null;
+  /** Ceux qui travaillent en soutien. Facultatif également. */
+  secondaryMuscleIds?: readonly MuscleId[];
 };
 
 /**
@@ -31,7 +36,8 @@ export class Exercise {
     private _name: string,
     readonly isUnilateral: boolean,
     private _measurementIds: readonly MeasurementId[],
-    private _muscleIds: readonly MuscleId[],
+    private _primaryMuscleId: MuscleId | null,
+    private _secondaryMuscleIds: readonly MuscleId[],
     private _isArchived: boolean,
   ) {}
 
@@ -43,7 +49,8 @@ export class Exercise {
       name,
       input.isUnilateral,
       measurementIds,
-      unique(input.muscleIds ?? []),
+      input.primaryMuscleId ?? null,
+      normalizeSecondaries(input.primaryMuscleId ?? null, input.secondaryMuscleIds ?? []),
       false,
     );
   }
@@ -55,7 +62,8 @@ export class Exercise {
       input.name,
       input.isUnilateral,
       [...input.measurementIds],
-      [...(input.muscleIds ?? [])],
+      input.primaryMuscleId ?? null,
+      [...(input.secondaryMuscleIds ?? [])],
       input.isArchived,
     );
   }
@@ -68,8 +76,25 @@ export class Exercise {
     return this._measurementIds;
   }
 
+  get primaryMuscleId(): MuscleId | null {
+    return this._primaryMuscleId;
+  }
+
+  get secondaryMuscleIds(): readonly MuscleId[] {
+    return [...this._secondaryMuscleIds];
+  }
+
+  /**
+   * Tous les muscles sollicités, le principal en tête.
+   *
+   * Ce que demandent le filtre du catalogue et la recherche d'exercices
+   * soutenant une mensuration : ils cherchent « qui travaille ce muscle »,
+   * sans distinguer au premier ou au second plan.
+   */
   get muscleIds(): readonly MuscleId[] {
-    return [...this._muscleIds];
+    return this._primaryMuscleId === null
+      ? [...this._secondaryMuscleIds]
+      : [this._primaryMuscleId, ...this._secondaryMuscleIds];
   }
 
   get isArchived(): boolean {
@@ -94,8 +119,12 @@ export class Exercise {
    * performance : les modifier n'a donc aucun effet sur l'historique, et
    * n'en cibler aucun reste valide.
    */
-  changeMuscles(muscleIds: readonly MuscleId[]): void {
-    this._muscleIds = unique(muscleIds);
+  changeMuscles(
+    primaryMuscleId: MuscleId | null,
+    secondaryMuscleIds: readonly MuscleId[],
+  ): void {
+    this._primaryMuscleId = primaryMuscleId;
+    this._secondaryMuscleIds = normalizeSecondaries(primaryMuscleId, secondaryMuscleIds);
   }
 
   /**
@@ -120,8 +149,19 @@ function normalizeName(name: string): string {
   return trimmed;
 }
 
-function unique<T>(values: readonly T[]): readonly T[] {
-  return [...new Set(values)];
+/**
+ * Un muscle est visé au premier plan OU en soutien, jamais les deux : la
+ * distinction ne voudrait plus rien dire, et l'affichage compterait deux fois
+ * le même muscle.
+ */
+function normalizeSecondaries(
+  primaryMuscleId: MuscleId | null,
+  secondaryMuscleIds: readonly MuscleId[],
+): readonly MuscleId[] {
+  if (primaryMuscleId !== null && secondaryMuscleIds.includes(primaryMuscleId)) {
+    throw new DomainError('Le muscle principal ne peut pas être aussi secondaire.');
+  }
+  return [...new Set(secondaryMuscleIds)];
 }
 
 function normalizeMeasurementIds(ids: readonly MeasurementId[]): readonly MeasurementId[] {

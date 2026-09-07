@@ -15,7 +15,8 @@ export async function createExercise(input: {
   name: string;
   isUnilateral: boolean;
   measurementIds: readonly MeasurementId[];
-  muscleIds?: readonly string[];
+  primaryMuscleId?: string | null;
+  secondaryMuscleIds?: readonly string[];
 }): Promise<Exercise> {
   // Les règles métier sont vérifiées ici, avant toute écriture :
   // une donnée invalide n'atteint jamais la base.

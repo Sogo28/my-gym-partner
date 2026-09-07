@@ -69,23 +69,42 @@ describe('Exercise', () => {
   it('peut ne cibler aucun muscle', () => {
     const exercise = Exercise.create(validInput);
 
+    expect(exercise.primaryMuscleId).toBeNull();
     expect(exercise.muscleIds).toEqual([]);
   });
 
-  it('retient les muscles ciblés, sans doublon', () => {
-    const exercise = Exercise.create({ ...validInput, muscleIds: ['back', 'biceps', 'back'] });
+  it('distingue le muscle visé de ceux qui soutiennent', () => {
+    const exercise = Exercise.create({
+      ...validInput,
+      primaryMuscleId: 'back',
+      secondaryMuscleIds: ['biceps', 'biceps'],
+    });
 
+    expect(exercise.primaryMuscleId).toBe('back');
+    expect(exercise.secondaryMuscleIds).toEqual(['biceps']);
+    // Le filtre du catalogue cherche « qui travaille ce muscle » : les deux
+    // rôles y répondent, le principal en tête.
     expect(exercise.muscleIds).toEqual(['back', 'biceps']);
   });
 
-  it('laisse changer les muscles ciblés, y compris pour aucun', () => {
-    const exercise = Exercise.create({ ...validInput, muscleIds: ['back'] });
+  it('refuse un muscle à la fois principal et secondaire', () => {
+    expect(() =>
+      Exercise.create({
+        ...validInput,
+        primaryMuscleId: 'back',
+        secondaryMuscleIds: ['back'],
+      }),
+    ).toThrow();
+  });
 
-    exercise.changeMuscles(['chest', 'triceps']);
+  it('laisse changer les muscles ciblés, y compris pour aucun', () => {
+    const exercise = Exercise.create({ ...validInput, primaryMuscleId: 'back' });
+
+    exercise.changeMuscles('chest', ['triceps']);
     expect(exercise.muscleIds).toEqual(['chest', 'triceps']);
 
     // Contrairement aux mesures, n'en cibler aucun reste valide.
-    exercise.changeMuscles([]);
+    exercise.changeMuscles(null, []);
     expect(exercise.muscleIds).toEqual([]);
   });
 

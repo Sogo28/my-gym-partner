@@ -78,6 +78,7 @@ export function OptionSheet({
   selected,
   clearLabel,
   confirmLabel,
+  mode = 'multiple',
   onToggle,
   onClear,
   onClose,
@@ -88,6 +89,8 @@ export function OptionSheet({
   selected: readonly string[];
   clearLabel: string;
   confirmLabel: string;
+  /** single : un seul choix, et la feuille se referme aussitôt. */
+  mode?: 'multiple' | 'single';
   onToggle: (id: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -107,7 +110,12 @@ export function OptionSheet({
             return (
               <Pressable
                 key={option.id}
-                onPress={() => onToggle(option.id)}
+                onPress={() => {
+                  onToggle(option.id);
+                  // Un choix unique n'a rien à confirmer : garder la feuille
+                  // ouverte demanderait un geste de plus pour rien.
+                  if (mode === 'single') onClose();
+                }}
                 // Deux par rangée : les noms sont longs, et une grille garde
                 // l'oeil sur une colonne au lieu de le renvoyer à la ligne.
                 className={cn(

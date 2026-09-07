@@ -131,7 +131,8 @@ export function ExercisePicker({
     <Row
       key={key}
       exercise={exercise}
-      muscleNames={exercise.muscleIds.map(nameOf)}
+      primaryMuscle={exercise.primaryMuscleId ? nameOf(exercise.primaryMuscleId) : null}
+      secondaryMuscles={exercise.secondaryMuscleIds.map(nameOf)}
       selected={selected.includes(exercise.id)}
       showCheck={mode === 'multiple'}
       onPress={() => toggle(exercise.id)}
@@ -226,13 +227,15 @@ function SectionLabel({ children }: { children: string }) {
  */
 function Row({
   exercise,
-  muscleNames,
+  primaryMuscle,
+  secondaryMuscles,
   selected,
   showCheck,
   onPress,
 }: {
   exercise: Exercise;
-  muscleNames: string[];
+  primaryMuscle: string | null;
+  secondaryMuscles: string[];
   selected: boolean;
   showCheck: boolean;
   onPress: () => void;
@@ -250,10 +253,11 @@ function Row({
           <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
             {exercise.name}
           </Text>
-          {muscleNames.length > 0 && (
+          {(primaryMuscle !== null || secondaryMuscles.length > 0) && (
             <View className="flex-row flex-wrap gap-1.5">
-              {muscleNames.map((name) => (
-                <Tag key={name} label={name} accent />
+              {primaryMuscle && <Tag label={primaryMuscle} variant="accent" />}
+              {secondaryMuscles.map((name) => (
+                <Tag key={name} label={name} variant="accent-outline" />
               ))}
             </View>
           )}

@@ -20,11 +20,12 @@ export async function updateExercise(input: {
   exercise: Exercise;
   name: string;
   measurementIds: readonly MeasurementId[];
-  muscleIds: readonly string[];
+  primaryMuscleId: string | null;
+  secondaryMuscleIds: readonly string[];
 }): Promise<Exercise> {
   input.exercise.rename(input.name);
   input.exercise.changeMeasurements(input.measurementIds);
-  input.exercise.changeMuscles(input.muscleIds);
+  input.exercise.changeMuscles(input.primaryMuscleId, input.secondaryMuscleIds);
   await saveExercise(input.exercise);
   return input.exercise;
 }
