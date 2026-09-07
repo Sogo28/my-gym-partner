@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { messageOf } from '../src/ui/message';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -10,6 +9,7 @@ import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { BusinessNotice } from '../src/ui/notice';
+import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
 import {
@@ -33,7 +33,15 @@ export default function NewExerciseScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
+  /** La feuille de choix ouverte, s'il y en a une. */
+  const [choosing, setChoosing] = useState<'none' | 'measurements' | 'muscles'>('none');
   const [error, setError] = useState<string | null>(null);
+
+  const toggle =
+    (set: (update: (current: string[]) => string[]) => void) => (id: string) =>
+      set((current) =>
+        current.includes(id) ? current.filter((other) => other !== id) : [...current, id],
+      );
 
   // Les catalogues se rechargent à chaque affichage...
   useFocusEffect(
@@ -125,39 +133,13 @@ export default function NewExerciseScreen() {
           <Text className="text-[13px] text-muted dark:text-muted-dark">
             Comment la performance de cet exercice se mesure. Plusieurs choix possibles.
           </Text>
-          <View className="mt-1 flex-row flex-wrap gap-2">
-            {measurements.map((measurement) => {
-              const on = selected.includes(measurement.id);
-              return (
-                <Pressable
-                  key={measurement.id}
-                  onPress={() =>
-                    setSelected((current) =>
-                      current.includes(measurement.id)
-                        ? current.filter((id) => id !== measurement.id)
-                        : [...current, measurement.id],
-                    )
-                  }
-                  className={
-                    on
-                      ? 'h-12 flex-row items-center gap-2 rounded-full bg-primary px-4'
-                      : 'h-12 flex-row items-center gap-2 rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                  }
-                >
-                  {on && <Ionicons name="checkmark" size={16} color="#14160F" />}
-                  <Text
-                    className={
-                      on
-                        ? 'font-bold text-ink'
-                        : 'font-medium text-muted dark:text-muted-dark'
-                    }
-                  >
-                    {measurement.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <OptionChip
+            options={measurements}
+            selected={selected}
+            emptyLabel="Choisir des mesures"
+            plural="mesures"
+            onPress={() => setChoosing('measurements')}
+          />
         </View>
 
         <View className="gap-2">
@@ -167,38 +149,13 @@ export default function NewExerciseScreen() {
           <Text className="text-[13px] text-muted dark:text-muted-dark">
             Facultatif. Sert à retrouver l'exercice, jamais à juger une performance.
           </Text>
-          <View className="mt-1 flex-row flex-wrap gap-2">
-            {muscles.map((muscle) => {
-              const on = selectedMuscles.includes(muscle.id);
-              return (
-                <Pressable
-                  key={muscle.id}
-                  onPress={() =>
-                    setSelectedMuscles((current) =>
-                      current.includes(muscle.id)
-                        ? current.filter((id) => id !== muscle.id)
-                        : [...current, muscle.id],
-                    )
-                  }
-                  className={
-                    on
-                      ? 'h-11 justify-center rounded-full bg-primary-soft px-4 dark:bg-primary-soft-dark'
-                      : 'h-11 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                  }
-                >
-                  <Text
-                    className={
-                      on
-                        ? 'font-bold text-[13px] text-primary-ink dark:text-primary-ink-dark'
-                        : 'text-[13px] text-muted dark:text-muted-dark'
-                    }
-                  >
-                    {muscle.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <OptionChip
+            options={muscles}
+            selected={selectedMuscles}
+            emptyLabel="Aucun muscle"
+            plural="muscles"
+            onPress={() => setChoosing('muscles')}
+          />
         </View>
 
         <View className="flex-row items-center justify-between gap-4">
@@ -225,11 +182,8 @@ export default function NewExerciseScreen() {
       </ScrollView>
 
       <View className="gap-2 p-5 pt-2">
-        <Button
-          label={existing ? 'Enregistrer' : "Créer l'exercice"}
-          size="lg"
-          onPress={submit}
-        />
+        {/* Retirer ou remettre au catalogue reste au-dessus : c'est une action
+            sur ce qui existe, pas une façon de quitter l'écran. */}
         {existing?.isArchived ? (
           <Button
             label="Remettre au catalogue"
@@ -243,10 +197,49 @@ export default function NewExerciseScreen() {
           />
         ) : existing ? (
           <Button label="Retirer du catalogue" variant="danger" size="md" onPress={discard} />
-        ) : (
-          <Button label="Annuler" variant="ghost" size="md" onPress={() => router.back()} />
-        )}
+        ) : null}
+
+        <View className="flex-row gap-3">
+          <Button
+            label="Annuler"
+            variant="secondary"
+            size="lg"
+            className="flex-1"
+            onPress={() => router.back()}
+          />
+          <Button
+            label={existing ? 'Enregistrer' : "Créer l'exercice"}
+            size="lg"
+            className="flex-1"
+            onPress={submit}
+          />
+        </View>
       </View>
+
+      <OptionSheet
+        visible={choosing === 'measurements'}
+        title="Mesures"
+        options={measurements}
+        selected={selected}
+        clearLabel="Tout décocher"
+        confirmLabel={`${selected.length} mesure${selected.length > 1 ? 's' : ''}`}
+        onToggle={toggle(setSelected)}
+        onClear={() => setSelected([])}
+        onClose={() => setChoosing('none')}
+      />
+
+      <OptionSheet
+        visible={choosing === 'muscles'}
+        title="Muscles sollicités"
+        options={muscles}
+        selected={selectedMuscles}
+        clearLabel="Tout décocher"
+        confirmLabel={`${selectedMuscles.length} muscle${selectedMuscles.length > 1 ? 's' : ''}`}
+        onToggle={toggle(setSelectedMuscles)}
+        onClear={() => setSelectedMuscles([])}
+        onClose={() => setChoosing('none')}
+      />
+
     </SafeAreaView>
   );
 }
