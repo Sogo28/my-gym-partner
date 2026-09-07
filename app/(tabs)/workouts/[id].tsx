@@ -1,21 +1,21 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { messageOf } from '../../src/ui/message';
+import { messageOf } from '../../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { Measurement } from '../../src/domain/exercise/measurement';
-import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
-import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
-import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
-import { Button } from '../../src/ui/button';
-import { Collapsible } from '../../src/ui/collapsible';
-import { DatePickerSheet } from '../../src/ui/date-picker';
-import { formatDateTime } from '../../src/ui/format';
-import { BackHeader } from '../../src/ui/screen-header';
-import { discardWorkout, unarchiveWorkout } from '../../src/use-cases/edit-catalogue';
-import { scheduleWorkout } from '../../src/use-cases/scheduling-actions';
-import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
+import type { Exercise } from '../../../src/domain/exercise/exercise';
+import type { Measurement } from '../../../src/domain/exercise/measurement';
+import type { PlannedWorkout } from '../../../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises, findAllMeasurements } from '../../../src/infra/exercise-repository';
+import { findAll as findAllPlans } from '../../../src/infra/planned-workout-repository';
+import { Button } from '../../../src/ui/button';
+import { Collapsible } from '../../../src/ui/collapsible';
+import { DatePickerSheet } from '../../../src/ui/date-picker';
+import { formatDateTime } from '../../../src/ui/format';
+import { BackHeader } from '../../../src/ui/screen-header';
+import { discardWorkout, unarchiveWorkout } from '../../../src/use-cases/edit-catalogue';
+import { scheduleWorkout } from '../../../src/use-cases/scheduling-actions';
+import { startWorkoutSession } from '../../../src/use-cases/workout-session-actions';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route

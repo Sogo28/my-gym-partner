@@ -1,28 +1,28 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { messageOf } from '../../src/ui/message';
+import { messageOf } from '../../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { Measurement } from '../../src/domain/exercise/measurement';
-import type { Muscle } from '../../src/domain/exercise/muscle';
-import type { PlannedExercise } from '../../src/domain/planned-workout/planned-workout';
-import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
-import { findRecentExerciseIds } from '../../src/infra/performance-repository';
-import { listActiveExercises } from '../../src/use-cases/edit-catalogue';
-import { Button } from '../../src/ui/button';
-import { Collapsible } from '../../src/ui/collapsible';
-import { NumberField } from '../../src/ui/number-field';
-import { BusinessNotice } from '../../src/ui/notice';
-import { ExercisePicker } from '../../src/ui/exercise-picker';
-import { catalogueSource } from '../../src/use-cases/repdb-actions';
-import { BackHeader } from '../../src/ui/screen-header';
+import type { Exercise } from '../../../src/domain/exercise/exercise';
+import type { Measurement } from '../../../src/domain/exercise/measurement';
+import type { Muscle } from '../../../src/domain/exercise/muscle';
+import type { PlannedExercise } from '../../../src/domain/planned-workout/planned-workout';
+import { findAllMeasurements, findAllMuscles } from '../../../src/infra/exercise-repository';
+import { findRecentExerciseIds } from '../../../src/infra/performance-repository';
+import { listActiveExercises } from '../../../src/use-cases/edit-catalogue';
+import { Button } from '../../../src/ui/button';
+import { Collapsible } from '../../../src/ui/collapsible';
+import { NumberField } from '../../../src/ui/number-field';
+import { BusinessNotice } from '../../../src/ui/notice';
+import { ExercisePicker } from '../../../src/ui/exercise-picker';
+import { catalogueSource } from '../../../src/use-cases/repdb-actions';
+import { BackHeader } from '../../../src/ui/screen-header';
 import {
   createPlannedWorkout,
   updatePlannedWorkout,
-} from '../../src/use-cases/create-planned-workout';
-import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
-import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
+} from '../../../src/use-cases/create-planned-workout';
+import { findAll as findAllPlans } from '../../../src/infra/planned-workout-repository';
+import type { PlannedWorkout } from '../../../src/domain/planned-workout/planned-workout';
 
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 

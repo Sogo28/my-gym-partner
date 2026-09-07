@@ -2,27 +2,27 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../src/domain/exercise/exercise';
-import type { Measurement } from '../src/domain/exercise/measurement';
-import type { BodyMetric } from '../src/domain/body/body-metric';
-import type { Goal, GoalSubject } from '../src/domain/goal/goal';
-import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
-import { listMetrics } from '../src/use-cases/body-actions';
-import { Button } from '../src/ui/button';
-import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
-import { messageOf } from '../src/ui/message';
-import { Card } from '../src/ui/card';
-import { EmptyState } from '../src/ui/empty-state';
-import { Fab } from '../src/ui/fab';
-import { BusinessNotice } from '../src/ui/notice';
-import { SectionHeader } from '../src/ui/screen-header';
+import type { Exercise } from '../../src/domain/exercise/exercise';
+import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { BodyMetric } from '../../src/domain/body/body-metric';
+import type { Goal, GoalSubject } from '../../src/domain/goal/goal';
+import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
+import { listMetrics } from '../../src/use-cases/body-actions';
+import { Button } from '../../src/ui/button';
+import { describeCondition, WINDOW_PHRASES } from '../../src/ui/goal-labels';
+import { messageOf } from '../../src/ui/message';
+import { Card } from '../../src/ui/card';
+import { EmptyState } from '../../src/ui/empty-state';
+import { Fab } from '../../src/ui/fab';
+import { BusinessNotice } from '../../src/ui/notice';
+import { SectionHeader } from '../../src/ui/screen-header';
 import {
   advanceProgression,
   archiveGoal,
   evaluateGoal,
   listGoals,
   type GoalEvaluation,
-} from '../src/use-cases/goal-actions';
+} from '../../src/use-cases/goal-actions';
 
 export default function GoalsScreen() {
   const router = useRouter();

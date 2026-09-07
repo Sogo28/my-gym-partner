@@ -1,55 +1,55 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { messageOf } from '../src/ui/message';
+import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../src/domain/exercise/exercise';
-import type { Measurement } from '../src/domain/exercise/measurement';
-import type { Muscle } from '../src/domain/exercise/muscle';
+import type { Exercise } from '../../src/domain/exercise/exercise';
+import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { Muscle } from '../../src/domain/exercise/muscle';
 import type {
   ExercisePerformance,
   Side,
   ValuesBySide,
-} from '../src/domain/performance/exercise-performance';
-import type { PlannedWorkout, TargetValues } from '../src/domain/planned-workout/planned-workout';
-import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
+} from '../../src/domain/performance/exercise-performance';
+import type { PlannedWorkout, TargetValues } from '../../src/domain/planned-workout/planned-workout';
+import type { WorkoutSession } from '../../src/domain/workout-session/workout-session';
 import {
   findAll as findAllExercises,
   findAllMeasurements,
   findAllMuscles,
-} from '../src/infra/exercise-repository';
+} from '../../src/infra/exercise-repository';
 import {
   findById as findPerformanceById,
   findRecentExerciseIds,
-} from '../src/infra/performance-repository';
-import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
-import type { ScheduledWorkout } from '../src/domain/scheduling/scheduled-workout';
+} from '../../src/infra/performance-repository';
+import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import type { ScheduledWorkout } from '../../src/domain/scheduling/scheduled-workout';
 import {
   cancelScheduledWorkout,
   listSchedule,
   rescheduleWorkout,
-} from '../src/use-cases/scheduling-actions';
-import { findActive } from '../src/infra/workout-session-repository';
-import { Button } from '../src/ui/button';
-import { Card } from '../src/ui/card';
-import { DatePickerSheet } from '../src/ui/date-picker';
-import { EmptyState } from '../src/ui/empty-state';
-import { ExercisePicker } from '../src/ui/exercise-picker';
-import { catalogueSource } from '../src/use-cases/repdb-actions';
-import { BusinessNotice } from '../src/ui/notice';
-import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
-import { Sheet, type SheetAction } from '../src/ui/sheet';
-import { SetChip } from '../src/ui/set-chip';
-import { SetRow, type SetRowStatus } from '../src/ui/set-row';
-import { NumberField } from '../src/ui/number-field';
-import { Timer } from '../src/ui/timer';
+} from '../../src/use-cases/scheduling-actions';
+import { findActive } from '../../src/infra/workout-session-repository';
+import { Button } from '../../src/ui/button';
+import { Card } from '../../src/ui/card';
+import { DatePickerSheet } from '../../src/ui/date-picker';
+import { EmptyState } from '../../src/ui/empty-state';
+import { ExercisePicker } from '../../src/ui/exercise-picker';
+import { catalogueSource } from '../../src/use-cases/repdb-actions';
+import { BusinessNotice } from '../../src/ui/notice';
+import { SectionHeader, SessionHeader } from '../../src/ui/screen-header';
+import { Sheet, type SheetAction } from '../../src/ui/sheet';
+import { SetChip } from '../../src/ui/set-chip';
+import { SetRow, type SetRowStatus } from '../../src/ui/set-row';
+import { NumberField } from '../../src/ui/number-field';
+import { Timer } from '../../src/ui/timer';
 import {
   formatSetValues,
   formatSetValuesShort,
   formatTargets,
   formatTargetsShort,
-} from '../src/ui/set-values';
-import { formatDateTime } from '../src/ui/format';
+} from '../../src/ui/set-values';
+import { formatDateTime } from '../../src/ui/format';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -63,7 +63,7 @@ import {
   startRest,
   startWorkoutSession,
   stopRest,
-} from '../src/use-cases/workout-session-actions';
+} from '../../src/use-cases/workout-session-actions';
 
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };

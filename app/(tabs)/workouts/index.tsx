@@ -1,16 +1,16 @@
 import { Link, useFocusEffect } from 'expo-router';
-import { messageOf } from '../../src/ui/message';
+import { messageOf } from '../../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
-import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
-import { listActiveWorkouts } from '../../src/use-cases/edit-catalogue';
-import { Card } from '../../src/ui/card';
-import { EmptyState } from '../../src/ui/empty-state';
-import { Fab } from '../../src/ui/fab';
-import { SectionHeader } from '../../src/ui/screen-header';
+import type { Exercise } from '../../../src/domain/exercise/exercise';
+import type { PlannedWorkout } from '../../../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises } from '../../../src/infra/exercise-repository';
+import { listActiveWorkouts } from '../../../src/use-cases/edit-catalogue';
+import { Card } from '../../../src/ui/card';
+import { EmptyState } from '../../../src/ui/empty-state';
+import { Fab } from '../../../src/ui/fab';
+import { SectionHeader } from '../../../src/ui/screen-header';
 
 export default function WorkoutsScreen() {
   const [workouts, setWorkouts] = useState<PlannedWorkout[]>([]);

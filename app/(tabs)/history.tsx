@@ -1,31 +1,31 @@
 import { useFocusEffect } from 'expo-router';
-import { messageOf } from '../src/ui/message';
+import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../src/domain/exercise/exercise';
-import type { Measurement } from '../src/domain/exercise/measurement';
-import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
-import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
-import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
-import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
-import { listSessionSummaries, type SessionSummary } from '../src/use-cases/session-summary';
+import type { Exercise } from '../../src/domain/exercise/exercise';
+import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
+import type { Side, ValuesBySide } from '../../src/domain/performance/exercise-performance';
+import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
+import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import { listSessionSummaries, type SessionSummary } from '../../src/use-cases/session-summary';
 import {
   applyBackup,
   pickBackup,
   shareBackup,
   type BackupPreview,
-} from '../src/use-cases/backup-actions';
-import { Button } from '../src/ui/button';
-import { Collapsible } from '../src/ui/collapsible';
-import { NumberField } from '../src/ui/number-field';
-import { Sheet } from '../src/ui/sheet';
-import { EmptyState } from '../src/ui/empty-state';
-import { SectionHeader } from '../src/ui/screen-header';
-import { SetRow } from '../src/ui/set-row';
-import { formatClock, formatDateTime } from '../src/ui/format';
-import { formatSetValues } from '../src/ui/set-values';
-import { correctPastSet } from '../src/use-cases/correct-past-set';
+} from '../../src/use-cases/backup-actions';
+import { Button } from '../../src/ui/button';
+import { Collapsible } from '../../src/ui/collapsible';
+import { NumberField } from '../../src/ui/number-field';
+import { Sheet } from '../../src/ui/sheet';
+import { EmptyState } from '../../src/ui/empty-state';
+import { SectionHeader } from '../../src/ui/screen-header';
+import { SetRow } from '../../src/ui/set-row';
+import { formatClock, formatDateTime } from '../../src/ui/format';
+import { formatSetValues } from '../../src/ui/set-values';
+import { correctPastSet } from '../../src/use-cases/correct-past-set';
 
 /** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
 const PAGE = 10;
