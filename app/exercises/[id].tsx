@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -421,6 +421,7 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
   // ligne, jamais la vidéo.
   const present = mediaExists(media);
   const trim = media.trim;
+  const view = useRef<VideoView>(null);
   const player = useVideoPlayer(present ? mediaUri(media) : null, (instance) => {
     // Un extrait boucle sur lui-même : le lecteur natif, lui, ne sait boucler
     // que sur la vidéo entière.
@@ -491,15 +492,29 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
   }
 
   return (
-    <View className="overflow-hidden rounded-2xl border border-border bg-black dark:border-border-dark">
+    <Pressable
+      onPress={() => view.current?.enterFullscreen()}
+      className="overflow-hidden rounded-2xl border border-border bg-black dark:border-border-dark"
+    >
       {/* Sans commandes : l'extrait fait quelques secondes, il n'y a rien à
-          y chercher. Une barre de lecture ne servirait qu'à le dérégler. */}
+          y chercher. Une barre de lecture ne servirait qu'à le dérégler.
+          En plein écran, le système les remet de lui-même -- c'est par elles
+          qu'on en ressort. */}
       <VideoView
+        ref={view}
         player={player}
         style={{ width: '100%', height: 200 }}
         contentFit="contain"
         nativeControls={false}
+        // Le son n'a de sens que si on a demandé le plein écran : dans la
+        // fiche, la vidéo n'est qu'une vignette qui bouge.
+        onFullscreenEnter={() => {
+          player.muted = false;
+        }}
+        onFullscreenExit={() => {
+          player.muted = true;
+        }}
       />
-    </View>
+    </Pressable>
   );
 }
