@@ -51,7 +51,8 @@ export async function pickVideo(): Promise<ExerciseMedia | null> {
     throw new DomainError("Cette vidéo n'a pas pu être copiée dans l'application.");
   }
 
-  return { kind: 'file', uri: copy.name, label: null };
+  // Bornes vides : la vidéo se lit en entier tant qu'on ne l'a pas rognée.
+  return { kind: 'file', uri: copy.name, label: null, trim: null };
 }
 
 /**

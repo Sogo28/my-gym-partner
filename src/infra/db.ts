@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -562,6 +562,18 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         label TEXT,
         PRIMARY KEY (exercise_id, position)
       );
+    `);
+  }
+
+  // Migration 20 : de quel instant à quel instant lire une vidéo.
+  //
+  // Deux colonnes nullables plutôt qu'un découpage du fichier : on garde la
+  // vidéo entière et on choisit ce qu'on en montre. Le rognage réel demande de
+  // ré-encoder -- irréversible, et hors de portée sans module natif.
+  if (version < 20) {
+    await db.execAsync(`
+      ALTER TABLE exercise_media ADD COLUMN trim_from REAL;
+      ALTER TABLE exercise_media ADD COLUMN trim_to REAL;
     `);
   }
 

@@ -117,15 +117,15 @@ describe('Démonstrations d un exercice', () => {
       primaryMuscleId: null,
       secondaryMuscleIds: [],
       media: [
-        { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo' },
-        { kind: 'link', uri: 'https://instagram.com/reel/2', label: null },
+        { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo', trim: null },
+        { kind: 'link', uri: 'https://instagram.com/reel/2', label: null, trim: null },
       ],
     });
 
     const [reloaded] = await findAllExercises();
     expect(reloaded.media).toEqual([
-      { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo' },
-      { kind: 'link', uri: 'https://instagram.com/reel/2', label: null },
+      { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo', trim: null },
+      { kind: 'link', uri: 'https://instagram.com/reel/2', label: null, trim: null },
     ]);
   });
 
@@ -139,7 +139,7 @@ describe('Démonstrations d un exercice', () => {
         measurementIds: [...exercise.measurementIds],
         primaryMuscleId: null,
         secondaryMuscleIds: [],
-        media: [{ kind: 'link', uri: 'youtube.com/watch', label: null }],
+        media: [{ kind: 'link', uri: 'youtube.com/watch', label: null, trim: null }],
       }),
     ).rejects.toThrow();
   });

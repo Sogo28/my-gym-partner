@@ -11,6 +11,8 @@ type MediaRow = {
   kind: 'link' | 'file';
   uri: string;
   label: string | null;
+  trim_from: number | null;
+  trim_to: number | null;
 };
 
 /**
@@ -44,12 +46,15 @@ export async function save(exercise: Exercise): Promise<void> {
 
     for (const [position, media] of exercise.media.entries()) {
       await db.runAsync(
-        'INSERT INTO exercise_media (exercise_id, position, kind, uri, label) VALUES (?, ?, ?, ?, ?);',
+        `INSERT INTO exercise_media (exercise_id, position, kind, uri, label, trim_from, trim_to)
+         VALUES (?, ?, ?, ?, ?, ?, ?);`,
         exercise.id,
         position,
         media.kind,
         media.uri,
         media.label,
+        media.trim?.from ?? null,
+        media.trim?.to ?? null,
       );
     }
 
@@ -105,7 +110,8 @@ export async function findAll(): Promise<Exercise[]> {
   }
 
   const mediaRows = await db.getAllAsync<MediaRow>(
-    'SELECT exercise_id, kind, uri, label FROM exercise_media ORDER BY exercise_id, position;',
+    `SELECT exercise_id, kind, uri, label, trim_from, trim_to
+     FROM exercise_media ORDER BY exercise_id, position;`,
   );
   const mediaByExercise = new Map<string, MediaRow[]>();
   for (const row of mediaRows) {
@@ -140,6 +146,10 @@ export async function findAll(): Promise<Exercise[]> {
         kind: media.kind,
         uri: media.uri,
         label: media.label,
+        trim:
+          media.trim_from !== null && media.trim_to !== null
+            ? { from: media.trim_from, to: media.trim_to }
+            : null,
       })),
       isArchived: row.archived === 1,
     }),

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExerciseMedia } from '../src/domain/exercise/media';
-import { normalizeMedia, sourceOf } from '../src/domain/exercise/media';
+import { normalizeMedia, sourceOf, trimLabel } from '../src/domain/exercise/media';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
@@ -15,7 +15,8 @@ import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
-import { forgetUnusedMedia, pickVideo } from '../src/use-cases/media-actions';
+import { forgetUnusedMedia, mediaUri, pickVideo } from '../src/use-cases/media-actions';
+import { TrimSheet } from '../src/ui/trim-sheet';
 import {
   discardExercise,
   unarchiveExercise,
@@ -41,6 +42,8 @@ export default function NewExerciseScreen() {
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
   /** Le lien en cours de saisie, ou null quand la feuille est fermée. */
   const [link, setLink] = useState<{ uri: string; label: string } | null>(null);
+  /** La vidéo dont on règle les bornes, s'il y en a une. */
+  const [trimming, setTrimming] = useState<ExerciseMedia | null>(null);
   /** La feuille de choix ouverte, s'il y en a une. */
   const [choosing, setChoosing] = useState<'none' | 'measurements' | 'primary' | 'secondary'>(
     'none',
@@ -136,6 +139,7 @@ export default function NewExerciseScreen() {
       kind: 'link',
       uri: link.uri,
       label: link.label.trim() || null,
+      trim: null,
     };
     try {
       const next = normalizeMedia([...media, draft]);
@@ -242,8 +246,11 @@ export default function NewExerciseScreen() {
           </Text>
 
           {media.map((item) => (
-            <View
+            <Pressable
               key={item.uri}
+              // Seul un fichier se règle : d'un lien, nous ne pilotons pas la
+              // lecture.
+              onPress={item.kind === 'file' ? () => setTrimming(item) : undefined}
               className="flex-row items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark"
             >
               <View className="shrink">
@@ -251,7 +258,11 @@ export default function NewExerciseScreen() {
                   {item.label ?? sourceOf(item)}
                 </Text>
                 <Text className="font-mono text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
-                  {item.kind === 'file' ? 'vidéo sur ce téléphone' : item.uri}
+                  {item.kind === 'file'
+                    ? item.trim
+                      ? trimLabel(item.trim)
+                      : 'vidéo entière · régler l extrait'
+                    : item.uri}
                 </Text>
               </View>
               <Pressable
@@ -260,7 +271,7 @@ export default function NewExerciseScreen() {
               >
                 <Text className="text-[12px] text-danger dark:text-danger-dark">retirer</Text>
               </Pressable>
-            </View>
+            </Pressable>
           ))}
 
           <View className="flex-row gap-2">
@@ -321,6 +332,21 @@ export default function NewExerciseScreen() {
           />
         </View>
       </View>
+
+      <TrimSheet
+        visible={trimming !== null}
+        media={trimming}
+        uri={trimming ? mediaUri(trimming) : null}
+        onConfirm={(trim) => {
+          const target = trimming;
+          setTrimming(null);
+          if (!target) return;
+          setMedia((current) =>
+            current.map((item) => (item.uri === target.uri ? { ...item, trim } : item)),
+          );
+        }}
+        onClose={() => setTrimming(null)}
+      />
 
       <Sheet
         visible={link !== null}

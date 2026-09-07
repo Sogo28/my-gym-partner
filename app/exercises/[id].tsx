@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -420,9 +420,24 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
   // Le fichier peut manquer : une sauvegarde restaurée ailleurs ramène la
   // ligne, jamais la vidéo.
   const present = mediaExists(media);
+  const trim = media.trim;
   const player = useVideoPlayer(present ? mediaUri(media) : null, (instance) => {
-    instance.loop = true;
+    // Un extrait boucle sur lui-même : le lecteur natif, lui, ne sait boucler
+    // que sur la vidéo entière.
+    instance.loop = trim === null;
+    if (trim) instance.currentTime = trim.from;
   });
+
+  useEffect(() => {
+    if (!trim) return;
+    // Le retour au début se fait sur les battements du lecteur : l'interroger
+    // nous-mêmes à intervalle fixe ferait tourner du JavaScript pour rien.
+    player.timeUpdateEventInterval = 0.2;
+    const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (currentTime >= trim.to) player.currentTime = trim.from;
+    });
+    return () => subscription.remove();
+  }, [player, trim]);
 
   if (!present) {
     return (
