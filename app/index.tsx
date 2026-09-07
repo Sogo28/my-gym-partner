@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -11,14 +11,18 @@ import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exerc
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
+import { MuscleFilterChip, MuscleFilterSheet } from '../src/ui/muscle-filter';
 import { SectionHeader } from '../src/ui/screen-header';
+import { fold, SearchField } from '../src/ui/search';
 
 export default function ExercisesScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
-  /** Le muscle sur lequel on filtre, ou null pour tout voir. */
-  const [filter, setFilter] = useState<string | null>(null);
+  /** Les muscles retenus au filtre. Vide : tout voir. */
+  const [filter, setFilter] = useState<string[]>([]);
+  const [filtering, setFiltering] = useState(false);
+  const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -48,7 +52,8 @@ export default function ExercisesScreen() {
 
   const shown = exercises
     .filter((exercise) => showArchived || !exercise.isArchived)
-    .filter((exercise) => filter === null || exercise.muscleIds.includes(filter));
+    .filter((exercise) => filter.length === 0 || exercise.muscleIds.some((id) => filter.includes(id)))
+    .filter((exercise) => fold(exercise.name).includes(fold(query.trim())));
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pt-4 dark:bg-background-dark">
@@ -57,39 +62,16 @@ export default function ExercisesScreen() {
         subtitle={`${exercises.length - archivedCount} définition${exercises.length - archivedCount > 1 ? 's' : ''} · référentiel`}
       />
 
-      {usedMuscles.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="max-h-12 grow-0"
-          contentContainerClassName="gap-2 pb-2 pr-4"
-        >
-          {usedMuscles.map((muscle) => {
-            const on = filter === muscle.id;
-            return (
-              <Pressable
-                key={muscle.id}
-                onPress={() => setFilter(on ? null : muscle.id)}
-                className={
-                  on
-                    ? 'h-9 justify-center rounded-full bg-primary px-3'
-                    : 'h-9 justify-center rounded-full border border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark'
-                }
-              >
-                <Text
-                  className={
-                    on
-                      ? 'font-bold text-[12px] text-ink'
-                      : 'text-[12px] text-muted dark:text-muted-dark'
-                  }
-                >
-                  {muscle.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
+      <View className="gap-3 pb-3">
+        <SearchField value={query} onChange={setQuery} placeholder="Chercher un exercice" />
+        {usedMuscles.length > 0 && (
+          <MuscleFilterChip
+            muscles={usedMuscles}
+            selected={filter}
+            onPress={() => setFiltering(true)}
+          />
+        )}
+      </View>
 
       <FlatList
         data={shown}
@@ -97,8 +79,12 @@ export default function ExercisesScreen() {
         contentContainerClassName="gap-3 pb-4"
         ListEmptyComponent={
           <EmptyState
-            title="Aucun exercice"
-            description="Un exercice définit ce que tu fais et comment sa performance se mesure."
+            title={query || filter.length > 0 ? 'Aucun résultat' : 'Aucun exercice'}
+            description={
+              query || filter.length > 0
+                ? 'Aucun exercice ne correspond à cette recherche.'
+                : 'Un exercice définit ce que tu fais et comment sa performance se mesure.'
+            }
           />
         }
         ListFooterComponent={
@@ -139,6 +125,20 @@ export default function ExercisesScreen() {
       <Link href="/new-exercise" asChild>
         <Button label="Nouvel exercice" size="lg" className="mb-2" />
       </Link>
+
+      <MuscleFilterSheet
+        visible={filtering}
+        muscles={usedMuscles}
+        selected={filter}
+        results={shown.length}
+        onToggle={(id) =>
+          setFilter((current) =>
+            current.includes(id) ? current.filter((m) => m !== id) : [...current, id],
+          )
+        }
+        onClear={() => setFilter([])}
+        onClose={() => setFiltering(false)}
+      />
     </SafeAreaView>
   );
 }
