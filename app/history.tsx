@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -27,6 +27,15 @@ import { formatClock, formatDateTime } from '../src/ui/format';
 import { formatSetValues } from '../src/ui/set-values';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 
+/** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
+const PAGE = 10;
+
+const PERIODS: { label: string; days: number | null }[] = [
+  { label: '30 jours', days: 30 },
+  { label: '3 mois', days: 90 },
+  { label: 'Tout', days: null },
+];
+
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: 'en cours',
   COMPLETED: 'terminée',
@@ -48,6 +57,10 @@ export default function HistoryScreen() {
   } | null>(null);
   /** La sauvegarde choisie, en attente de confirmation. */
   const [restoring, setRestoring] = useState<BackupPreview | null>(null);
+  /** La période affichée, en jours. Null : tout l'historique. */
+  const [period, setPeriod] = useState<number | null>(90);
+  /** Combien de séances on montre ; le reste attend « afficher plus ». */
+  const [shown, setShown] = useState(PAGE);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -131,13 +144,53 @@ export default function HistoryScreen() {
     }
   }
 
+  // Le filtre porte sur la date de DÉBUT : c'est elle qui situe la séance,
+  // même pour une séance à cheval sur deux jours.
+  const since = period === null ? null : new Date(Date.now() - period * 86_400_000);
+  const inPeriod = summaries.filter(
+    ({ session }) => since === null || session.startedAt >= since,
+  );
+  const visible = inPeriod.slice(0, shown);
+
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
-      <View className="px-5 pt-4">
+      <View className="gap-3 px-5 pt-4">
         <SectionHeader
           title="Historique"
           subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
         />
+
+        <View className="flex-row gap-2 pb-1">
+          {PERIODS.map(({ label, days }) => {
+            const on = days === period;
+            return (
+              <Pressable
+                key={label}
+                onPress={() => {
+                  setPeriod(days);
+                  // Changer de période repart du début : garder « 40 affichées »
+                  // d'une période à l'autre n'a aucun sens.
+                  setShown(PAGE);
+                }}
+                className={
+                  on
+                    ? 'h-10 justify-center rounded-full bg-primary px-4'
+                    : 'h-10 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
+                }
+              >
+                <Text
+                  className={
+                    on
+                      ? 'font-bold text-[13px] text-ink'
+                      : 'text-[13px] text-muted dark:text-muted-dark'
+                  }
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <ScrollView contentContainerClassName="gap-3 px-5 pb-6">
@@ -149,7 +202,14 @@ export default function HistoryScreen() {
           />
         )}
 
-        {summaries.map(({ session, duration, restTotal, completedSetCount, activities }, position) => {
+        {summaries.length > 0 && inPeriod.length === 0 && (
+          <EmptyState
+            title="Rien sur cette période"
+            description="Élargis la période pour retrouver tes séances plus anciennes."
+          />
+        )}
+
+        {visible.map(({ session, duration, restTotal, completedSetCount, activities }, position) => {
           const plan = plans.find((p) => p.id === session.plannedWorkoutId);
           const date = session.startedAt;
 
@@ -177,60 +237,61 @@ export default function HistoryScreen() {
                 <Stat label="séries" value={String(completedSetCount)} />
               </View>
 
-              {/* Bornée et défilante : une séance de six exercices dépliée
-                  chasserait les séances suivantes hors de l'écran. */}
-              <ScrollView
-                className="max-h-96"
-                nestedScrollEnabled
-                contentContainerClassName="pb-1"
-              >
-                {activities.map((activity, index) => (
-                  <View key={index} className="mt-2 gap-1.5">
-                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                      {nameOf(activity.exerciseId)}
-                    </Text>
+{activities.map((activity, index) => (
+                <View key={index} className="mt-2 gap-1.5">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    {nameOf(activity.exerciseId)}
+                  </Text>
 
-                    {activity.completedSets.length === 0 ? (
-                      <Text className="text-[13px] text-muted dark:text-muted-dark">
-                        aucune série complétée
-                      </Text>
-                    ) : (
-                      activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
-                        <View key={setIndex} className="gap-1.5">
-                          {restBefore ? (
-                            <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
-                              repos {formatClock(restBefore)}
-                            </Text>
-                          ) : null}
-                          <SetRow
-                            index={position + 1}
-                            status="completed"
-                            values={formatSetValues(set.values, unitOf)}
-                            // Une faute de saisie doit pouvoir se réparer, même
-                            // des semaines plus tard.
-                            onPress={
-                              activity.performanceId
-                                ? () =>
-                                    setEditing({
-                                      performanceId: activity.performanceId!,
-                                      // Le rang réel dans la performance, fourni
-                                      // par le résumé.
-                                      setIndex,
-                                      measurementIds: activity.measurementIds,
-                                      values: { ...set.values },
-                                    })
-                                : undefined
-                            }
-                          />
-                        </View>
-                      ))
-                    )}
-                  </View>
-                ))}
-              </ScrollView>
+                  {activity.completedSets.length === 0 ? (
+                    <Text className="text-[13px] text-muted dark:text-muted-dark">
+                      aucune série complétée
+                    </Text>
+                  ) : (
+                    activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
+                      <View key={setIndex} className="gap-1.5">
+                        {restBefore ? (
+                          <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
+                            repos {formatClock(restBefore)}
+                          </Text>
+                        ) : null}
+                        <SetRow
+                          index={position + 1}
+                          status="completed"
+                          values={formatSetValues(set.values, unitOf)}
+                          // Une faute de saisie doit pouvoir se réparer, même
+                          // des semaines plus tard.
+                          onPress={
+                            activity.performanceId
+                              ? () =>
+                                  setEditing({
+                                    performanceId: activity.performanceId!,
+                                    // Le rang réel dans la performance, fourni
+                                    // par le résumé.
+                                    setIndex,
+                                    measurementIds: activity.measurementIds,
+                                    values: { ...set.values },
+                                  })
+                              : undefined
+                          }
+                        />
+                      </View>
+                    ))
+                  )}
+                </View>
+              ))}
             </Collapsible>
           );
         })}
+        {inPeriod.length > visible.length && (
+          <Button
+            label={`Afficher ${Math.min(PAGE, inPeriod.length - visible.length)} séance${Math.min(PAGE, inPeriod.length - visible.length) > 1 ? 's' : ''} de plus`}
+            variant="secondary"
+            size="md"
+            onPress={() => setShown((count) => count + PAGE)}
+          />
+        )}
+
         <View className="mt-4 gap-2 border-t border-border pt-4 dark:border-border-dark">
           <Text className="text-[13px] text-muted dark:text-muted-dark">
             Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu

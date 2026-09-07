@@ -21,6 +21,9 @@ import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-cat
 import { bestValue } from '../../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../../src/use-cases/exercise-detail';
 
+/** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
+const PAGE = 5;
+
 /**
  * La fiche d'un exercice : ce qu'il est, et ce qu'il a produit.
  *
@@ -37,6 +40,8 @@ export default function ExerciseDetailScreen() {
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
   /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
   const [tracked, setTracked] = useState<string | null>(null);
+  /** Combien de séances passées on montre sous la dernière. */
+  const [shown, setShown] = useState(PAGE);
   const [error, setError] = useState<string | null>(null);
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
@@ -238,21 +243,25 @@ export default function ExerciseDetailScreen() {
                 title="Historique"
                 summary={`${previous.length} séance${previous.length > 1 ? 's' : ''} de plus`}
               >
-                {/* Borné et défilant : vingt séances dépliées d'un coup
-                    repousseraient tout le reste de la page hors de l'écran. */}
-                <ScrollView
-                  className="max-h-96"
-                  nestedScrollEnabled
-                  contentContainerClassName="gap-2 py-1"
-                >
-                  {previous.map((entry) => (
+                {/* Par paquets plutôt qu'en hauteur bornée : un défilement
+                    dans un défilement se dispute le geste avec la page. */}
+                <View className="gap-2 py-1">
+                  {previous.slice(0, shown).map((entry) => (
                     <SessionCard
                       key={entry.session.id}
                       at={entry.session.startedAt}
                       lines={entry.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
                     />
                   ))}
-                </ScrollView>
+                  {previous.length > shown && (
+                    <Pressable onPress={() => setShown((count) => count + PAGE)} className="py-2">
+                      <Text className="text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                        Afficher {Math.min(PAGE, previous.length - shown)} séance
+                        {Math.min(PAGE, previous.length - shown) > 1 ? 's' : ''} de plus
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               </Collapsible>
             )}
           </>
