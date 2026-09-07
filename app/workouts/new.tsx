@@ -218,6 +218,7 @@ export default function NewWorkoutScreen() {
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
         visible={picking}
+        title="Ajouter des exercices"
         exercises={available}
         muscles={muscles}
         recentIds={recentIds}

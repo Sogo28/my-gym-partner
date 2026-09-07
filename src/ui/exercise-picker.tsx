@@ -5,7 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../domain/exercise/exercise';
 import type { Muscle } from '../domain/exercise/muscle';
 import { Card } from './card';
+import { Button } from './button';
 import { cn } from './cn';
+import { BackHeader } from './screen-header';
 import { Tag } from './tag';
 
 /**
@@ -117,6 +119,13 @@ export function ExercisePicker({
     onClose();
   }
 
+  // Ce que l'en-tête annonce sous le titre : la taille de la liste qu'on
+  // parcourt, ou le nombre d'exercices déjà retenus.
+  const subtitle =
+    mode === 'multiple' && selected.length > 0
+      ? `${selected.length} sélectionné${selected.length > 1 ? 's' : ''}`
+      : `${matching.length} exercice${matching.length > 1 ? 's' : ''}`;
+
   const row = (exercise: Exercise, key: string) => (
     <Row
       key={key}
@@ -130,31 +139,9 @@ export function ExercisePicker({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
-        <View className="flex-row items-center justify-between border-b border-border px-5 py-3 dark:border-border-dark">
-          <Pressable onPress={onClose} hitSlop={8} className="min-w-[64px]">
-            <Text className="text-[15px] text-muted dark:text-muted-dark">Annuler</Text>
-          </Pressable>
-          <Text className="font-extrabold text-[17px] text-ink dark:text-ink-dark">{title}</Text>
-          {/* La largeur réservée à droite tient le titre au centre, que le
-              bouton soit là ou non. */}
-          <View className="min-w-[64px] items-end">
-            {mode === 'multiple' && (
-              <Pressable onPress={confirm} disabled={selected.length === 0} hitSlop={8}>
-                <Text
-                  className={cn(
-                    'font-bold text-[15px]',
-                    selected.length === 0
-                      ? 'text-planned dark:text-planned-dark'
-                      : 'text-primary-ink dark:text-primary-ink-dark',
-                  )}
-                >
-                  {confirmLabel}
-                  {selected.length > 0 ? ` (${selected.length})` : ''}
-                </Text>
-              </Pressable>
-            )}
-          </View>
+      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
+        <View className="px-5 pt-4">
+          <BackHeader title={title} subtitle={subtitle} onBack={onClose} />
         </View>
 
         <View className="gap-3 px-5 py-3">
@@ -193,7 +180,7 @@ export function ExercisePicker({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerClassName="px-5 pb-8">
+        <ScrollView className="flex-1" contentContainerClassName="px-5 pb-4">
           {recent.length > 0 && (
             <>
               <SectionLabel>Exercices récents</SectionLabel>
@@ -210,6 +197,21 @@ export function ExercisePicker({
             </Text>
           )}
         </ScrollView>
+
+        {/* Les actions restent en bas, sous le pouce : cette liste se parcourt
+            d'une main, souvent debout entre deux séries. */}
+        <View className="flex-row gap-3 p-5 pt-2">
+          <Button label="Annuler" variant="secondary" size="lg" className="flex-1" onPress={onClose} />
+          {mode === 'multiple' && (
+            <Button
+              label={selected.length > 0 ? `${confirmLabel} (${selected.length})` : confirmLabel}
+              size="lg"
+              className="flex-1"
+              disabled={selected.length === 0}
+              onPress={confirm}
+            />
+          )}
+        </View>
 
         <MuscleFilter
           visible={filtering}
