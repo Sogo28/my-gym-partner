@@ -358,7 +358,7 @@ export default function SessionScreen() {
           />
         </View>
 
-        <ScrollView contentContainerClassName="gap-3 px-5 pb-4">
+        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
           {error && <BusinessNotice message={error} />}
 
           {today.length > 0 && (

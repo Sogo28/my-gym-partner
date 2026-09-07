@@ -124,7 +124,7 @@ export default function ExercisesScreen() {
         data={shown}
         keyExtractor={(item) => item.id}
         // La liste s'arrête au-dessus de la pastille d'ajout.
-        contentContainerClassName="gap-3 pb-28"
+        contentContainerClassName="grow gap-3 pb-28"
         ListEmptyComponent={
           <EmptyState
             title={query || filter.length > 0 ? 'Aucun résultat' : 'Aucun exercice'}

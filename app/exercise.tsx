@@ -150,6 +150,7 @@ export default function ExerciseDetailScreen() {
 
         {sessions.length === 0 ? (
           <EmptyState
+            inline
             title="Aucune performance"
             description="Cet exercice n'a encore été travaillé dans aucune séance."
           />

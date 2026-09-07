@@ -13,6 +13,8 @@ import { describeCondition, WINDOW_PHRASES } from '../../src/ui/goal-labels';
 import { messageOf } from '../../src/ui/message';
 import { Card } from '../../src/ui/card';
 import { EmptyState } from '../../src/ui/empty-state';
+import { SearchField } from '../../src/ui/search';
+import { fold } from '../../src/text';
 import { Fab } from '../../src/ui/fab';
 import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
@@ -31,6 +33,7 @@ export default function GoalsScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -74,6 +77,16 @@ export default function GoalsScreen() {
       : (metricOf(subject.metricId)?.name ?? subject.metricId);
 
   const active = goals.filter((goal) => goal.status === 'ACTIVE');
+  // La recherche porte sur le nom de l'objectif ET sur ce qu'il vise : on se
+  // souvient plus souvent de l'exercice que du titre qu'on lui a donné.
+  const shown = active.filter((goal) => {
+    const needle = fold(query.trim());
+    if (needle === '') return true;
+    return (
+      fold(goal.name).includes(needle) ||
+      goal.steps.some((step) => fold(subjectName(step.subject)).includes(needle))
+    );
+  });
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
@@ -85,9 +98,13 @@ export default function GoalsScreen() {
           // celle-ci : en bas, elles se seraient fait passer pour telle.
           action={{ label: 'Mensurations', onPress: () => router.push('/body') }}
         />
+
+        <View className="pb-3">
+          <SearchField value={query} onChange={setQuery} placeholder="Chercher un objectif" />
+        </View>
       </View>
 
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-28">
+      <ScrollView contentContainerClassName="grow gap-3 px-5 pb-28">
         {error && <BusinessNotice message={error} />}
         {active.length === 0 && (
           <EmptyState
@@ -96,7 +113,14 @@ export default function GoalsScreen() {
           />
         )}
 
-        {active.map((goal) => {
+        {active.length > 0 && shown.length === 0 && (
+          <EmptyState
+            title="Aucun résultat"
+            description="Aucun objectif ne correspond à cette recherche."
+          />
+        )}
+
+        {shown.map((goal) => {
           const evaluation = evaluations.get(goal.id);
 
           return (
