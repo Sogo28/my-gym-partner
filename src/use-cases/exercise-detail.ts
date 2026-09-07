@@ -6,16 +6,18 @@ import {
   type PerformanceRecord,
 } from '../domain/performance/records';
 import type { Goal } from '../domain/goal/goal';
-import type { WorkoutSession } from '../domain/workout-session/workout-session';
 import { findAll as findAllExercises } from '../infra/exercise-repository';
+import { findSessionsWorking } from '../infra/exercise-history';
 import { findAll as findAllGoals } from '../infra/goal-repository';
-import { listSessionSummaries } from './session-summary';
+import { findByIds } from '../infra/performance-repository';
 
 /** Ce qu'une séance a produit sur CET exercice. */
 export type ExerciseSessionEntry = {
-  readonly session: WorkoutSession;
+  readonly sessionId: string;
+  readonly startedAt: Date;
   /** Les mesures figées au moment de la performance (§2). */
   readonly measurementIds: readonly string[];
+  /** Seules les séries validées : les autres ne sont pas des performances. */
   readonly sets: readonly PerformanceSet[];
 };
 
@@ -45,25 +47,25 @@ export async function getExerciseDetail(exerciseId: string): Promise<ExerciseDet
   const exercise = (await findAllExercises()).find((candidate) => candidate.id === exerciseId);
   if (!exercise) return null;
 
-  const summaries = await listSessionSummaries();
+  const worked = await findSessionsWorking(exerciseId);
+  // Toutes les performances en un appel, jamais une par séance.
+  const performances = await findByIds(worked.flatMap((entry) => entry.performanceIds));
 
   const sessions: ExerciseSessionEntry[] = [];
-  for (const summary of summaries) {
-    // Un exercice peut avoir été repris dans la même séance -- un finisher en
-    // fin de parcours : ses deux passages comptent ensemble.
-    const activities = summary.activities.filter(
-      (activity) => activity.exerciseId === exerciseId,
-    );
-    if (activities.length === 0) continue;
+  for (const entry of worked) {
+    const own = entry.performanceIds
+      .map((performanceId) => performances.get(performanceId))
+      .filter((performance) => performance !== undefined);
 
-    const sets = activities.flatMap((activity) =>
-      activity.completedSets.map((completed) => completed.set),
+    const sets = own.flatMap((performance) =>
+      performance.sets.filter((set) => set.status === 'COMPLETED'),
     );
     if (sets.length === 0) continue;
 
     sessions.push({
-      session: summary.session,
-      measurementIds: activities[0].measurementIds,
+      sessionId: entry.sessionId,
+      startedAt: entry.startedAt,
+      measurementIds: own[0]?.measurementIds ?? [],
       sets,
     });
   }

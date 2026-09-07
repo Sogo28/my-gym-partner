@@ -22,6 +22,16 @@ const FILE = 'exercises.json';
 export const ATTRIBUTION = 'Données d exercices par RepDB (repdb.co)';
 export const ATTRIBUTION_URL = 'https://repdb.co';
 
+/**
+ * Le fichier analysé, gardé en mémoire.
+ *
+ * Sans lui, chaque frappe dans la recherche relisait et analysait 2 Mo de
+ * JSON, de façon SYNCHRONE, sur le fil qui dessine l'écran. Le fichier ne
+ * change qu'au téléchargement ou à l'effacement : ce sont les deux seuls
+ * endroits où l'oublier.
+ */
+let parsed: CatalogueEntry[] | null = null;
+
 function catalogueFile(): File {
   return new File(new Directory(Paths.document, FOLDER), FILE);
 }
@@ -42,6 +52,7 @@ export async function download(): Promise<void> {
 
   const existing = catalogueFile();
   if (existing.exists) existing.delete();
+  parsed = null;
 
   try {
     await File.downloadFileAsync(SOURCE, existing);
@@ -53,30 +64,28 @@ export async function download(): Promise<void> {
 export function forget(): void {
   const file = catalogueFile();
   if (file.exists) file.delete();
+  parsed = null;
 }
 
-/**
- * Les entrées, relues à chaque recherche.
- *
- * 2 Mo de JSON analysés à la volée plutôt que gardés en mémoire : l'écran
- * d'import ne vit que le temps d'un choix, et une app de suivi sportif n'a
- * pas à porter un catalogue tiers en permanence.
- */
+/** Les entrées, analysées une fois puis servies de mémoire. */
 export function read(): CatalogueEntry[] {
+  if (parsed !== null) return parsed;
+
   const file = catalogueFile();
   if (!file.exists) return [];
 
-  let parsed: unknown;
+  let content: unknown;
   try {
-    parsed = JSON.parse(file.textSync());
+    content = JSON.parse(file.textSync());
   } catch {
     throw new DomainError('Le catalogue téléchargé est illisible. Retélécharge-le.');
   }
 
-  const list = (parsed as { exercises?: unknown[] })?.exercises;
+  const list = (content as { exercises?: unknown[] })?.exercises;
   if (!Array.isArray(list)) return [];
 
-  return list.map(toEntry);
+  parsed = list.map(toEntry);
+  return parsed;
 }
 
 /** Les exercices dont le nom contient la recherche, les premiers seulement. */

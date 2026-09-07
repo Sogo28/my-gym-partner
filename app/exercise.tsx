@@ -99,7 +99,7 @@ export default function ExerciseDetailScreen() {
   // lit dans l'autre sens.
   const points = [...sessions]
     .reverse()
-    .map((entry) => ({ value: bestValue(entry.sets, charted), at: entry.session.startedAt }))
+    .map((entry) => ({ value: bestValue(entry.sets, charted), at: entry.startedAt }))
     .filter((point): point is { value: number; at: Date } => point.value !== null);
 
   async function discard() {
@@ -252,7 +252,7 @@ export default function ExerciseDetailScreen() {
             <Section title="Dernière séance">
               <SessionCard
                 open
-                at={last.session.startedAt}
+                at={last.startedAt}
                 lines={last.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
               />
             </Section>
@@ -269,8 +269,8 @@ export default function ExerciseDetailScreen() {
                 <View className="gap-2 py-1">
                   {previous.slice(0, shown).map((entry) => (
                     <SessionCard
-                      key={entry.session.id}
-                      at={entry.session.startedAt}
+                      key={entry.sessionId}
+                      at={entry.startedAt}
                       lines={entry.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
                     />
                   ))}
