@@ -1,3 +1,4 @@
+import { normalizeMedia, type ExerciseMedia } from './media';
 import type { MeasurementId } from './measurement';
 import type { MuscleId } from './muscle';
 import { DomainError } from '../domain-error';
@@ -17,6 +18,8 @@ export type CreateExerciseInput = {
   primaryMuscleId?: MuscleId | null;
   /** Ceux qui travaillent en soutien. Facultatif également. */
   secondaryMuscleIds?: readonly MuscleId[];
+  /** Démonstrations rattachées, dans l'ordre où on les a ajoutées. */
+  media?: readonly ExerciseMedia[];
 };
 
 /**
@@ -38,6 +41,7 @@ export class Exercise {
     private _measurementIds: readonly MeasurementId[],
     private _primaryMuscleId: MuscleId | null,
     private _secondaryMuscleIds: readonly MuscleId[],
+    private _media: readonly ExerciseMedia[],
     private _isArchived: boolean,
   ) {}
 
@@ -51,6 +55,7 @@ export class Exercise {
       measurementIds,
       input.primaryMuscleId ?? null,
       normalizeSecondaries(input.primaryMuscleId ?? null, input.secondaryMuscleIds ?? []),
+      normalizeMedia(input.media ?? []),
       false,
     );
   }
@@ -64,6 +69,7 @@ export class Exercise {
       [...input.measurementIds],
       input.primaryMuscleId ?? null,
       [...(input.secondaryMuscleIds ?? [])],
+      [...(input.media ?? [])],
       input.isArchived,
     );
   }
@@ -97,6 +103,10 @@ export class Exercise {
       : [this._primaryMuscleId, ...this._secondaryMuscleIds];
   }
 
+  get media(): readonly ExerciseMedia[] {
+    return [...this._media];
+  }
+
   get isArchived(): boolean {
     return this._isArchived;
   }
@@ -125,6 +135,14 @@ export class Exercise {
   ): void {
     this._primaryMuscleId = primaryMuscleId;
     this._secondaryMuscleIds = normalizeSecondaries(primaryMuscleId, secondaryMuscleIds);
+  }
+
+  /**
+   * Une démonstration ne dit rien de ce qui a été fait : la changer, comme
+   * les muscles, n'a aucun effet sur l'historique.
+   */
+  changeMedia(media: readonly ExerciseMedia[]): void {
+    this._media = normalizeMedia(media);
   }
 
   /**

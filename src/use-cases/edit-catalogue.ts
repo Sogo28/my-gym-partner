@@ -1,3 +1,4 @@
+import type { ExerciseMedia } from '../domain/exercise/media';
 import { findAll as findAllExercises, isReferenced, remove } from '../infra/exercise-repository';
 import {
   findAll as findAllWorkouts,
@@ -22,10 +23,12 @@ export async function updateExercise(input: {
   measurementIds: readonly MeasurementId[];
   primaryMuscleId: string | null;
   secondaryMuscleIds: readonly string[];
+  media: readonly ExerciseMedia[];
 }): Promise<Exercise> {
   input.exercise.rename(input.name);
   input.exercise.changeMeasurements(input.measurementIds);
   input.exercise.changeMuscles(input.primaryMuscleId, input.secondaryMuscleIds);
+  input.exercise.changeMedia(input.media);
   await saveExercise(input.exercise);
   return input.exercise;
 }

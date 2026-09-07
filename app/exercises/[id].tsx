@@ -1,8 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
+import { sourceOf } from '../../src/domain/exercise/media';
 import type { Muscle } from '../../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
 import { BarChart } from '../../src/ui/bar-chart';
@@ -127,6 +128,46 @@ export default function ExerciseDetailScreen() {
           {exercise.isUnilateral && <Tag label="unilatéral" variant="accent" />}
           {exercise.isArchived && <Tag label="archivé" />}
         </View>
+
+        {/* Les démonstrations sont ce qu'on vient revoir AVANT de s'y mettre :
+            elles passent devant les chiffres. */}
+        {exercise.media.length > 0 && (
+          <View className="gap-2">
+            {exercise.media.map((item) => (
+              <Pressable
+                key={item.uri}
+                // Ouvert dans son application d'origine : l'y afficher
+                // demanderait une vue web, et Instagram la refuse une fois
+                // sur deux.
+                onPress={() =>
+                  Linking.openURL(item.uri).catch(() =>
+                    setError("Ce lien n'a pas pu être ouvert."),
+                  )
+                }
+              >
+                <Card className="flex-row items-center justify-between gap-3">
+                  <View className="shrink">
+                    <Text
+                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {item.label ?? sourceOf(item)}
+                    </Text>
+                    <Text
+                      className="font-mono text-[11px] text-muted dark:text-muted-dark"
+                      numberOfLines={1}
+                    >
+                      {sourceOf(item)}
+                    </Text>
+                  </View>
+                  <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                    ouvrir
+                  </Text>
+                </Card>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {sessions.length === 0 ? (
           <EmptyState

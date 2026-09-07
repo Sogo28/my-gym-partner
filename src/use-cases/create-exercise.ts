@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import type { ExerciseMedia } from '../domain/exercise/media';
 import { Exercise } from '../domain/exercise/exercise';
 import type { MeasurementId } from '../domain/exercise/measurement';
 import { save } from '../infra/exercise-repository';
@@ -17,6 +18,7 @@ export async function createExercise(input: {
   measurementIds: readonly MeasurementId[];
   primaryMuscleId?: string | null;
   secondaryMuscleIds?: readonly string[];
+  media?: readonly ExerciseMedia[];
 }): Promise<Exercise> {
   // Les règles métier sont vérifiées ici, avant toute écriture :
   // une donnée invalide n'atteint jamais la base.

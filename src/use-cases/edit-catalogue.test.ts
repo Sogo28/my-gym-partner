@@ -79,6 +79,7 @@ describe('Muscles d un exercice', () => {
       measurementIds: [...exercise.measurementIds],
       primaryMuscleId: 'dos',
       secondaryMuscleIds: ['biceps', 'abdominaux'],
+      media: [],
     });
 
     // Relu depuis SQLite : c'est le rôle stocké qui doit revenir, pas l'ordre
@@ -99,6 +100,46 @@ describe('Muscles d un exercice', () => {
         measurementIds: [...exercise.measurementIds],
         primaryMuscleId: 'dos',
         secondaryMuscleIds: ['dos'],
+        media: [],
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('Démonstrations d un exercice', () => {
+  it('les garde dans l ordre jusqu en base', async () => {
+    const exercise = await anExercise();
+
+    await updateExercise({
+      exercise,
+      name: exercise.name,
+      measurementIds: [...exercise.measurementIds],
+      primaryMuscleId: null,
+      secondaryMuscleIds: [],
+      media: [
+        { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo' },
+        { kind: 'link', uri: 'https://instagram.com/reel/2', label: null },
+      ],
+    });
+
+    const [reloaded] = await findAllExercises();
+    expect(reloaded.media).toEqual([
+      { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo' },
+      { kind: 'link', uri: 'https://instagram.com/reel/2', label: null },
+    ]);
+  });
+
+  it('refuse une adresse sans schéma', async () => {
+    const exercise = await anExercise();
+
+    await expect(
+      updateExercise({
+        exercise,
+        name: exercise.name,
+        measurementIds: [...exercise.measurementIds],
+        primaryMuscleId: null,
+        secondaryMuscleIds: [],
+        media: [{ kind: 'link', uri: 'youtube.com/watch', label: null }],
       }),
     ).rejects.toThrow();
   });

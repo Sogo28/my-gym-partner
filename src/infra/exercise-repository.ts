@@ -6,6 +6,12 @@ import { getDatabase } from './db';
 type ExerciseRow = { id: string; name: string; is_unilateral: number; archived: number };
 type LinkRow = { exercise_id: string; measurement_id: string };
 type MuscleLinkRow = { exercise_id: string; muscle_id: string; role: 'PRIMARY' | 'SECONDARY' };
+type MediaRow = {
+  exercise_id: string;
+  kind: 'link' | 'file';
+  uri: string;
+  label: string | null;
+};
 
 /**
  * Repository : la seule porte d'entrée pour charger et sauvegarder l'agrégat
@@ -34,6 +40,18 @@ export async function save(exercise: Exercise): Promise<void> {
     // différentiel : l'agrégat est l'unité de cohérence, on écrit son état actuel.
     await db.runAsync('DELETE FROM exercise_measurements WHERE exercise_id = ?;', exercise.id);
     await db.runAsync('DELETE FROM exercise_muscles WHERE exercise_id = ?;', exercise.id);
+    await db.runAsync('DELETE FROM exercise_media WHERE exercise_id = ?;', exercise.id);
+
+    for (const [position, media] of exercise.media.entries()) {
+      await db.runAsync(
+        'INSERT INTO exercise_media (exercise_id, position, kind, uri, label) VALUES (?, ?, ?, ?, ?);',
+        exercise.id,
+        position,
+        media.kind,
+        media.uri,
+        media.label,
+      );
+    }
 
     if (exercise.primaryMuscleId !== null) {
       await db.runAsync(
@@ -86,6 +104,16 @@ export async function findAll(): Promise<Exercise[]> {
     measurementsByExercise.set(link.exercise_id, list);
   }
 
+  const mediaRows = await db.getAllAsync<MediaRow>(
+    'SELECT exercise_id, kind, uri, label FROM exercise_media ORDER BY exercise_id, position;',
+  );
+  const mediaByExercise = new Map<string, MediaRow[]>();
+  for (const row of mediaRows) {
+    const list = mediaByExercise.get(row.exercise_id) ?? [];
+    list.push(row);
+    mediaByExercise.set(row.exercise_id, list);
+  }
+
   const primaryByExercise = new Map<string, string>();
   const secondariesByExercise = new Map<string, string[]>();
   for (const link of muscleLinks) {
@@ -108,6 +136,11 @@ export async function findAll(): Promise<Exercise[]> {
       measurementIds: measurementsByExercise.get(row.id) ?? [],
       primaryMuscleId: primaryByExercise.get(row.id) ?? null,
       secondaryMuscleIds: secondariesByExercise.get(row.id) ?? [],
+      media: (mediaByExercise.get(row.id) ?? []).map((media) => ({
+        kind: media.kind,
+        uri: media.uri,
+        label: media.label,
+      })),
       isArchived: row.archived === 1,
     }),
   );

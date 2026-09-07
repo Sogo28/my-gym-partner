@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -544,6 +544,25 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         ON exercise_muscles (exercise_id) WHERE role = 'PRIMARY';
     `);
     await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+
+  // Migration 19 : les démonstrations rattachées à un exercice.
+  //
+  // Une table plutôt qu'une colonne : un exercice peut en porter plusieurs, et
+  // leur ordre est celui de l'ajout. Le genre est explicite dès maintenant,
+  // même si seul le lien est proposé -- un fichier ne se sauvegarde pas comme
+  // une adresse, et deviner plus tard ce qu'une chaîne désigne serait pire.
+  if (version < 19) {
+    await db.execAsync(`
+      CREATE TABLE exercise_media (
+        exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('link', 'file')),
+        uri TEXT NOT NULL,
+        label TEXT,
+        PRIMARY KEY (exercise_id, position)
+      );
+    `);
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

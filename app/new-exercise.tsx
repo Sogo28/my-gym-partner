@@ -1,10 +1,12 @@
 import { messageOf } from '../src/ui/message';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
+import type { ExerciseMedia } from '../src/domain/exercise/media';
+import { normalizeMedia, sourceOf } from '../src/domain/exercise/media';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
@@ -35,6 +37,9 @@ export default function NewExerciseScreen() {
   const [muscles, setMuscles] = useState<Muscle[]>([]);
   const [primaryMuscle, setPrimaryMuscle] = useState<string | null>(null);
   const [secondaryMuscles, setSecondaryMuscles] = useState<string[]>([]);
+  const [media, setMedia] = useState<ExerciseMedia[]>([]);
+  /** Le lien en cours de saisie, ou null quand la feuille est fermée. */
+  const [link, setLink] = useState<{ uri: string; label: string } | null>(null);
   /** La feuille de choix ouverte, s'il y en a une. */
   const [choosing, setChoosing] = useState<'none' | 'measurements' | 'primary' | 'secondary'>(
     'none',
@@ -72,6 +77,7 @@ export default function NewExerciseScreen() {
         setSelected([...exercise.measurementIds]);
         setPrimaryMuscle(exercise.primaryMuscleId);
         setSecondaryMuscles([...exercise.secondaryMuscleIds]);
+        setMedia([...exercise.media]);
       })
       .catch((e) => setError(messageOf(e)));
   }, [id]);
@@ -86,6 +92,7 @@ export default function NewExerciseScreen() {
           measurementIds: selected,
           primaryMuscleId: primaryMuscle,
           secondaryMuscleIds: secondaryMuscles,
+          media,
         });
       } else {
         await createExercise({
@@ -94,9 +101,32 @@ export default function NewExerciseScreen() {
           measurementIds: selected,
           primaryMuscleId: primaryMuscle,
           secondaryMuscleIds: secondaryMuscles,
+          media,
         });
       }
       router.back();
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  /**
+   * Le lien est validé par le DOMAINE, pas par l'écran : une adresse sans
+   * schéma est refusée ici plutôt que d'échouer en silence le jour où on
+   * essaie de l'ouvrir.
+   */
+  function addLink() {
+    if (!link) return;
+    const draft: ExerciseMedia = {
+      kind: 'link',
+      uri: link.uri,
+      label: link.label.trim() || null,
+    };
+    try {
+      const next = normalizeMedia([...media, draft]);
+      setMedia([...next]);
+      setLink(null);
+      setError(null);
     } catch (e) {
       setError(messageOf(e));
     }
@@ -186,6 +216,45 @@ export default function NewExerciseScreen() {
           />
         </View>
 
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Démonstrations
+          </Text>
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Des liens vers une vidéo : YouTube, un réel Instagram. Ils s'ouvrent dans leur
+            application.
+          </Text>
+
+          {media.map((item) => (
+            <View
+              key={item.uri}
+              className="flex-row items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark"
+            >
+              <View className="shrink">
+                <Text className="font-medium text-[15px] text-ink dark:text-ink-dark" numberOfLines={1}>
+                  {item.label ?? sourceOf(item)}
+                </Text>
+                <Text className="font-mono text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
+                  {item.uri}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setMedia((current) => current.filter((m) => m.uri !== item.uri))}
+                hitSlop={8}
+              >
+                <Text className="text-[12px] text-danger dark:text-danger-dark">retirer</Text>
+              </Pressable>
+            </View>
+          ))}
+
+          <Button
+            label="+ Ajouter un lien"
+            variant="secondary"
+            size="md"
+            onPress={() => setLink({ uri: '', label: '' })}
+          />
+        </View>
+
         <View className="flex-row items-center justify-between gap-4">
           <View className="shrink">
             <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
@@ -226,6 +295,36 @@ export default function NewExerciseScreen() {
           />
         </View>
       </View>
+
+      <Sheet
+        visible={link !== null}
+        title="Ajouter un lien"
+        description="L'adresse de la vidéo, telle que tu la copies depuis l'application."
+        onClose={() => setLink(null)}
+      >
+        {link && (
+          <View className="gap-3 pb-2">
+            <TextInput
+              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[15px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+              placeholder="https://youtube.com/..."
+              placeholderTextColor="#A8AD9E"
+              value={link.uri}
+              onChangeText={(uri) => setLink((current) => current && { ...current, uri })}
+              autoCapitalize="none"
+              autoCorrect={false}
+              inputMode="url"
+            />
+            <TextInput
+              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[15px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+              placeholder="Intitulé (facultatif)"
+              placeholderTextColor="#A8AD9E"
+              value={link.label}
+              onChangeText={(label) => setLink((current) => current && { ...current, label })}
+            />
+            <Button label="Ajouter" size="md" onPress={addLink} />
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         visible={sheet === 'menu'}
