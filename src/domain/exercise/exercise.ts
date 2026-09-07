@@ -20,6 +20,14 @@ export type CreateExerciseInput = {
   secondaryMuscleIds?: readonly MuscleId[];
   /** Démonstrations rattachées, dans l'ordre où on les a ajoutées. */
   media?: readonly ExerciseMedia[];
+  /**
+   * D'où vient l'exercice, quand il ne vient pas de toi : `repdb:pull-up`.
+   *
+   * Un FAIT, pas un réglage : il se pose à la création et ne change plus. Il
+   * sert à savoir ce qui a déjà été adopté d'un catalogue tiers, ce qu'aucune
+   * autre donnée ne dit une fois l'exercice renommé en français.
+   */
+  origin?: string | null;
 };
 
 /**
@@ -42,6 +50,7 @@ export class Exercise {
     private _primaryMuscleId: MuscleId | null,
     private _secondaryMuscleIds: readonly MuscleId[],
     private _media: readonly ExerciseMedia[],
+    readonly origin: string | null,
     private _isArchived: boolean,
   ) {}
 
@@ -56,6 +65,7 @@ export class Exercise {
       input.primaryMuscleId ?? null,
       normalizeSecondaries(input.primaryMuscleId ?? null, input.secondaryMuscleIds ?? []),
       normalizeMedia(input.media ?? []),
+      input.origin ?? null,
       false,
     );
   }
@@ -70,6 +80,7 @@ export class Exercise {
       input.primaryMuscleId ?? null,
       [...(input.secondaryMuscleIds ?? [])],
       [...(input.media ?? [])],
+      input.origin ?? null,
       input.isArchived,
     );
   }

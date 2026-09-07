@@ -19,6 +19,7 @@ export async function createExercise(input: {
   primaryMuscleId?: string | null;
   secondaryMuscleIds?: readonly string[];
   media?: readonly ExerciseMedia[];
+  origin?: string | null;
 }): Promise<Exercise> {
   // Les règles métier sont vérifiées ici, avant toute écriture :
   // une donnée invalide n'atteint jamais la base.

@@ -3,7 +3,13 @@ import type { Measurement } from '../domain/exercise/measurement';
 import type { Muscle } from '../domain/exercise/muscle';
 import { getDatabase } from './db';
 
-type ExerciseRow = { id: string; name: string; is_unilateral: number; archived: number };
+type ExerciseRow = {
+  id: string;
+  name: string;
+  is_unilateral: number;
+  archived: number;
+  origin: string | null;
+};
 type LinkRow = { exercise_id: string; measurement_id: string };
 type MuscleLinkRow = { exercise_id: string; muscle_id: string; role: 'PRIMARY' | 'SECONDARY' };
 type MediaRow = {
@@ -30,12 +36,13 @@ export async function save(exercise: Exercise): Promise<void> {
   // garantit que soit tout est écrit, soit rien ne l'est.
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO exercises (id, name, is_unilateral, archived) VALUES (?, ?, ?, ?)
+      `INSERT INTO exercises (id, name, is_unilateral, archived, origin) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET name = excluded.name, archived = excluded.archived;`,
       exercise.id,
       exercise.name,
       exercise.isUnilateral ? 1 : 0,
       exercise.isArchived ? 1 : 0,
+      exercise.origin,
     );
 
     // On remplace la liste complète des mesures plutôt que de calculer un
@@ -91,7 +98,7 @@ export async function findAll(): Promise<Exercise[]> {
   // Deux requêtes, pas une par exercice : on charge tout puis on assemble
   // en mémoire (éviter le "N+1", qui deviendrait lent avec 100 exercices).
   const rows = await db.getAllAsync<ExerciseRow>(
-    'SELECT id, name, is_unilateral, archived FROM exercises ORDER BY name;',
+    'SELECT id, name, is_unilateral, archived, origin FROM exercises ORDER BY name;',
   );
   const links = await db.getAllAsync<LinkRow>(
     'SELECT exercise_id, measurement_id FROM exercise_measurements ORDER BY exercise_id, position;',
@@ -151,6 +158,7 @@ export async function findAll(): Promise<Exercise[]> {
             ? { from: media.trim_from, to: media.trim_to }
             : null,
       })),
+      origin: row.origin,
       isArchived: row.archived === 1,
     }),
   );

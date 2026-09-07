@@ -15,6 +15,7 @@ import { Collapsible } from '../../src/ui/collapsible';
 import { NumberField } from '../../src/ui/number-field';
 import { BusinessNotice } from '../../src/ui/notice';
 import { ExercisePicker } from '../../src/ui/exercise-picker';
+import { catalogueSource } from '../../src/use-cases/repdb-actions';
 import { BackHeader } from '../../src/ui/screen-header';
 import {
   createPlannedWorkout,
@@ -217,6 +218,9 @@ export default function NewWorkoutScreen() {
           fin de séance --, donc rien n'est coché d'avance et chaque passage
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
+        catalogue={catalogueSource(() => {
+          listActiveExercises().then(setAvailable).catch((e) => setError(messageOf(e)));
+        })}
         visible={picking}
         title="Ajouter des exercices"
         exercises={available}

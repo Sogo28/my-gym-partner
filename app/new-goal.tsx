@@ -23,6 +23,7 @@ import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
+import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
@@ -366,6 +367,9 @@ export default function NewGoalScreen() {
           dans lequel on coche les exercices. Un objectif simple n'en vise
           qu'un, et se referme dès qu'on l'a touché. */}
       <ExercisePicker
+        catalogue={catalogueSource(() => {
+          listActiveExercises().then(setExercises).catch((e) => setError(messageOf(e)));
+        })}
         visible={picking === 'exercise'}
         mode={progressive ? 'multiple' : 'single'}
         title={progressive ? 'Ajouter des étapes' : "Choisir l'exercice"}

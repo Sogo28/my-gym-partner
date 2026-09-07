@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { DomainError } from '../../domain/domain-error';
-import { fold } from '../../ui/search';
+import { fold } from '../../text';
 import type { CatalogueEntry } from './mapping';
 
 /**

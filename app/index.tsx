@@ -13,7 +13,8 @@ import { Fab } from '../src/ui/fab';
 import { EmptyState } from '../src/ui/empty-state';
 import { MuscleFilterChip, MuscleFilterSheet } from '../src/ui/muscle-filter';
 import { SectionHeader } from '../src/ui/screen-header';
-import { fold, SearchField } from '../src/ui/search';
+import { SearchField } from '../src/ui/search';
+import { fold } from '../src/text';
 
 export default function ExercisesScreen() {
   const router = useRouter();

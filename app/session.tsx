@@ -35,6 +35,7 @@ import { Card } from '../src/ui/card';
 import { DatePickerSheet } from '../src/ui/date-picker';
 import { EmptyState } from '../src/ui/empty-state';
 import { ExercisePicker } from '../src/ui/exercise-picker';
+import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
 import { Sheet, type SheetAction } from '../src/ui/sheet';
@@ -619,6 +620,11 @@ export default function SessionScreen() {
           sert à nommer les exercices déjà faits ; on ne propose en revanche
           que ceux encore au catalogue. */}
       <ExercisePicker
+        // Adopter depuis le catalogue crée un exercice : la liste locale doit
+        // en tenir compte tout de suite.
+        catalogue={catalogueSource(() => {
+          reload().catch((e) => setError(messageOf(e)));
+        })}
         visible={sheet === 'pick-exercise'}
         mode="single"
         title="Choisir un exercice"

@@ -8,7 +8,8 @@ import { Card } from './card';
 import { Button } from './button';
 import { cn } from './cn';
 import { MuscleFilterChip, MuscleFilterSheet } from './muscle-filter';
-import { fold, SearchField } from './search';
+import { SearchField } from './search';
+import { fold } from '../text';
 import { BackHeader } from './screen-header';
 import { Tag } from './tag';
 
@@ -25,6 +26,14 @@ import { Tag } from './tag';
  * Pas de vignettes : nos exercices n'ont pas d'images, et une pastille vide
  * répétée sur trente lignes serait du bruit, pas un repère.
  */
+/** Une entrée d'un catalogue tiers, proposée sous tes propres exercices. */
+export type CatalogueSuggestion = {
+  readonly id: string;
+  readonly name: string;
+  /** Ce qui la décrit en un mot : son matériel, ses muscles... */
+  readonly detail: string;
+};
+
 export type ExercisePickerProps = {
   visible: boolean;
   /** Ce qu'on propose : à l'appelant d'écarter les exercices retirés. */
@@ -40,7 +49,17 @@ export type ExercisePickerProps = {
   confirmLabel?: string;
   onConfirm: (exerciseIds: string[]) => void;
   onClose: () => void;
+  /**
+   * Ce qu'un catalogue tiers propose pour la recherche en cours, et ce qui
+   * arrive quand on en choisit un. Absent : la section ne s'affiche pas.
+   */
+  catalogue?: {
+    suggest: (query: string) => Promise<CataloguesuggestionList>;
+    adopt: (id: string) => Promise<string>;
+  };
 };
+
+type CataloguesuggestionList = readonly CatalogueSuggestion[];
 
 export function ExercisePicker({
   visible,
@@ -53,11 +72,14 @@ export function ExercisePicker({
   confirmLabel = 'Ajouter',
   onConfirm,
   onClose,
+  catalogue,
 }: ExercisePickerProps) {
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [filtering, setFiltering] = useState(false);
+  const [suggestions, setSuggestions] = useState<CataloguesuggestionList>([]);
+  const [adopting, setAdopting] = useState<string | null>(null);
 
   // Chaque ouverture repart de la sélection que l'appelant nous donne, sans
   // traîner la recherche ni les filtres de la fois précédente.
@@ -67,6 +89,7 @@ export function ExercisePicker({
     setMuscleFilter([]);
     setSelected([...selectedIds]);
     setFiltering(false);
+    setSuggestions([]);
     // selectedIds est une liste : la comparer par référence rouvrirait le
     // sélecteur à chaque rendu du parent. Seule l'ouverture compte.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,6 +124,45 @@ export function ExercisePicker({
           .map((id) => exercises.find((exercise) => exercise.id === id))
           .filter((exercise): exercise is Exercise => exercise !== undefined)
       : [];
+
+  /**
+   * Le catalogue ne répond qu'à une recherche : dérouler six cents entrées
+   * sous les siennes noierait les siennes.
+   */
+  useEffect(() => {
+    if (!catalogue || query.trim() === '') {
+      setSuggestions([]);
+      return;
+    }
+    let current = true;
+    catalogue
+      .suggest(query)
+      .then((found) => {
+        if (current) setSuggestions(found);
+      })
+      .catch(() => setSuggestions([]));
+    return () => {
+      current = false;
+    };
+  }, [catalogue, query]);
+
+  /** Adopter, c'est créer l'exercice puis le retenir comme les autres. */
+  async function adopt(id: string) {
+    if (!catalogue) return;
+    setAdopting(id);
+    try {
+      const exerciseId = await catalogue.adopt(id);
+      setSuggestions((current) => current.filter((entry) => entry.id !== id));
+      if (mode === 'single') {
+        onConfirm([exerciseId]);
+        onClose();
+        return;
+      }
+      setSelected((current) => [...current, exerciseId]);
+    } finally {
+      setAdopting(null);
+    }
+  }
 
   function toggle(exerciseId: string) {
     if (mode === 'single') {
@@ -171,10 +233,41 @@ export function ExercisePicker({
 
           {matching.map((exercise) => row(exercise, exercise.id))}
 
-          {matching.length === 0 && (
+          {matching.length === 0 && suggestions.length === 0 && (
             <Text className="py-6 text-center text-[14px] text-muted dark:text-muted-dark">
               Aucun exercice ne correspond.
             </Text>
+          )}
+
+          {/* Le catalogue vient APRÈS : ce que tu fais déjà passe devant ce
+              qu'un tiers propose. */}
+          {suggestions.length > 0 && (
+            <>
+              <SectionLabel>Dans le catalogue</SectionLabel>
+              {suggestions.map((entry) => (
+                <Pressable key={entry.id} onPress={() => adopt(entry.id)} className="pb-2">
+                  <Card className="flex-row items-center gap-3">
+                    <View className="flex-1 gap-1">
+                      <Text
+                        className="font-bold text-[16px] text-ink dark:text-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {entry.name}
+                      </Text>
+                      <Text
+                        className="font-mono text-[11px] text-muted dark:text-muted-dark"
+                        numberOfLines={1}
+                      >
+                        {entry.detail}
+                      </Text>
+                    </View>
+                    <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                      {adopting === entry.id ? '…' : 'ajouter'}
+                    </Text>
+                  </Card>
+                </Pressable>
+              ))}
+            </>
           )}
         </ScrollView>
 

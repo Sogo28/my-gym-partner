@@ -1,17 +1,6 @@
 import { TextInput } from 'react-native';
 
-/**
- * La recherche, partout pareille : un champ, et une comparaison qui ignore
- * casse et accents -- « ischio » doit trouver « Ischio-jambiers », sans quoi
- * il faut connaître l'orthographe exacte de ce qu'on cherche.
- */
-export function fold(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
+/** Le champ de recherche, partout pareil. */
 export function SearchField({
   value,
   onChange,

@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -604,6 +604,15 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       ALTER TABLE exercise_media_v21 RENAME TO exercise_media;
     `);
     await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+
+  // Migration 22 : d'où vient un exercice adopté d'un catalogue tiers.
+  //
+  // Une colonne nullable : les tiens n'ont pas d'origine, et n'en auront
+  // jamais. Elle sert à ne pas reproposer ce qui est déjà là -- une fois
+  // l'exercice renommé en français, plus rien d'autre ne permet de le savoir.
+  if (version < 22) {
+    await db.execAsync('ALTER TABLE exercises ADD COLUMN origin TEXT;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
