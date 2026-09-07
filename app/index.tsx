@@ -1,4 +1,4 @@
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -16,6 +16,7 @@ import { SectionHeader } from '../src/ui/screen-header';
 import { fold, SearchField } from '../src/ui/search';
 
 export default function ExercisesScreen() {
+  const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
@@ -60,6 +61,8 @@ export default function ExercisesScreen() {
       <SectionHeader
         title="Exercices"
         subtitle={`${exercises.length - archivedCount} définition${exercises.length - archivedCount > 1 ? 's' : ''} · référentiel`}
+        // Les réglages tiennent au catalogue d'exercices : on y va d'ici.
+        action={{ label: 'Réglages', onPress: () => router.push('/settings') }}
       />
 
       <View className="gap-3 pb-3">

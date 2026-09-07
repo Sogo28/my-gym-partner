@@ -79,6 +79,7 @@ export default function RootLayout() {
           depuis la liste des exercices, ce n'est pas une section. */}
       <Tabs.Screen name="new-exercise" options={{ href: null }} />
       <Tabs.Screen name="exercises" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="new-goal" options={{ href: null }} />
       <Tabs.Screen name="body" options={{ href: null }} />
       <Tabs.Screen
