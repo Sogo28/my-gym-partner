@@ -1,21 +1,19 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { messageOf } from '../../../src/ui/message';
+import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../../src/domain/exercise/exercise';
-import type { Measurement } from '../../../src/domain/exercise/measurement';
-import type { PlannedWorkout } from '../../../src/domain/planned-workout/planned-workout';
-import { findAll as findAllExercises, findAllMeasurements } from '../../../src/infra/exercise-repository';
-import { findAll as findAllPlans } from '../../../src/infra/planned-workout-repository';
-import { Button } from '../../../src/ui/button';
-import { Collapsible } from '../../../src/ui/collapsible';
-import { DatePickerSheet } from '../../../src/ui/date-picker';
-import { formatDateTime } from '../../../src/ui/format';
-import { BackHeader } from '../../../src/ui/screen-header';
-import { discardWorkout, unarchiveWorkout } from '../../../src/use-cases/edit-catalogue';
-import { scheduleWorkout } from '../../../src/use-cases/scheduling-actions';
-import { startWorkoutSession } from '../../../src/use-cases/workout-session-actions';
+import type { Exercise } from '../src/domain/exercise/exercise';
+import type { Measurement } from '../src/domain/exercise/measurement';
+import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
+import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
+import { Button } from '../src/ui/button';
+import { Collapsible } from '../src/ui/collapsible';
+import { BackHeader } from '../src/ui/screen-header';
+import { Sheet } from '../src/ui/sheet';
+import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
+import { startWorkoutSession } from '../src/use-cases/workout-session-actions';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -30,8 +28,8 @@ export default function WorkoutDetailScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [picking, setPicking] = useState(false);
-  const [scheduled, setScheduled] = useState<Date | null>(null);
+  /** Le menu de l'écran, et la confirmation qu'il peut demander. */
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
 
   // À chaque affichage : revenir de l'écran d'édition doit montrer
   // l'entraînement modifié, pas celui d'avant.
@@ -65,7 +63,7 @@ export default function WorkoutDetailScreen() {
 
   if (!plan) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-background p-5 dark:bg-background-dark">
+      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark">
         <BackHeader title="Entraînement" onBack={() => router.back()} />
         <Text className="text-muted dark:text-muted-dark">
           {error ?? 'Entraînement introuvable.'}
@@ -75,18 +73,6 @@ export default function WorkoutDetailScreen() {
   }
 
   const totalSets = plan.exercises.reduce((total, e) => total + e.sets.length, 0);
-
-  /** ScheduleWorkout : placer cet entraînement à une date, sans le démarrer. */
-  async function schedule(at: Date) {
-    setPicking(false);
-    try {
-      await scheduleWorkout({ plannedWorkoutId: id, at });
-      setScheduled(at);
-      setError(null);
-    } catch (e) {
-      setError(messageOf(e));
-    }
-  }
 
   /** Archivé s'il a déjà produit des séances, supprimé sinon. */
   async function discard() {
@@ -100,10 +86,11 @@ export default function WorkoutDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
           title={plan.name}
+          onMenu={() => setSheet('menu')}
           subtitle={`${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''} prévue${totalSets > 1 ? 's' : ''}`}
           onBack={() => router.back()}
         />
@@ -135,56 +122,48 @@ export default function WorkoutDetailScreen() {
       </ScrollView>
 
       {/* Action principale ancrée en bas, hors du défilement. */}
-      <View className="gap-2 p-5 pt-2">
-        {scheduled && (
-          <Text className="text-center font-mono text-[12px] text-success dark:text-success-dark">
-            programmé le {formatDateTime(scheduled)}
-          </Text>
-        )}
-        <Button label="Démarrer la séance" size="xl" onPress={start} />
-        <View className="flex-row gap-2">
-          <Button
-            label="Programmer"
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onPress={() => setPicking(true)}
-          />
-          <Button
-            label="Modifier"
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onPress={() => router.push({ pathname: '/workouts/new', params: { id } })}
-          />
-        </View>
-        {plan.isArchived ? (
-          <Button
-            label="Remettre au catalogue"
-            variant="secondary"
-            size="md"
-            onPress={() =>
-              unarchiveWorkout(plan)
-                .then(() => router.back())
-                .catch((e) => setError(messageOf(e)))
-            }
-          />
-        ) : (
-          <Button
-            label="Retirer cet entraînement"
-            variant="danger"
-            size="md"
-            onPress={discard}
-          />
-        )}
+      <View className="p-5 pt-2">
+        <Button label="Démarrer la séance" size="lg" onPress={start} />
       </View>
 
-      <DatePickerSheet
-        visible={picking}
-        title="Programmer cet entraînement"
-        confirmLabel="Programmer"
-        onConfirm={schedule}
-        onClose={() => setPicking(false)}
+      <Sheet
+        visible={sheet === 'menu'}
+        title={plan.name}
+        actions={
+          plan.isArchived
+            ? [
+                {
+                  label: 'Remettre au catalogue',
+                  onPress: () =>
+                    unarchiveWorkout(plan)
+                      .then(() => router.back())
+                      .catch((e) => setError(messageOf(e))),
+                },
+              ]
+            : [
+                {
+                  label: 'Modifier',
+                  onPress: () => router.push({ pathname: '/new-workout', params: { id } }),
+                },
+                {
+                  label: 'Retirer du catalogue',
+                  tone: 'danger' as const,
+                  onPress: () => setSheet('confirm-discard'),
+                },
+              ]
+        }
+        onClose={() => setSheet('none')}
+      />
+
+      {/* Retirer n'est pas toujours la même opération : la base tranche entre
+          archiver et supprimer. La confirmation annonce les deux, faute de
+          pouvoir dire laquelle avant d'avoir regardé. */}
+      <Sheet
+        visible={sheet === 'confirm-discard'}
+        title="Retirer cet entraînement ?"
+        description="S'il a déjà produit des séances, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
+        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        onClose={() => setSheet('none')}
       />
     </SafeAreaView>
   );

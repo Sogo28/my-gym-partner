@@ -80,6 +80,8 @@ export default function RootLayout() {
           rend la main à l'onglet d'où l'on vient, et non au premier. */}
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="exercise" />
+      <Stack.Screen name="workout" />
+      <Stack.Screen name="new-workout" />
       <Stack.Screen name="new-exercise" />
       <Stack.Screen name="new-goal" />
       <Stack.Screen name="body" />

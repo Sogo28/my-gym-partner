@@ -28,6 +28,7 @@ import {
   cancelScheduledWorkout,
   listSchedule,
   rescheduleWorkout,
+  scheduleWorkout,
 } from '../../src/use-cases/scheduling-actions';
 import { findActive } from '../../src/infra/workout-session-repository';
 import { Button } from '../../src/ui/button';
@@ -80,6 +81,8 @@ export default function SessionScreen() {
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   /** L'entraînement programmé qu'on est en train de déplacer. */
   const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
+  /** La programmation en cours : d'abord l'entraînement, puis sa date. */
+  const [planning, setPlanning] = useState<{ plan: PlannedWorkout | null } | null>(null);
   const [values, setValues] = useState<ValuesBySide>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
@@ -392,7 +395,7 @@ export default function SessionScreen() {
           {schedule.length === 0 && (
             <EmptyState
               title="Aucune séance en cours"
-              description="Programme un entraînement depuis sa fiche, ou démarre directement."
+              description="Programme un entraînement pour un autre jour, ou démarre-en un maintenant."
             />
           )}
         </ScrollView>
@@ -411,12 +414,26 @@ export default function SessionScreen() {
         />
 
         <View className="gap-2 px-5 pb-2">
-          <Button
-            label="Choisir un entraînement"
-            variant="secondary"
-            size="md"
-            onPress={() => router.push('/workouts')}
-          />
+          <View className="flex-row gap-2">
+            <Button
+              label="Choisir un entraînement"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={() => router.push('/workouts')}
+            />
+            {/* Programmer appartient ICI : c'est la page des séances qui parle
+                du calendrier, pas la fiche d'un entraînement, qui décrit ce
+                qu'il contient. */}
+            <Button
+              label="Programmer"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              disabled={plans.length === 0}
+              onPress={() => setPlanning({ plan: null })}
+            />
+          </View>
           <Button
             label="Séance libre"
             variant="ghost"
@@ -424,6 +441,33 @@ export default function SessionScreen() {
             onPress={() => run(() => startWorkoutSession())}
           />
         </View>
+
+        {/* Programmer se fait en deux temps : quel entraînement, puis quand. */}
+        <Sheet
+          visible={planning !== null && planning.plan === null}
+          title="Programmer un entraînement"
+          description="Il sera à faire à la date choisie, sans démarrer maintenant."
+          searchPlaceholder="Chercher un entraînement"
+          actions={plans
+            .filter((candidate) => !candidate.isArchived)
+            .map((candidate) => ({
+              label: candidate.name,
+              onPress: () => setPlanning({ plan: candidate }),
+            }))}
+          onClose={() => setPlanning(null)}
+        />
+
+        <DatePickerSheet
+          visible={planning?.plan != null}
+          title={planning?.plan ? `Programmer « ${planning.plan.name} »` : ''}
+          confirmLabel="Programmer"
+          onConfirm={(at) => {
+            const chosen = planning?.plan;
+            setPlanning(null);
+            if (chosen) run(() => scheduleWorkout({ plannedWorkoutId: chosen.id, at }));
+          }}
+          onClose={() => setPlanning(null)}
+        />
       </SafeAreaView>
     );
   }

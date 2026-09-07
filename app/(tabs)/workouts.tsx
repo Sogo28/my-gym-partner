@@ -1,20 +1,20 @@
 import { Link, useFocusEffect } from 'expo-router';
-import { messageOf } from '../../../src/ui/message';
+import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../../src/domain/exercise/exercise';
-import type { PlannedWorkout } from '../../../src/domain/planned-workout/planned-workout';
-import { findAll as findAllExercises, findAllMuscles } from '../../../src/infra/exercise-repository';
-import type { Muscle } from '../../../src/domain/exercise/muscle';
-import { listActiveWorkouts } from '../../../src/use-cases/edit-catalogue';
-import { Card } from '../../../src/ui/card';
-import { EmptyState } from '../../../src/ui/empty-state';
-import { Fab } from '../../../src/ui/fab';
-import { MuscleFilterChip, MuscleFilterSheet } from '../../../src/ui/muscle-filter';
-import { SectionHeader } from '../../../src/ui/screen-header';
-import { SearchField } from '../../../src/ui/search';
-import { fold } from '../../../src/text';
+import type { Exercise } from '../../src/domain/exercise/exercise';
+import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises, findAllMuscles } from '../../src/infra/exercise-repository';
+import type { Muscle } from '../../src/domain/exercise/muscle';
+import { listActiveWorkouts } from '../../src/use-cases/edit-catalogue';
+import { Card } from '../../src/ui/card';
+import { EmptyState } from '../../src/ui/empty-state';
+import { Fab } from '../../src/ui/fab';
+import { MuscleFilterChip, MuscleFilterSheet } from '../../src/ui/muscle-filter';
+import { SectionHeader } from '../../src/ui/screen-header';
+import { SearchField } from '../../src/ui/search';
+import { fold } from '../../src/text';
 
 export default function WorkoutsScreen() {
   const [workouts, setWorkouts] = useState<PlannedWorkout[]>([]);
@@ -111,7 +111,7 @@ export default function WorkoutsScreen() {
         renderItem={({ item }) => {
           const setCount = item.exercises.reduce((total, e) => total + e.sets.length, 0);
           return (
-            <Link href={`/workouts/${item.id}`} asChild>
+            <Link href={{ pathname: '/workout', params: { id: item.id } }} asChild>
               <Pressable>
                 <Card density="titled">
                   <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
@@ -137,7 +137,7 @@ export default function WorkoutsScreen() {
 
       {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
 
-      <Link href="/workouts/new" asChild>
+      <Link href="/new-workout" asChild>
         <Fab accessibilityLabel="Nouvel entraînement" />
       </Link>
 
