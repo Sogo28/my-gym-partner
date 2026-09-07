@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native';
+import { barHeights } from './scale';
 
 export type ChartPoint = { value: number; at: Date };
 
@@ -14,16 +15,7 @@ export function BarChart({ points, unit }: { points: readonly ChartPoint[]; unit
 
   const values = points.map((point) => point.value);
   const max = Math.max(...values);
-  const min = Math.min(...values);
-
-  /**
-   * La base n'est pas zéro : entre 40 s et 45 s, des barres parties de zéro
-   * se ressemblent toutes. On garde un quart de l'écart sous la plus basse,
-   * pour que la plus faible reste visible sans écraser les autres.
-   */
-  const floor = max === min ? Math.max(0, min - 1) : min - (max - min) * 0.25;
-  const heightOf = (value: number): `${number}%` =>
-    `${Math.max(6, ((value - floor) / (max - floor)) * 100)}%`;
+  const heights = barHeights(values);
 
   return (
     <View className="gap-2">
@@ -33,7 +25,7 @@ export function BarChart({ points, unit }: { points: readonly ChartPoint[]; unit
             key={index}
             className="flex-1 rounded-t-sm bg-primary"
             style={{
-              height: heightOf(point.value),
+              height: `${heights[index]}%`,
               // La meilleure séance ressort en plein ; les autres s'effacent
               // derrière elle sans disparaître.
               opacity: point.value === max ? 1 : 0.45,

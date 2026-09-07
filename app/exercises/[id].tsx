@@ -152,8 +152,10 @@ export default function ExerciseDetailScreen() {
               )}
             </View>
 
-            {points.length > 1 && (
-              <Card density="titled" className="gap-3">
+            {/* La carte reste là même sans courbe à tracer : les puces
+                d'unité vivent dedans, et les faire disparaître enfermerait
+                sur la mesure qu'on vient de choisir. */}
+            <Card density="titled" className="gap-3">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
                     Meilleure série par séance
@@ -190,9 +192,16 @@ export default function ExerciseDetailScreen() {
                     </View>
                   )}
                 </View>
+              {points.length > 1 ? (
                 <BarChart points={points} unit={unitOf(charted)} />
-              </Card>
-            )}
+              ) : (
+                <Text className="py-4 text-center text-[13px] text-muted dark:text-muted-dark">
+                  {points.length === 0
+                    ? `Aucune série enregistrée en ${unitOf(charted)}.`
+                    : 'Une seule séance : rien à comparer pour l instant.'}
+                </Text>
+              )}
+            </Card>
 
             {goals.length > 0 && (
               <Section title="Objectifs">
