@@ -29,11 +29,21 @@ export function OptionChip({
   const nameOf = (id: string) => options.find((option) => option.id === id)?.name ?? id;
   const active = selected.length > 0;
 
+  // Jusqu'à trois, la puce nomme ce qui est retenu -- c'est le cas courant, et
+  // « 2 mesures » obligeait à rouvrir la feuille pour savoir lesquelles.
+  // Au-delà, la liste dépasserait la largeur : le compte redevient plus lisible.
+  const label =
+    selected.length === 0
+      ? emptyLabel
+      : selected.length <= 3
+        ? selected.map(nameOf).join(' · ')
+        : `${selected.length} ${plural}`;
+
   return (
     <Pressable
       onPress={onPress}
       className={cn(
-        'h-11 flex-row items-center gap-2 self-start rounded-full border px-4',
+        'h-11 max-w-full flex-row items-center gap-2 self-start rounded-full border px-4',
         active
           ? 'border-primary-ink bg-primary-soft dark:border-primary-ink-dark dark:bg-primary-soft-dark'
           : 'border-border bg-surface dark:border-border-dark dark:bg-surface-dark',
@@ -41,17 +51,14 @@ export function OptionChip({
     >
       <Text
         className={cn(
-          'font-medium text-[14px]',
+          'shrink font-medium text-[14px]',
           active
             ? 'text-primary-ink dark:text-primary-ink-dark'
             : 'text-muted dark:text-muted-dark',
         )}
+        numberOfLines={1}
       >
-        {selected.length === 0
-          ? emptyLabel
-          : selected.length === 1
-            ? nameOf(selected[0])
-            : `${selected.length} ${plural}`}
+        {label}
       </Text>
     </Pressable>
   );
