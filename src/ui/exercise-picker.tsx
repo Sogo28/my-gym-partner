@@ -4,7 +4,9 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../domain/exercise/exercise';
 import type { Muscle } from '../domain/exercise/muscle';
+import { Card } from './card';
 import { cn } from './cn';
+import { Tag } from './tag';
 
 /**
  * Le sélecteur d'exercices, partagé par tous les écrans qui en demandent un :
@@ -188,7 +190,6 @@ export function ExercisePicker({
                   ? nameOf(muscleFilter[0])
                   : `${muscleFilter.length} muscles`}
             </Text>
-            <Text className="text-[12px] text-muted dark:text-muted-dark">⌄</Text>
           </Pressable>
         </View>
 
@@ -237,8 +238,10 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 /**
- * Une ligne d'exercice : son nom, et les muscles qu'il travaille en second
- * plan -- c'est ce qui distingue deux variantes portant presque le même nom.
+ * Un exercice, en carte : son nom, et ses muscles en badges -- c'est ce qui
+ * distingue deux variantes portant presque le même nom. Sans muscle
+ * renseigné, la carte n'affiche rien de plus : une mention « aucun muscle »
+ * prendrait une ligne pour ne rien apprendre.
  */
 function Row({
   exercise,
@@ -254,31 +257,40 @@ function Row({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      className="min-h-[60px] flex-row items-center gap-3 border-b border-border py-3 dark:border-border-dark"
-    >
-      <View className="flex-1">
-        <Text className="font-medium text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
-          {exercise.name}
-        </Text>
-        <Text className="text-[13px] text-muted dark:text-muted-dark" numberOfLines={1}>
-          {muscleNames.length > 0 ? muscleNames.join(' · ') : 'aucun muscle renseigné'}
-        </Text>
-      </View>
-
-      {showCheck && (
-        <View
-          className={cn(
-            'h-6 w-6 items-center justify-center rounded-full border-2',
-            selected
-              ? 'border-primary-ink bg-primary-ink dark:border-primary-ink-dark dark:bg-primary-ink-dark'
-              : 'border-border-strong dark:border-border-strong-dark',
+    <Pressable onPress={onPress} className="pb-2">
+      <Card
+        className={cn(
+          'flex-row items-center gap-3',
+          selected &&
+            'border-primary-ink bg-primary-soft dark:border-primary-ink-dark dark:bg-primary-soft-dark',
+        )}
+      >
+        <View className="flex-1 gap-1">
+          <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
+            {exercise.name}
+          </Text>
+          {muscleNames.length > 0 && (
+            <View className="flex-row flex-wrap gap-1.5">
+              {muscleNames.map((name) => (
+                <Tag key={name} label={name} accent />
+              ))}
+            </View>
           )}
-        >
-          {selected && <Ionicons name="checkmark" size={14} color="#0E0F0D" />}
         </View>
-      )}
+
+        {showCheck && (
+          <View
+            className={cn(
+              'h-6 w-6 shrink-0 items-center justify-center rounded-full border-2',
+              selected
+                ? 'border-primary-ink bg-primary-ink dark:border-primary-ink-dark dark:bg-primary-ink-dark'
+                : 'border-border-strong dark:border-border-strong-dark',
+            )}
+          >
+            {selected && <Ionicons name="checkmark" size={14} color="#0E0F0D" />}
+          </View>
+        )}
+      </Card>
     </Pressable>
   );
 }

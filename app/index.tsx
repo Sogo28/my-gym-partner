@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
+import { Tag } from '../src/ui/tag';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
@@ -139,27 +140,5 @@ export default function ExercisesScreen() {
         <Button label="Nouvel exercice" size="lg" className="mb-2" />
       </Link>
     </SafeAreaView>
-  );
-}
-
-function Tag({ label, accent = false }: { label: string; accent?: boolean }) {
-  return (
-    <View
-      className={
-        accent
-          ? 'rounded-full bg-primary-soft px-2.5 py-1 dark:bg-primary-soft-dark'
-          : 'rounded-full bg-surface-alt px-2.5 py-1 dark:bg-surface-alt-dark'
-      }
-    >
-      <Text
-        className={
-          accent
-            ? 'font-mono text-[11px] text-primary-ink dark:text-primary-ink-dark'
-            : 'font-mono text-[11px] text-muted dark:text-muted-dark'
-        }
-      >
-        {label}
-      </Text>
-    </View>
   );
 }
