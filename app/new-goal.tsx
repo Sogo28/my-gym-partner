@@ -10,16 +10,19 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
+import type { Muscle } from '../src/domain/exercise/muscle';
 import type { BodyMetric } from '../src/domain/body/body-metric';
 import type { Condition, GoalSubject, ProgressionStep } from '../src/domain/goal/goal';
 import { windowsFor } from '../src/domain/goal/goal';
-import { findAllMeasurements } from '../src/infra/exercise-repository';
+import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
+import { findRecentExerciseIds } from '../src/infra/performance-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
+import { ExercisePicker } from '../src/ui/exercise-picker';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
@@ -45,6 +48,8 @@ function defaultCondition(subject: GoalSubject, measurementId: string): Conditio
 export default function NewGoalScreen() {
   const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [muscles, setMuscles] = useState<Muscle[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   /** Ce que le sélecteur propose : des exercices, ou des mensurations. */
   const [picking, setPicking] = useState<'none' | 'exercise' | 'body'>('none');
@@ -349,15 +354,19 @@ export default function NewGoalScreen() {
         <Button label="Créer l'objectif" size="lg" onPress={submit} />
       </View>
 
-      <Sheet
+      {/* Une progression se choisit d'un bloc : les étapes suivent l'ordre
+          dans lequel on coche les exercices. Un objectif simple n'en vise
+          qu'un, et se referme dès qu'on l'a touché. */}
+      <ExercisePicker
         visible={picking === 'exercise'}
-        title={progressive ? 'Ajouter un exercice' : "Choisir l'exercice"}
-        description={progressive ? "L'ordre des étapes définit la progression." : undefined}
-        searchPlaceholder="Rechercher un exercice"
-        actions={exercises.map((exercise) => ({
-          label: exercise.name,
-          onPress: () => addEntry({ kind: 'exercise', exerciseId: exercise.id }),
-        }))}
+        mode={progressive ? 'multiple' : 'single'}
+        title={progressive ? 'Ajouter des étapes' : "Choisir l'exercice"}
+        exercises={exercises}
+        muscles={muscles}
+        recentIds={recentIds}
+        onConfirm={(ids) => {
+          for (const exerciseId of ids) addEntry({ kind: 'exercise', exerciseId });
+        }}
         onClose={() => setPicking('none')}
       />
 

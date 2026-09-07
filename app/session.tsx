@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
+import type { Muscle } from '../src/domain/exercise/muscle';
 import type {
   ExercisePerformance,
   Side,
@@ -12,8 +13,15 @@ import type {
 } from '../src/domain/performance/exercise-performance';
 import type { PlannedWorkout, TargetValues } from '../src/domain/planned-workout/planned-workout';
 import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
-import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
-import { findById as findPerformanceById } from '../src/infra/performance-repository';
+import {
+  findAll as findAllExercises,
+  findAllMeasurements,
+  findAllMuscles,
+} from '../src/infra/exercise-repository';
+import {
+  findById as findPerformanceById,
+  findRecentExerciseIds,
+} from '../src/infra/performance-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import type { ScheduledWorkout } from '../src/domain/scheduling/scheduled-workout';
 import {
@@ -26,6 +34,7 @@ import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { DatePickerSheet } from '../src/ui/date-picker';
 import { EmptyState } from '../src/ui/empty-state';
+import { ExercisePicker } from '../src/ui/exercise-picker';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader, SessionHeader } from '../src/ui/screen-header';
 import { Sheet, type SheetAction } from '../src/ui/sheet';
@@ -64,6 +73,8 @@ export default function SessionScreen() {
   const [performance, setPerformance] = useState<ExercisePerformance | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [muscles, setMuscles] = useState<Muscle[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   /** L'entraînement programmé qu'on est en train de déplacer. */
@@ -80,17 +91,22 @@ export default function SessionScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [active, allExercises, allPlans, allMeasurements, allSchedule] = await Promise.all([
-      findActive(),
-      findAllExercises(),
-      findAllPlans(),
-      findAllMeasurements(),
-      listSchedule(),
-    ]);
+    const [active, allExercises, allPlans, allMeasurements, allSchedule, allMuscles, recent] =
+      await Promise.all([
+        findActive(),
+        findAllExercises(),
+        findAllPlans(),
+        findAllMeasurements(),
+        listSchedule(),
+        findAllMuscles(),
+        findRecentExerciseIds(),
+      ]);
     setSession(active);
     setExercises(allExercises);
     setPlans(allPlans);
     setMeasurements(allMeasurements);
+    setMuscles(allMuscles);
+    setRecentIds(recent);
     // Seules les intentions encore ouvertes intéressent l'écran.
     setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
 
@@ -571,7 +587,15 @@ export default function SessionScreen() {
         <View className="mt-auto gap-3">
           {error && <BusinessNotice message={error} />}
           <Text className="text-muted dark:text-muted-dark">Aucun exercice en cours.</Text>
-          <Button label="Terminer la séance" size="lg" onPress={() => run(finishWorkoutSession)} />
+          {/* Une séance libre démarre ici : sans ce bouton, elle ne pouvait
+              que se terminer. */}
+          <Button label="Choisir un exercice" size="lg" onPress={() => setSheet('pick-exercise')} />
+          <Button
+            label="Terminer la séance"
+            variant="secondary"
+            size="lg"
+            onPress={() => run(finishWorkoutSession)}
+          />
         </View>
       )}
       <Sheet
@@ -590,19 +614,18 @@ export default function SessionScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
-      <Sheet
+      {/* Un seul exercice à la fois : la séance n'en travaille qu'un, et rien
+          ne garde ceux qu'on aurait choisis pour plus tard. La liste complète
+          sert à nommer les exercices déjà faits ; on ne propose en revanche
+          que ceux encore au catalogue. */}
+      <ExercisePicker
         visible={sheet === 'pick-exercise'}
-        title="Ajouter un exercice"
-        description="Hors programme : ses séries seront enregistrées normalement."
-        // La liste complète sert à nommer les exercices déjà faits ; on ne
-        // propose en revanche que ceux encore au catalogue.
-        actions={exercises
-          .filter((exercise) => !exercise.isArchived)
-          .map((exercise) => ({
-            label: exercise.name,
-            onPress: () => addExercise(exercise.id),
-          }))}
-        searchPlaceholder="Rechercher un exercice"
+        mode="single"
+        title="Choisir un exercice"
+        exercises={exercises.filter((exercise) => !exercise.isArchived)}
+        muscles={muscles}
+        recentIds={recentIds}
+        onConfirm={(ids) => addExercise(ids[0])}
         onClose={() => setSheet('none')}
       />
       <Sheet

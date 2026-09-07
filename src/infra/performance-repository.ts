@@ -165,3 +165,23 @@ export async function findByIds(ids: readonly string[]): Promise<Map<string, Exe
 
   return result;
 }
+
+/**
+ * Les exercices récemment travaillés, du plus récent au plus ancien.
+ *
+ * Projection de LECTURE : elle ne reconstruit aucune performance, elle ne
+ * répond qu'à la question « qu'ai-je fait dernièrement ? » que pose le
+ * sélecteur d'exercices.
+ */
+export async function findRecentExerciseIds(limit = 5): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ exercise_id: string }>(
+    `SELECT exercise_id, MAX(started_at) AS last_at
+     FROM exercise_performances
+     GROUP BY exercise_id
+     ORDER BY last_at DESC
+     LIMIT ?;`,
+    limit,
+  );
+  return rows.map((row) => row.exercise_id);
+}

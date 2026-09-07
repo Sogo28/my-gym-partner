@@ -5,13 +5,16 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { Muscle } from '../../src/domain/exercise/muscle';
 import type { PlannedExercise } from '../../src/domain/planned-workout/planned-workout';
-import { findAllMeasurements } from '../../src/infra/exercise-repository';
+import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
+import { findRecentExerciseIds } from '../../src/infra/performance-repository';
 import { listActiveExercises } from '../../src/use-cases/edit-catalogue';
 import { Button } from '../../src/ui/button';
 import { Collapsible } from '../../src/ui/collapsible';
 import { NumberField } from '../../src/ui/number-field';
 import { BusinessNotice } from '../../src/ui/notice';
+import { ExercisePicker } from '../../src/ui/exercise-picker';
 import { BackHeader } from '../../src/ui/screen-header';
 import {
   createPlannedWorkout,
@@ -33,6 +36,9 @@ export default function NewWorkoutScreen() {
   const [existing, setExisting] = useState<PlannedWorkout | null>(null);
   const [available, setAvailable] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [muscles, setMuscles] = useState<Muscle[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
   const [name, setName] = useState('');
   // Le brouillon vit dans l'écran : rien n'est écrit avant validation.
   const [draft, setDraft] = useState<PlannedExercise[]>([]);
@@ -42,10 +48,17 @@ export default function NewWorkoutScreen() {
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
     useCallback(() => {
-      Promise.all([listActiveExercises(), findAllMeasurements()])
-        .then(([exercises, allMeasurements]) => {
+      Promise.all([
+        listActiveExercises(),
+        findAllMeasurements(),
+        findAllMuscles(),
+        findRecentExerciseIds(),
+      ])
+        .then(([exercises, allMeasurements, allMuscles, recent]) => {
           setAvailable(exercises);
           setMeasurements(allMeasurements);
+          setMuscles(allMuscles);
+          setRecentIds(recent);
         })
         .catch((e) => setError(messageOf(e)));
     }, []),
@@ -190,27 +203,32 @@ export default function NewWorkoutScreen() {
           );
         })}
 
-        <View className="gap-2">
-          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            Ajouter un exercice
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {available.map((exercise) => (
-              <Pressable
-                key={exercise.id}
-                onPress={() =>
-                  setDraft((current) => [...current, { exerciseId: exercise.id, sets: [] }])
-                }
-                className="h-12 items-center justify-center rounded-full border border-dashed border-border-strong px-4 dark:border-border-strong-dark"
-              >
-                <Text className="font-medium text-muted dark:text-muted-dark">{exercise.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <Button
+          label="+ Ajouter des exercices"
+          variant="secondary"
+          size="lg"
+          onPress={() => setPicking(true)}
+        />
 
         {error && <BusinessNotice message={error} />}
       </ScrollView>
+
+      {/* Un même exercice peut revenir dans un entraînement -- un finisher en
+          fin de séance --, donc rien n'est coché d'avance et chaque passage
+          ajoute ce qu'on vient de choisir. */}
+      <ExercisePicker
+        visible={picking}
+        exercises={available}
+        muscles={muscles}
+        recentIds={recentIds}
+        onConfirm={(ids) =>
+          setDraft((current) => [
+            ...current,
+            ...ids.map((exerciseId) => ({ exerciseId, sets: [] })),
+          ])
+        }
+        onClose={() => setPicking(false)}
+      />
 
       <View className="p-5 pt-2">
         <Button
