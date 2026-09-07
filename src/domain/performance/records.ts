@@ -67,3 +67,24 @@ export function bestVolume(
 function endOf(set: PerformanceSet): Date {
   return set.endedAt ?? set.startedAt;
 }
+
+/**
+ * La meilleure valeur d'une mesure sur un ensemble de séries, ou null si
+ * aucune série validée ne la porte.
+ *
+ * Ce qu'on suit d'une séance à l'autre pour lire une progression : la série
+ * la plus forte, et non la moyenne, qui baisse dès qu'on ajoute un exercice
+ * de plus en fin de séance.
+ */
+export function bestValue(sets: readonly PerformanceSet[], measurementId: string): number | null {
+  let best: number | null = null;
+
+  for (const set of sets) {
+    if (set.status !== 'COMPLETED') continue;
+    const value = weakestValues(set.values)[measurementId];
+    if (value === undefined) continue;
+    if (best === null || value > best) best = value;
+  }
+
+  return best;
+}

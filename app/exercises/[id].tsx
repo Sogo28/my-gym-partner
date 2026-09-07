@@ -1,20 +1,24 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { Muscle } from '../../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
+import { BarChart } from '../../src/ui/bar-chart';
 import { Card } from '../../src/ui/card';
+import { Collapsible } from '../../src/ui/collapsible';
 import { EmptyState } from '../../src/ui/empty-state';
 import { formatDateTime } from '../../src/ui/format';
 import { messageOf } from '../../src/ui/message';
 import { BusinessNotice } from '../../src/ui/notice';
 import { BackHeader } from '../../src/ui/screen-header';
+import { cn } from '../../src/ui/cn';
 import { formatSetValues } from '../../src/ui/set-values';
 import { Sheet } from '../../src/ui/sheet';
 import { Tag } from '../../src/ui/tag';
 import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
+import { bestValue } from '../../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../../src/use-cases/exercise-detail';
 
 /**
@@ -31,6 +35,8 @@ export default function ExerciseDetailScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
+  /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
+  const [tracked, setTracked] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
@@ -66,6 +72,14 @@ export default function ExerciseDetailScreen() {
   const { exercise, sessions, records, volume, goals } = detail;
   const [last, ...previous] = sessions;
   const totalSets = sessions.reduce((total, entry) => total + entry.sets.length, 0);
+
+  const charted = tracked ?? exercise.measurementIds[0];
+  // Les séances arrivent de la plus récente à la plus ancienne ; un graphe se
+  // lit dans l'autre sens.
+  const points = [...sessions]
+    .reverse()
+    .map((entry) => ({ value: bestValue(entry.sets, charted), at: entry.session.startedAt }))
+    .filter((point): point is { value: number; at: Date } => point.value !== null);
 
   async function discard() {
     try {
@@ -116,27 +130,89 @@ export default function ExerciseDetailScreen() {
           />
         ) : (
           <>
-            <Section title="Records">
-              <View className="gap-2">
-                {records.map((record) => (
-                  <Line
-                    key={record.measurementId}
-                    label={measurementNameOf(record.measurementId)}
-                    value={`${record.value} ${unitOf(record.measurementId)}`}
-                    note={formatDateTime(record.at)}
-                  />
-                ))}
-                {/* Le volume n'apparaît que si l'exercice porte les deux
-                    mesures dont il est le produit. */}
-                {volume && (
-                  <Line
-                    label="Meilleur volume de série"
-                    value={`${Math.round(volume.value * 10) / 10} kg`}
-                    note={formatDateTime(volume.at)}
-                  />
-                )}
-              </View>
-            </Section>
+            {/* Les records en bandeau : trois nombres qui se lisent d'un coup
+                d'oeil, là où trois cartes empilées se lisaient une par une. */}
+            <View className="flex-row gap-2">
+              {records.map((record) => (
+                <Stat
+                  key={record.measurementId}
+                  label={measurementNameOf(record.measurementId)}
+                  value={`${record.value}`}
+                  unit={unitOf(record.measurementId)}
+                />
+              ))}
+              {/* Le volume n'apparaît que si l'exercice porte les deux mesures
+                  dont il est le produit. */}
+              {volume && (
+                <Stat
+                  label="Volume"
+                  value={`${Math.round(volume.value * 10) / 10}`}
+                  unit="kg"
+                />
+              )}
+            </View>
+
+            {points.length > 1 && (
+              <Card density="titled" className="gap-3">
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    Meilleure série par séance
+                  </Text>
+                  {/* Une seule mesure : rien à choisir, donc rien à afficher. */}
+                  {exercise.measurementIds.length > 1 && (
+                    <View className="flex-row gap-1.5">
+                      {exercise.measurementIds.map((measurementId) => {
+                        const on = measurementId === charted;
+                        return (
+                          <Pressable
+                            key={measurementId}
+                            onPress={() => setTracked(measurementId)}
+                            className={cn(
+                              'h-8 justify-center rounded-full px-3',
+                              on
+                                ? 'bg-primary-soft dark:bg-primary-soft-dark'
+                                : 'bg-surface-alt dark:bg-surface-alt-dark',
+                            )}
+                          >
+                            <Text
+                              className={cn(
+                                'font-mono text-[11px]',
+                                on
+                                  ? 'text-primary-ink dark:text-primary-ink-dark'
+                                  : 'text-muted dark:text-muted-dark',
+                              )}
+                            >
+                              {unitOf(measurementId)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+                <BarChart points={points} unit={unitOf(charted)} />
+              </Card>
+            )}
+
+            {goals.length > 0 && (
+              <Section title="Objectifs">
+                <View className="gap-2">
+                  {goals.map((goal) => (
+                    <Card key={goal.id} className="flex-row items-center justify-between gap-3">
+                      <Text
+                        className="shrink font-bold text-[15px] text-ink dark:text-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {goal.name}
+                      </Text>
+                      <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                        {goal.status === 'ACTIVE' ? 'en cours' : 'archivé'}
+                      </Text>
+                    </Card>
+                  ))}
+                </View>
+              </Section>
+            )}
 
             <Section title="Dernière séance">
               <SessionCard
@@ -145,11 +221,14 @@ export default function ExerciseDetailScreen() {
               />
             </Section>
 
+            {/* L'historique se déplie : c'est la partie la plus longue de la
+                page, et la moins souvent regardée. */}
             {previous.length > 0 && (
-              <Section
-                title={`Historique · ${previous.length} séance${previous.length > 1 ? 's' : ''}`}
+              <Collapsible
+                title="Historique"
+                summary={`${previous.length} séance${previous.length > 1 ? 's' : ''} de plus`}
               >
-                <View className="gap-2">
+                <View className="gap-2 pt-1">
                   {previous.map((entry) => (
                     <SessionCard
                       key={entry.session.id}
@@ -158,29 +237,9 @@ export default function ExerciseDetailScreen() {
                     />
                   ))}
                 </View>
-              </Section>
+              </Collapsible>
             )}
           </>
-        )}
-
-        {goals.length > 0 && (
-          <Section title="Objectifs">
-            <View className="gap-2">
-              {goals.map((goal) => (
-                <Card key={goal.id} className="flex-row items-center justify-between gap-3">
-                  <Text
-                    className="shrink font-bold text-[15px] text-ink dark:text-ink-dark"
-                    numberOfLines={1}
-                  >
-                    {goal.name}
-                  </Text>
-                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-                    {goal.status === 'ACTIVE' ? 'en cours' : 'archivé'}
-                  </Text>
-                </Card>
-              ))}
-            </View>
-          </Section>
         )}
       </ScrollView>
 
@@ -229,24 +288,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Un record : ce qui est mesuré, la valeur, et quand elle a été faite. */
-function Line({ label, value, note }: { label: string; value: string; note: string }) {
-  return (
-    <Card className="flex-row items-center justify-between gap-3">
-      <View className="shrink">
-        <Text className="font-bold text-[15px] text-ink dark:text-ink-dark">{label}</Text>
-        <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">{note}</Text>
-      </View>
-      <Text
-        className="shrink-0 font-mono-bold text-[18px] text-ink dark:text-ink-dark"
-        style={{ fontVariant: ['tabular-nums'] }}
-      >
-        {value}
-      </Text>
-    </Card>
-  );
-}
-
 /** Une séance et ce qu'elle a produit sur cet exercice. */
 function SessionCard({ at, lines }: { at: Date; lines: string[] }) {
   return (
@@ -263,6 +304,25 @@ function SessionCard({ at, lines }: { at: Date; lines: string[] }) {
           {index + 1}. {line}
         </Text>
       ))}
+    </Card>
+  );
+}
+
+/** Un record en bandeau : le nombre d'abord, ce qu'il mesure en dessous. */
+function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <Card className="flex-1 gap-0.5">
+      <Text
+        className="font-mono-bold text-[22px] text-ink dark:text-ink-dark"
+        numberOfLines={1}
+        style={{ fontVariant: ['tabular-nums'] }}
+      >
+        {value}
+        <Text className="font-sans text-[12px] text-muted dark:text-muted-dark"> {unit}</Text>
+      </Text>
+      <Text className="text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
+        {label}
+      </Text>
     </Card>
   );
 }
