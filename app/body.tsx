@@ -119,7 +119,7 @@ export default function BodyScreen() {
   const untracked = metrics.filter((metric) => readingsOf(metric.id).length === 0);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
           title="Mensurations"

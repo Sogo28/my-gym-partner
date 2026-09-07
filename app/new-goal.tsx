@@ -188,7 +188,7 @@ export default function NewGoalScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
           title="Nouvel objectif"

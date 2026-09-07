@@ -151,7 +151,10 @@ export default function NewExerciseScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    // Le bord bas est réservé ici, alors que les onglets s'en chargeaient
+    // ailleurs : cet écran se pose PAR-DESSUS la barre, et sans lui le
+    // contenu passerait sous la zone de gestes du téléphone.
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
           title={existing ? "Modifier l'exercice" : 'Nouvel exercice'}

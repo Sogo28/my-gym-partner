@@ -9,12 +9,17 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
+  // La couleur se règle en JavaScript : la variante `dark:` de NativeWind
+  // n'atteint pas les composants du navigateur.
+  const dark = useColorScheme() === 'dark';
+
   // React Native ne synthétise pas le gras : chaque graisse est un fichier.
   const [fontsLoaded] = useFonts({
     Archivo_400Regular,
@@ -33,7 +38,15 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        // Le fond de la PILE, pas celui de l'écran : pendant une transition,
+        // le navigateur peint sa propre carte, et sa couleur par défaut est
+        // le blanc -- d'où l'éclair blanc en ouvrant une fiche ou en revenant.
+        contentStyle: { backgroundColor: dark ? '#0E0F0D' : '#F6F7F3' },
+      }}
+    >
       {/* Les onglets, et par-dessus eux les écrans qu'on ouvre puis referme.
           Chacun se pose SUR la barre au lieu de la remplacer : le retour
           rend la main à l'onglet d'où l'on vient, et non au premier. */}

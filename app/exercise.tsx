@@ -83,7 +83,7 @@ export default function ExerciseDetailScreen() {
 
   if (!detail) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-background p-5 dark:bg-background-dark">
+      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 dark:bg-background-dark">
         <BackHeader title="Exercice" onBack={() => router.back()} />
         <Text className="text-muted dark:text-muted-dark">{error ?? 'Exercice introuvable.'}</Text>
       </SafeAreaView>
@@ -112,7 +112,7 @@ export default function ExerciseDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
         <BackHeader
           title={exercise.name}
