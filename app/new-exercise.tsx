@@ -37,10 +37,11 @@ import {
  */
 export default function NewExerciseScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, name: wanted } = useLocalSearchParams<{ id?: string; name?: string }>();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [existing, setExisting] = useState<Exercise | null>(null);
-  const [name, setName] = useState('');
+  // Le nom peut arriver de la recherche qui n'a rien trouvé.
+  const [name, setName] = useState(wanted ?? '');
   const [isUnilateral, setIsUnilateral] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);

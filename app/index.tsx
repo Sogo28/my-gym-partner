@@ -165,6 +165,18 @@ export default function ExercisesScreen() {
               </View>
             )}
 
+            {/* Ni chez toi ni dans le catalogue : c'est un exercice à écrire,
+                et son nom est déjà tapé. */}
+            {query.trim() !== '' && shown.length === 0 && suggestions.length === 0 && (
+              <CatalogueRow
+                name={`Créer « ${query.trim()} »`}
+                detail="ouvre le formulaire, nom déjà rempli"
+                onPress={() =>
+                  router.push({ pathname: '/new-exercise', params: { name: query.trim() } })
+                }
+              />
+            )}
+
             {!catalogue.available && query.trim() !== '' && (
               <Pressable onPress={() => router.push('/settings')} className="py-4">
                 <Text className="text-center text-[13px] text-muted dark:text-muted-dark">

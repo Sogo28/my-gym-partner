@@ -1,3 +1,4 @@
+import { createQuickExercise } from '../../src/use-cases/create-exercise';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -227,6 +228,11 @@ export default function NewWorkoutScreen() {
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
         catalogue={catalogue}
+        onCreate={async (name) => {
+          const created = await createQuickExercise(name);
+          listActiveExercises().then(setAvailable).catch((e) => setError(messageOf(e)));
+          return created.id;
+        }}
         onOpenSettings={() => {
           setPicking(false);
           router.push('/settings');

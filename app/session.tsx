@@ -1,3 +1,4 @@
+import { createQuickExercise } from '../src/use-cases/create-exercise';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -631,6 +632,11 @@ export default function SessionScreen() {
         // Adopter depuis le catalogue crée un exercice : la liste locale doit
         // en tenir compte tout de suite.
         catalogue={catalogue}
+        onCreate={async (name) => {
+          const created = await createQuickExercise(name);
+          reload().catch((e) => setError(messageOf(e)));
+          return created.id;
+        }}
         onOpenSettings={() => {
           setSheet('none');
           router.push('/settings');

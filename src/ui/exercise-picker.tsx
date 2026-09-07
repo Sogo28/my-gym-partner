@@ -62,6 +62,11 @@ export type ExercisePickerProps = {
   };
   /** Ouvre les réglages, d'où le catalogue se télécharge. */
   onOpenSettings?: () => void;
+  /**
+   * Créer l'exercice cherché, quand ni le catalogue ni toi ne l'avez.
+   * Rend son identifiant, pour le retenir aussitôt.
+   */
+  onCreate?: (name: string) => Promise<string>;
 };
 
 type CataloguesuggestionList = readonly CatalogueSuggestion[];
@@ -79,6 +84,7 @@ export function ExercisePicker({
   onClose,
   catalogue,
   onOpenSettings,
+  onCreate,
 }: ExercisePickerProps) {
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string[]>([]);
@@ -151,6 +157,28 @@ export function ExercisePicker({
       current = false;
     };
   }, [catalogue, query]);
+
+  /**
+   * Créer ce qu'on cherchait : la callisthénie vit de variantes qu'aucun
+   * catalogue ne connaît -- « Front lever tuck » n'existe que chez toi.
+   */
+  async function create() {
+    if (!onCreate) return;
+    const wanted = query.trim();
+    setAdopting(wanted);
+    try {
+      const exerciseId = await onCreate(wanted);
+      if (mode === 'single') {
+        onConfirm([exerciseId]);
+        onClose();
+        return;
+      }
+      setSelected((current) => [...current, exerciseId]);
+      setQuery('');
+    } finally {
+      setAdopting(null);
+    }
+  }
 
   /** Adopter, c'est créer l'exercice puis le retenir comme les autres. */
   async function adopt(id: string) {
@@ -243,6 +271,16 @@ export function ExercisePicker({
             <Text className="py-6 text-center text-[14px] text-muted dark:text-muted-dark">
               Aucun exercice ne correspond.
             </Text>
+          )}
+
+          {/* Ce que personne n'a : à ce stade, c'est le tien. */}
+          {onCreate && query.trim() !== '' && matching.length === 0 && (
+            <CatalogueRow
+              name={`Créer « ${query.trim()} »`}
+              detail="mesuré en répétitions · à préciser plus tard"
+              busy={adopting === query.trim()}
+              onPress={create}
+            />
           )}
 
           {/* Le catalogue vient APRÈS : ce que tu fais déjà passe devant ce
