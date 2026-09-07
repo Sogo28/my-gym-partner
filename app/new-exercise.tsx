@@ -210,6 +210,28 @@ export default function NewExerciseScreen() {
         )}
 
         <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Démonstrations
+          </Text>
+
+          <MediaStrip
+            media={media}
+            onRemove={(item) =>
+              setMedia((current) => current.filter((other) => other.uri !== item.uri))
+            }
+            // Seule une vidéo se règle : une image n'a pas de durée.
+            onPress={(item) => (item.kind === 'video' ? setTrimming(item) : undefined)}
+          />
+
+          <Button
+            label="+ Ajouter une image ou une vidéo"
+            variant="secondary"
+            size="sm"
+            onPress={addDemonstration}
+          />
+        </View>
+
+        <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">Nom</Text>
           <TextInput
             className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
@@ -266,28 +288,6 @@ export default function NewExerciseScreen() {
             emptyLabel="Aucun muscle secondaire"
             plural="muscles"
             onPress={() => setChoosing('secondary')}
-          />
-        </View>
-
-        <View className="gap-2">
-          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            Démonstrations
-          </Text>
-
-          <MediaStrip
-            media={media}
-            onRemove={(item) =>
-              setMedia((current) => current.filter((other) => other.uri !== item.uri))
-            }
-            // Seule une vidéo se règle : une image n'a pas de durée.
-            onPress={(item) => (item.kind === 'video' ? setTrimming(item) : undefined)}
-          />
-
-          <Button
-            label="+ Ajouter une image ou une vidéo"
-            variant="secondary"
-            size="sm"
-            onPress={addDemonstration}
           />
         </View>
 
