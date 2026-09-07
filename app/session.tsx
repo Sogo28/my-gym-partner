@@ -534,9 +534,11 @@ export default function SessionScreen() {
               />
             )}
 
-            {/* Hors série en cours, toujours deux choix : lancer la série,
-                ou passer à l'exercice suivant. Le principal dépend de l'état
-                du programme. */}
+            {/* Hors série en cours : lancer la série suivante. Passer à
+                l'exercice suivant ne s'offre qu'une fois le programme de
+                celui-ci épuisé -- au milieu des séries prévues, ce serait
+                proposer d'abandonner ce qu'on est en train de faire. Le menu
+                garde l'échappatoire pour les jours où l'on écourte. */}
             {!performance?.currentSet && (
               <View className="flex-row gap-3">
                 <Button
@@ -546,13 +548,14 @@ export default function SessionScreen() {
                   className="flex-1"
                   onPress={beginSet}
                 />
-                <Button
-                  label="Suivant"
-                  variant={plannedDone ? 'primary' : 'secondary'}
-                  size="lg"
-                  className="flex-1"
-                  onPress={nextExercise}
-                />
+                {plannedDone && (
+                  <Button
+                    label="Suivant"
+                    size="lg"
+                    className="flex-1"
+                    onPress={nextExercise}
+                  />
+                )}
               </View>
             )}
           </View>
