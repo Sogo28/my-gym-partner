@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import type { ExerciseMedia, MediaTrim } from '../domain/exercise/media';
@@ -49,10 +49,22 @@ function Sheet({
 }) {
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = true;
-    instance.currentTime = media.trim?.from ?? 0;
   });
   const [from, setFrom] = useState<number | null>(media.trim?.from ?? null);
   const [to, setTo] = useState<number | null>(media.trim?.to ?? null);
+
+  // Rouvrir un extrait le montre là où il commence, pas au début du fichier.
+  // La position ne tient qu'une fois la source chargée : la poser à la
+  // création du lecteur la perdrait.
+  useEffect(() => {
+    const start = media.trim?.from;
+    if (start === undefined) return;
+    const loaded = player.addListener('sourceLoad', () => {
+      player.currentTime = start;
+    });
+    if (player.status === 'readyToPlay') player.currentTime = start;
+    return () => loaded.remove();
+  }, [player, media.trim?.from]);
 
   const invalid = from !== null && to !== null && to <= from;
 

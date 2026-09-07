@@ -430,6 +430,17 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
 
   useEffect(() => {
     if (!trim) return;
+
+    // Se placer au début de l'extrait dès la CRÉATION du lecteur ne servait à
+    // rien : la source n'est pas encore chargée, la position demandée est
+    // perdue, et la lecture repartait de zéro -- donc de toute la vidéo.
+    // C'est au chargement de la source qu'il faut la poser.
+    const loaded = player.addListener('sourceLoad', () => {
+      player.currentTime = trim.from;
+    });
+    // Et si la source était déjà prête avant que l'écouteur n'existe, son
+    // événement est passé : on se place tout de suite.
+    if (player.status === 'readyToPlay') player.currentTime = trim.from;
     // Le retour au début se fait sur les battements du lecteur : l'interroger
     // nous-mêmes à intervalle fixe ferait tourner du JavaScript pour rien.
     //
@@ -443,7 +454,10 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
     const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
       if (currentTime >= trim.to) player.currentTime = trim.from;
     });
-    return () => subscription.remove();
+    return () => {
+      loaded.remove();
+      subscription.remove();
+    };
   }, [player, trim]);
 
   if (!present) {
