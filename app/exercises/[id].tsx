@@ -1,6 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -20,6 +19,7 @@ import { cn } from '../../src/ui/cn';
 import { formatSetValues } from '../../src/ui/set-values';
 import { Sheet } from '../../src/ui/sheet';
 import { Tag } from '../../src/ui/tag';
+import { TrimmedVideo } from '../../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
 import { mediaExists, mediaUri } from '../../src/use-cases/media-actions';
 import { bestValue } from '../../src/domain/performance/records';
@@ -413,69 +413,22 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
 /**
  * Une vidéo prise sur ce téléphone.
  *
- * Composant à part : chaque lecteur a son propre `useVideoPlayer`, et un
- * crochet ne peut pas naître au milieu d'une boucle.
+ * Composant à part : le lecteur naît d'un crochet, qui ne peut pas être
+ * appelé au milieu d'une boucle.
  */
 function LocalVideo({ media }: { media: ExerciseMedia }) {
   // Le fichier peut manquer : une sauvegarde restaurée ailleurs ramène la
   // ligne, jamais la vidéo.
   const present = mediaExists(media);
-  const trim = media.trim;
-  const view = useRef<VideoView>(null);
-  const player = useVideoPlayer(present ? mediaUri(media) : null, (instance) => {
-    // Un extrait boucle sur lui-même : le lecteur natif, lui, ne sait boucler
-    // que sur la vidéo entière.
-    instance.loop = trim === null;
-    // Muette : une démonstration se regarde, elle ne s'écoute pas -- et une
-    // vidéo qui parle toute seule en ouvrant une fiche est une intrusion.
-    instance.muted = true;
-  });
-
-  useEffect(() => {
-    if (!present) return;
-
-    /**
-     * Se placer et démarrer dès la CRÉATION du lecteur ne servirait à rien :
-     * la source n'est pas encore chargée, la position demandée est perdue, et
-     * la lecture repartirait de zéro -- donc de toute la vidéo.
-     */
-    function start() {
-      if (trim) player.currentTime = trim.from;
-      player.play();
-    }
-
-    const loaded = player.addListener('sourceLoad', start);
-    // Et si la source était déjà prête avant que l'écouteur n'existe, son
-    // événement est passé : on démarre tout de suite.
-    if (player.status === 'readyToPlay') start();
-
-    if (!trim) return () => loaded.remove();
-    // Le retour au début se fait sur les battements du lecteur : l'interroger
-    // nous-mêmes à intervalle fixe ferait tourner du JavaScript pour rien.
-    //
-    // 0,05 s plutôt que 0,2 : le lecteur dépasse la fin de l'extrait de la
-    // durée d'un battement avant qu'on le rattrape, et deux dixièmes de trop
-    // se voient sur une boucle de cinq secondes.
-    player.timeUpdateEventInterval = 0.05;
-    // Un retour au début à 50 ms près, obtenu tout de suite, vaut mieux qu'un
-    // retour à l'image exacte qui fige le lecteur le temps de le trouver.
-    player.seekTolerance = { toleranceBefore: 0.05, toleranceAfter: 0 };
-    const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
-      if (currentTime >= trim.to) player.currentTime = trim.from;
-    });
-    return () => {
-      loaded.remove();
-      subscription.remove();
-    };
-  }, [player, trim, present]);
+  const [active, setActive] = useState(false);
 
   // Quitter l'écran arrête la lecture : une vidéo qui tourne derrière une
   // autre page ne se voit pas, elle ne fait que vider la batterie.
   useFocusEffect(
     useCallback(() => {
-      if (present) player.play();
-      return () => player.pause();
-    }, [player, present]),
+      setActive(true);
+      return () => setActive(false);
+    }, []),
   );
 
   if (!present) {
@@ -491,33 +444,5 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
     );
   }
 
-  return (
-    <Pressable
-      onPress={() => view.current?.enterFullscreen()}
-      className="overflow-hidden rounded-2xl border border-border bg-black dark:border-border-dark"
-    >
-      {/* Sans commandes : l'extrait fait quelques secondes, il n'y a rien à
-          y chercher. Une barre de lecture ne servirait qu'à le dérégler.
-          En plein écran, le système les remet de lui-même -- c'est par elles
-          qu'on en ressort. */}
-      <VideoView
-        ref={view}
-        player={player}
-        style={{ width: '100%', height: 200 }}
-        contentFit="contain"
-        nativeControls={false}
-        // La vue vidéo est native : sans cela, elle avale le toucher et le
-        // Pressable qui l'entoure n'apprend jamais qu'on a tapé dessus.
-        pointerEvents="none"
-        // Le son n'a de sens que si on a demandé le plein écran : dans la
-        // fiche, la vidéo n'est qu'une vignette qui bouge.
-        onFullscreenEnter={() => {
-          player.muted = false;
-        }}
-        onFullscreenExit={() => {
-          player.muted = true;
-        }}
-      />
-    </Pressable>
-  );
+  return <TrimmedVideo uri={mediaUri(media)} trim={media.trim} active={active} />;
 }
