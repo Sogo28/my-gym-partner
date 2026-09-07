@@ -225,6 +225,7 @@ export default function ExerciseDetailScreen() {
 
             <Section title="Dernière séance">
               <SessionCard
+                open
                 at={last.session.startedAt}
                 lines={last.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
               />
@@ -237,7 +238,13 @@ export default function ExerciseDetailScreen() {
                 title="Historique"
                 summary={`${previous.length} séance${previous.length > 1 ? 's' : ''} de plus`}
               >
-                <View className="gap-2 pt-1">
+                {/* Borné et défilant : vingt séances dépliées d'un coup
+                    repousseraient tout le reste de la page hors de l'écran. */}
+                <ScrollView
+                  className="max-h-96"
+                  nestedScrollEnabled
+                  contentContainerClassName="gap-2 py-1"
+                >
                   {previous.map((entry) => (
                     <SessionCard
                       key={entry.session.id}
@@ -245,7 +252,7 @@ export default function ExerciseDetailScreen() {
                       lines={entry.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
                     />
                   ))}
-                </View>
+                </ScrollView>
               </Collapsible>
             )}
           </>
@@ -297,13 +304,23 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Une séance et ce qu'elle a produit sur cet exercice. */
-function SessionCard({ at, lines }: { at: Date; lines: string[] }) {
+/**
+ * Une séance et ce qu'elle a produit sur cet exercice.
+ *
+ * Dépliable dans l'historique, ouverte pour la dernière séance : là, ses
+ * séries sont ce qu'on est venu voir.
+ */
+function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; open?: boolean }) {
   return (
-    <Card density="titled" className="gap-1">
-      <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-        {formatDateTime(at)}
-      </Text>
+    <Collapsible
+      defaultOpen={open}
+      title={
+        <Text className="font-mono text-[13px] text-muted dark:text-muted-dark">
+          {formatDateTime(at)}
+        </Text>
+      }
+      summary={`${lines.length} série${lines.length > 1 ? 's' : ''}`}
+    >
       {lines.map((line, index) => (
         <Text
           key={index}
@@ -313,7 +330,7 @@ function SessionCard({ at, lines }: { at: Date; lines: string[] }) {
           {index + 1}. {line}
         </Text>
       ))}
-    </Card>
+    </Collapsible>
   );
 }
 

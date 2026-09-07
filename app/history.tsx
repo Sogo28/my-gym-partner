@@ -17,7 +17,7 @@ import {
   type BackupPreview,
 } from '../src/use-cases/backup-actions';
 import { Button } from '../src/ui/button';
-import { Card } from '../src/ui/card';
+import { Collapsible } from '../src/ui/collapsible';
 import { NumberField } from '../src/ui/number-field';
 import { Sheet } from '../src/ui/sheet';
 import { EmptyState } from '../src/ui/empty-state';
@@ -149,13 +149,17 @@ export default function HistoryScreen() {
           />
         )}
 
-        {summaries.map(({ session, duration, restTotal, completedSetCount, activities }) => {
+        {summaries.map(({ session, duration, restTotal, completedSetCount, activities }, position) => {
           const plan = plans.find((p) => p.id === session.plannedWorkoutId);
           const date = session.startedAt;
 
           return (
-            <Card key={session.id} density="titled" className="gap-2">
-              <View className="flex-row items-start justify-between gap-3">
+            <Collapsible
+              key={session.id}
+              // La dernière séance est celle qu'on vient revoir ; les autres
+              // attendent qu'on les demande.
+              defaultOpen={position === 0}
+              title={
                 <View className="shrink">
                   <Text className="font-extrabold text-[18px] text-ink dark:text-ink-dark">
                     {plan ? plan.name : 'Séance libre'}
@@ -164,59 +168,67 @@ export default function HistoryScreen() {
                     {formatDateTime(date)}
                   </Text>
                 </View>
-                <StatusPill status={session.status} />
-              </View>
-
-              <View className="flex-row gap-3">
+              }
+              summary={<StatusPill status={session.status} />}
+            >
+              <View className="flex-row gap-3 pt-1">
                 <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
                 <Stat label="repos" value={formatClock(restTotal)} />
                 <Stat label="séries" value={String(completedSetCount)} />
               </View>
 
-              {activities.map((activity, index) => (
-                <View key={index} className="mt-2 gap-1.5">
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    {nameOf(activity.exerciseId)}
-                  </Text>
-
-                  {activity.completedSets.length === 0 ? (
-                    <Text className="text-[13px] text-muted dark:text-muted-dark">
-                      aucune série complétée
+              {/* Bornée et défilante : une séance de six exercices dépliée
+                  chasserait les séances suivantes hors de l'écran. */}
+              <ScrollView
+                className="max-h-96"
+                nestedScrollEnabled
+                contentContainerClassName="pb-1"
+              >
+                {activities.map((activity, index) => (
+                  <View key={index} className="mt-2 gap-1.5">
+                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                      {nameOf(activity.exerciseId)}
                     </Text>
-                  ) : (
-                    activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
-                      <View key={setIndex} className="gap-1.5">
-                        {restBefore ? (
-                          <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
-                            repos {formatClock(restBefore)}
-                          </Text>
-                        ) : null}
-                        <SetRow
-                          index={position + 1}
-                          status="completed"
-                          values={formatSetValues(set.values, unitOf)}
-                          // Une faute de saisie doit pouvoir se réparer, même
-                          // des semaines plus tard.
-                          onPress={
-                            activity.performanceId
-                              ? () =>
-                                  setEditing({
-                                    performanceId: activity.performanceId!,
-                                    // Le rang réel dans la performance, fourni
-                                    // par le résumé.
-                                    setIndex,
-                                    measurementIds: activity.measurementIds,
-                                    values: { ...set.values },
-                                  })
-                              : undefined
-                          }
-                        />
-                      </View>
-                    ))
-                  )}
-                </View>
-              ))}
-            </Card>
+
+                    {activity.completedSets.length === 0 ? (
+                      <Text className="text-[13px] text-muted dark:text-muted-dark">
+                        aucune série complétée
+                      </Text>
+                    ) : (
+                      activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
+                        <View key={setIndex} className="gap-1.5">
+                          {restBefore ? (
+                            <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
+                              repos {formatClock(restBefore)}
+                            </Text>
+                          ) : null}
+                          <SetRow
+                            index={position + 1}
+                            status="completed"
+                            values={formatSetValues(set.values, unitOf)}
+                            // Une faute de saisie doit pouvoir se réparer, même
+                            // des semaines plus tard.
+                            onPress={
+                              activity.performanceId
+                                ? () =>
+                                    setEditing({
+                                      performanceId: activity.performanceId!,
+                                      // Le rang réel dans la performance, fourni
+                                      // par le résumé.
+                                      setIndex,
+                                      measurementIds: activity.measurementIds,
+                                      values: { ...set.values },
+                                    })
+                                : undefined
+                            }
+                          />
+                        </View>
+                      ))
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            </Collapsible>
           );
         })}
         <View className="mt-4 gap-2 border-t border-border pt-4 dark:border-border-dark">
