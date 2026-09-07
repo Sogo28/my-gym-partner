@@ -18,6 +18,7 @@ import { BackHeader } from '../../src/ui/screen-header';
 import { cn } from '../../src/ui/cn';
 import { formatSetValues } from '../../src/ui/set-values';
 import { Sheet } from '../../src/ui/sheet';
+import { RemoteImage } from '../../src/ui/remote-image';
 import { Tag } from '../../src/ui/tag';
 import { TrimmedVideo } from '../../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
@@ -79,6 +80,8 @@ export default function ExerciseDetailScreen() {
   }
 
   const { exercise, sessions, records, volume, goals } = detail;
+  const images = exercise.media.filter((item) => item.kind === 'image');
+  const playable = exercise.media.filter((item) => item.kind !== 'image');
   const [last, ...previous] = sessions;
   const totalSets = sessions.reduce((total, entry) => total + entry.sets.length, 0);
 
@@ -136,7 +139,17 @@ export default function ExerciseDetailScreen() {
             elles passent devant les chiffres. */}
         {exercise.media.length > 0 && (
           <View className="gap-2">
-            {exercise.media.map((item) =>
+            {/* Les illustrations tiennent sur une ligne : deux poses d'un
+                même mouvement se lisent ensemble, pas l'une sous l'autre. */}
+            {images.length > 0 && (
+              <View className="flex-row gap-2">
+                {images.map((item) => (
+                  <RemoteImage key={item.uri} uri={item.uri} />
+                ))}
+              </View>
+            )}
+
+            {playable.map((item) =>
               item.kind === 'file' ? (
                 <LocalVideo key={item.uri} media={item} />
               ) : (

@@ -51,6 +51,9 @@ export const MUSCLE_BY_SLUG: Readonly<Record<string, MuscleId>> = {
   soleus: 'mollets',
 };
 
+/** Le dataset donne des chemins relatifs ; l'hôte est celui de sa licence. */
+const IMAGE_HOST = 'https://exercise-dataset.com';
+
 /** Ce que nous lisons d'une entrée du catalogue ; le reste ne nous sert pas. */
 export type CatalogueEntry = {
   readonly id: string;
@@ -71,6 +74,8 @@ export type ExerciseDraft = {
   readonly measurementIds: readonly string[];
   readonly primaryMuscleId: string | null;
   readonly secondaryMuscleIds: readonly string[];
+  /** Les adresses des illustrations ; rien n'est téléchargé à ce stade. */
+  readonly imageUris: readonly string[];
 };
 
 /**
@@ -99,6 +104,7 @@ export function toDraft(entry: CatalogueEntry): ExerciseDraft {
     measurementIds: entry.isBodyweight ? ['reps'] : ['reps', 'weight'],
     primaryMuscleId,
     secondaryMuscleIds: [...new Set(secondaries)],
+    imageUris: entry.images.map((path) => `${IMAGE_HOST}/${path}`),
   };
 }
 

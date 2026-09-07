@@ -44,6 +44,14 @@ describe('Traduction du catalogue RepDB', () => {
     expect(draft.secondaryMuscleIds).toEqual([]);
   });
 
+  it('pose les adresses des illustrations sans rien télécharger', () => {
+    const draft = toDraft(entry({ images: ['images/flat/pull-up-start.webp'] }));
+
+    expect(draft.imageUris).toEqual([
+      'https://exercise-dataset.com/images/flat/pull-up-start.webp',
+    ]);
+  });
+
   it('mesure la charge sauf au poids du corps', () => {
     expect(toDraft(entry({ isBodyweight: true })).measurementIds).toEqual(['reps']);
     expect(toDraft(entry({ isBodyweight: false })).measurementIds).toEqual(['reps', 'weight']);

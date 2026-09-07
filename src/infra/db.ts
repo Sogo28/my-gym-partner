@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -575,6 +575,35 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       ALTER TABLE exercise_media ADD COLUMN trim_from REAL;
       ALTER TABLE exercise_media ADD COLUMN trim_to REAL;
     `);
+  }
+
+  // Migration 21 : une illustration est un média comme un autre.
+  //
+  // SQLite ne sait pas modifier une contrainte CHECK : la table se reconstruit
+  // pour que `kind` accepte 'image' -- le motif habituel, déjà employé pour les
+  // séries et les objectifs.
+  if (version < 21) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      CREATE TABLE exercise_media_v21 (
+        exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('link', 'file', 'image')),
+        uri TEXT NOT NULL,
+        label TEXT,
+        trim_from REAL,
+        trim_to REAL,
+        PRIMARY KEY (exercise_id, position)
+      );
+
+      INSERT INTO exercise_media_v21
+        SELECT exercise_id, position, kind, uri, label, trim_from, trim_to
+        FROM exercise_media;
+
+      DROP TABLE exercise_media;
+      ALTER TABLE exercise_media_v21 RENAME TO exercise_media;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

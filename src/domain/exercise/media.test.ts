@@ -60,3 +60,19 @@ describe('Médias d un exercice', () => {
     ).toThrow();
   });
 });
+
+describe('Illustrations', () => {
+  it('refuse de borner une image : elle n a pas de durée', () => {
+    expect(() =>
+      normalizeMedia([
+        { kind: 'image', uri: 'https://a.tld/x.webp', label: null, trim: { from: 0, to: 2 } },
+      ]),
+    ).toThrow();
+  });
+
+  it('exige une adresse, comme un lien', () => {
+    expect(() =>
+      normalizeMedia([{ kind: 'image', uri: 'images/x.webp', label: null, trim: null }]),
+    ).toThrow();
+  });
+});

@@ -66,6 +66,34 @@ export async function pickVideo(): Promise<ExerciseMedia | null> {
 }
 
 /**
+ * Le fichier où se cache une image distante, qu'elle soit déjà là ou non.
+ *
+ * Le nom vient de l'ADRESSE : deux exercices qui partagent une illustration
+ * partagent son fichier, et une image perdue se retrouve sans avoir stocké
+ * quoi que ce soit de plus.
+ */
+function cacheOf(uri: string): File {
+  const name = uri.split('/').pop() ?? 'image';
+  return new File(mediaDirectory(), name.replace(/[^\w.-]/g, '_'));
+}
+
+/**
+ * L'adresse locale d'une image distante, téléchargée au premier besoin.
+ *
+ * L'adresse reste la vérité, la copie n'est qu'un cache : une sauvegarde
+ * restaurée sur un autre téléphone rapporte la ligne, et l'image revient
+ * d'elle-même à la première consultation.
+ */
+export async function cachedImage(uri: string): Promise<string> {
+  const cached = cacheOf(uri);
+  if (cached.exists) return cached.uri;
+
+  ensureMediaDirectory();
+  const downloaded = await File.downloadFileAsync(uri, cached);
+  return downloaded.uri;
+}
+
+/**
  * Efface les vidéos que plus aucun exercice ne réclame.
  *
  * Passe de ramassage plutôt que suppression à la volée : retirer un média
@@ -77,7 +105,9 @@ export async function forgetUnusedMedia(): Promise<void> {
   if (!directory.exists) return;
   const kept = new Set(
     (await findAll()).flatMap((exercise) =>
-      exercise.media.filter((media) => media.kind === 'file').map((media) => media.uri),
+      exercise.media.map((media) =>
+        media.kind === 'file' ? media.uri : cacheOf(media.uri).name,
+      ),
     ),
   );
 

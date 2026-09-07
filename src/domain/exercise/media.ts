@@ -4,13 +4,14 @@ import { DomainError } from '../domain-error';
  * Un média rattaché à un exercice : une démonstration à revoir avant de s'y
  * mettre.
  *
- * Deux natures dès maintenant, même si une seule est offerte : un LIEN vit
- * ailleurs -- YouTube, un réel Instagram -- et suit l'exercice partout, y
- * compris dans une sauvegarde ; un FICHIER vit sur ce téléphone-ci, et n'en
- * sortira pas. Les distinguer dès le premier jour évite d'avoir à deviner
- * plus tard ce qu'une adresse désigne.
+ * Trois natures. Un LIEN vit ailleurs -- YouTube, un réel Instagram -- et
+ * s'ouvre dans l'application d'origine. Une IMAGE vit ailleurs aussi, mais
+ * s'affiche ici, recopiée au passage : son adresse reste la vérité, la copie
+ * n'est qu'un cache, et une sauvegarde restaurée sur un autre téléphone la
+ * retrouve donc toute seule. Un FICHIER, lui, vit sur ce téléphone-ci et n'en
+ * sortira pas.
  */
-export type MediaKind = 'link' | 'file';
+export type MediaKind = 'link' | 'file' | 'image';
 
 /**
  * Les bornes de lecture d'un fichier, en secondes.
@@ -37,7 +38,9 @@ export function normalizeMedia(media: readonly ExerciseMedia[]): readonly Exerci
   return media.map((item) => {
     const uri = item.uri.trim();
 
-    if (item.kind === 'link' && !/^https?:\/\/\S+$/i.test(uri)) {
+    // Un lien comme une image désignent un ailleurs : sans schéma, ni le
+    // téléphone ni nous ne saurions où aller le chercher.
+    if (item.kind !== 'file' && !/^https?:\/\/\S+$/i.test(uri)) {
       // Sans schéma, le téléphone ne saurait pas quelle application ouvrir :
       // le lien échouerait en silence, longtemps après la saisie.
       throw new DomainError('Un lien doit commencer par http:// ou https://');
@@ -61,6 +64,7 @@ export function normalizeMedia(media: readonly ExerciseMedia[]): readonly Exerci
  */
 export function sourceOf(media: ExerciseMedia): string {
   if (media.kind === 'file') return 'vidéo enregistrée';
+  if (media.kind === 'image') return 'illustration';
   return /^https?:\/\/(?:www\.)?([^/:]+)/i.exec(media.uri)?.[1] ?? media.uri;
 }
 
@@ -73,6 +77,9 @@ function normalizeTrim(media: ExerciseMedia): MediaTrim | null {
 
   if (media.kind === 'link') {
     throw new DomainError('Un lien externe se lit en entier : nous ne le pilotons pas.');
+  }
+  if (media.kind === 'image') {
+    throw new DomainError("Une image n'a pas de durée : elle ne se borne pas.");
   }
   if (media.trim.from < 0 || media.trim.to <= media.trim.from) {
     throw new DomainError('La fin d un extrait doit venir après son début.');

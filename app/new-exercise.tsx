@@ -94,6 +94,17 @@ export default function NewExerciseScreen() {
     setSelected([...draft.measurementIds]);
     setPrimaryMuscle(draft.primaryMuscleId);
     setSecondaryMuscles([...draft.secondaryMuscleIds]);
+    // Les illustrations remplacent celles d'un import précédent, et laissent
+    // intactes les vidéos qu'on aurait déjà ajoutées soi-même.
+    setMedia((current) => [
+      ...current.filter((item) => item.kind !== 'image'),
+      ...draft.imageUris.map((uri) => ({
+        kind: 'image' as const,
+        uri,
+        label: null,
+        trim: null,
+      })),
+    ]);
     setImporting(false);
     setError(null);
   }
@@ -309,7 +320,9 @@ export default function NewExerciseScreen() {
                     ? item.trim
                       ? trimLabel(item.trim)
                       : 'vidéo entière · régler l extrait'
-                    : item.uri}
+                    : item.kind === 'image'
+                      ? 'illustration du catalogue'
+                      : item.uri}
                 </Text>
               </View>
               <Pressable
