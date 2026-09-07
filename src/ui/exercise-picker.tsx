@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../domain/exercise/exercise';
 import type { Muscle } from '../domain/exercise/muscle';
 import { Card } from './card';
+import { CatalogueRow } from './catalogue-row';
 import { Button } from './button';
 import { cn } from './cn';
 import { MuscleFilterChip, MuscleFilterSheet } from './muscle-filter';
@@ -263,27 +264,13 @@ export function ExercisePicker({
             <>
               <SectionLabel>Dans le catalogue</SectionLabel>
               {suggestions.map((entry) => (
-                <Pressable key={entry.id} onPress={() => adopt(entry.id)} className="pb-2">
-                  <Card className="flex-row items-center gap-3">
-                    <View className="flex-1 gap-1">
-                      <Text
-                        className="font-bold text-[16px] text-ink dark:text-ink-dark"
-                        numberOfLines={1}
-                      >
-                        {entry.name}
-                      </Text>
-                      <Text
-                        className="font-mono text-[11px] text-muted dark:text-muted-dark"
-                        numberOfLines={1}
-                      >
-                        {entry.detail}
-                      </Text>
-                    </View>
-                    <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
-                      {adopting === entry.id ? '…' : 'ajouter'}
-                    </Text>
-                  </Card>
-                </Pressable>
+                <CatalogueRow
+                  key={entry.id}
+                  name={entry.name}
+                  detail={entry.detail}
+                  busy={adopting === entry.id}
+                  onPress={() => adopt(entry.id)}
+                />
               ))}
             </>
           )}

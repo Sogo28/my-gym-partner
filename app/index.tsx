@@ -1,6 +1,6 @@
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -9,12 +9,15 @@ import type { Muscle } from '../src/domain/exercise/muscle';
 import { Tag } from '../src/ui/tag';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Card } from '../src/ui/card';
+import { CatalogueRow } from '../src/ui/catalogue-row';
 import { Fab } from '../src/ui/fab';
 import { EmptyState } from '../src/ui/empty-state';
 import { MuscleFilterChip, MuscleFilterSheet } from '../src/ui/muscle-filter';
 import { SectionHeader } from '../src/ui/screen-header';
 import { SearchField } from '../src/ui/search';
 import { fold } from '../src/text';
+import { catalogueSource } from '../src/use-cases/repdb-actions';
+import type { CatalogueSuggestion } from '../src/ui/exercise-picker';
 
 export default function ExercisesScreen() {
   const router = useRouter();
@@ -25,19 +28,59 @@ export default function ExercisesScreen() {
   const [filter, setFilter] = useState<string[]>([]);
   const [filtering, setFiltering] = useState(false);
   const [query, setQuery] = useState('');
+  /** Ce que le catalogue tiers propose pour cette recherche. */
+  const [suggestions, setSuggestions] = useState<CatalogueSuggestion[]>([]);
+  const [adopting, setAdopting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      Promise.all([findAll(), findAllMeasurements(), findAllMuscles()])
-        .then(([all, allMeasurements, allMuscles]) => {
-          setExercises(all);
-          setMeasurements(allMeasurements);
-          setMuscles(allMuscles);
-        })
-        .catch((e) => setError(messageOf(e)));
-    }, []),
-  );
+  const reload = useCallback(() => {
+    Promise.all([findAll(), findAllMeasurements(), findAllMuscles()])
+      .then(([all, allMeasurements, allMuscles]) => {
+        setExercises(all);
+        setMeasurements(allMeasurements);
+        setMuscles(allMuscles);
+      })
+      .catch((e) => setError(messageOf(e)));
+  }, []);
+
+  useFocusEffect(reload);
+
+  const catalogue = useMemo(() => catalogueSource(reload), [reload]);
+
+  /**
+   * Le catalogue ne répond qu'à une recherche : dérouler six cents entrées
+   * sous les tiennes noierait les tiennes.
+   */
+  useEffect(() => {
+    if (!catalogue.available || query.trim() === '') {
+      setSuggestions([]);
+      return;
+    }
+    let current = true;
+    catalogue
+      .suggest(query)
+      .then((found) => {
+        if (current) setSuggestions(found);
+      })
+      .catch(() => setSuggestions([]));
+    return () => {
+      current = false;
+    };
+  }, [catalogue, query]);
+
+  /** Adopter crée l'exercice : la liste doit le montrer aussitôt. */
+  async function adopt(id: string) {
+    setAdopting(id);
+    try {
+      await catalogue.adopt(id);
+      setSuggestions((current) => current.filter((entry) => entry.id !== id));
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setAdopting(null);
+    }
+  }
 
   const nameOf = (id: string) => measurements.find((m) => m.id === id)?.name ?? id;
 
@@ -93,14 +136,46 @@ export default function ExercisesScreen() {
           />
         }
         ListFooterComponent={
-          archivedCount > 0 ? (
-            <Pressable onPress={() => setShowArchived((value) => !value)} className="py-3">
-              <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
-                {showArchived ? 'Masquer' : 'Afficher'} {archivedCount} exercice
-                {archivedCount > 1 ? 's' : ''} archivé{archivedCount > 1 ? 's' : ''}
-              </Text>
-            </Pressable>
-          ) : null
+          <>
+            {archivedCount > 0 && (
+              <Pressable onPress={() => setShowArchived((value) => !value)} className="py-3">
+                <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+                  {showArchived ? 'Masquer' : 'Afficher'} {archivedCount} exercice
+                  {archivedCount > 1 ? 's' : ''} archivé{archivedCount > 1 ? 's' : ''}
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Le catalogue vient APRÈS : ce que tu fais déjà passe devant ce
+                qu'un tiers propose. */}
+            {suggestions.length > 0 && (
+              <View className="gap-2 pt-2">
+                <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                  Dans le catalogue
+                </Text>
+                {suggestions.map((entry) => (
+                  <CatalogueRow
+                    key={entry.id}
+                    name={entry.name}
+                    detail={entry.detail}
+                    busy={adopting === entry.id}
+                    onPress={() => adopt(entry.id)}
+                  />
+                ))}
+              </View>
+            )}
+
+            {!catalogue.available && query.trim() !== '' && (
+              <Pressable onPress={() => router.push('/settings')} className="py-4">
+                <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+                  Le catalogue de 601 exercices n est pas téléchargé.
+                </Text>
+                <Text className="pt-1 text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                  L installer depuis les réglages
+                </Text>
+              </Pressable>
+            )}
+          </>
         }
         renderItem={({ item }) => (
           <Link href={{ pathname: '/exercises/[id]', params: { id: item.id } }} asChild>
