@@ -8,6 +8,7 @@ import { messageOf } from '../src/ui/message';
 import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
+import { resetEverything } from '../src/use-cases/reset-actions';
 import {
   ATTRIBUTION,
   ATTRIBUTION_URL,
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const [state, setState] = useState<CatalogueState>({ downloaded: false, size: 0 });
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -103,7 +105,45 @@ export default function SettingsScreen() {
           Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d un bouton, et
           l alourdir n aurait servi personne.
         </Text>
+
+        <Card density="titled" className="mt-2 gap-2">
+          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+            Repartir de zéro
+          </Text>
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Efface tes exercices, entraînements, séances, objectifs et relevés. Les mesures, les
+            muscles et les mensurations de départ restent : ce sont le vocabulaire de
+            l application, pas tes données.
+          </Text>
+          <Text className="text-[13px] text-muted dark:text-muted-dark">
+            Fais une sauvegarde d abord si tu veux pouvoir revenir en arrière : rien d autre ne le
+            permettra.
+          </Text>
+          <Button
+            label="Tout effacer"
+            variant="danger"
+            size="md"
+            onPress={() => setResetting(true)}
+          />
+        </Card>
       </ScrollView>
+
+      <Sheet
+        visible={resetting}
+        title="Tout effacer ?"
+        description="Tes exercices, séances et objectifs disparaissent définitivement. Une sauvegarde est le seul moyen de les retrouver."
+        actions={[
+          {
+            label: 'Tout effacer',
+            tone: 'danger',
+            onPress: () =>
+              resetEverything()
+                .then(() => setError(null))
+                .catch((e) => setError(messageOf(e))),
+          },
+        ]}
+        onClose={() => setResetting(false)}
+      />
 
       <Sheet
         visible={confirming}

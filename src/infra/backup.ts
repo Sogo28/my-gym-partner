@@ -19,7 +19,7 @@ export type Backup = {
 };
 
 /** Les tables de l'application, dans l'ordre où SQLite les a créées. */
-async function tableNames(): Promise<string[]> {
+export async function tableNames(): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ name: string }>(
     `SELECT name FROM sqlite_master
