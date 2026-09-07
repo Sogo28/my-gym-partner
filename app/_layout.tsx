@@ -8,6 +8,7 @@ import { JetBrainsMono_800ExtraBold } from '@expo-google-fonts/jetbrains-mono/80
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
@@ -34,6 +35,20 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  /**
+   * Le fond de la VUE RACINE, sous tous les navigateurs.
+   *
+   * C'est lui qu'on aperçoit à droite pendant qu'un écran glisse : la bande
+   * que la nouvelle carte n'a pas encore recouverte. Ni le thème du
+   * navigateur ni le fond d'une pile ne l'atteignent, et il est blanc par
+   * défaut. Il se règle ici plutôt que dans app.json, dont la valeur est
+   * unique : elle réglerait le thème sombre en créant l'éclair inverse en
+   * thème clair.
+   */
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(dark ? '#0E0F0D' : '#F6F7F3').catch(() => {});
+  }, [dark]);
 
   if (!fontsLoaded) return null;
 
