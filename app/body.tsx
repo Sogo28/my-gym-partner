@@ -6,6 +6,7 @@ import type { BodyMetric, BodyReading } from '../src/domain/body/body-metric';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
+import { Fab } from '../src/ui/fab';
 import { formatDateTime } from '../src/ui/format';
 import { messageOf } from '../src/ui/message';
 import { BusinessNotice } from '../src/ui/notice';
@@ -127,7 +128,7 @@ export default function BodyScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-6">
+      <ScrollView contentContainerClassName="gap-3 px-5 pb-28">
         {error && <BusinessNotice message={error} />}
 
         {tracked.length === 0 && (
@@ -232,14 +233,12 @@ export default function BodyScreen() {
             </View>
           </View>
         )}
-        <Button
-          label="Nouvelle mensuration"
-          variant="secondary"
-          size="md"
-          className="mt-2"
-          onPress={() => setCreating({ name: '', unit: 'cm', muscleIds: [] })}
-        />
       </ScrollView>
+
+      <Fab
+        accessibilityLabel="Nouvelle mensuration"
+        onPress={() => setCreating({ name: '', unit: 'cm', muscleIds: [] })}
+      />
 
       <Sheet
         visible={creating !== null}

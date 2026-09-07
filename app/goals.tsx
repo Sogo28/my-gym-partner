@@ -1,4 +1,4 @@
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
+import { Fab } from '../src/ui/fab';
 import { BusinessNotice } from '../src/ui/notice';
 import { SectionHeader } from '../src/ui/screen-header';
 import {
@@ -24,6 +25,7 @@ import {
 } from '../src/use-cases/goal-actions';
 
 export default function GoalsScreen() {
+  const router = useRouter();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -79,10 +81,13 @@ export default function GoalsScreen() {
         <SectionHeader
           title="Objectifs"
           subtitle={`${active.length} en cours · évalués sur tes performances`}
+          // Les mensurations sont une page voisine, pas une action de
+          // celle-ci : en bas, elles se seraient fait passer pour telle.
+          action={{ label: 'Mensurations', onPress: () => router.push('/body') }}
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-4">
+      <ScrollView contentContainerClassName="gap-3 px-5 pb-28">
         {error && <BusinessNotice message={error} />}
         {active.length === 0 && (
           <EmptyState
@@ -191,14 +196,9 @@ export default function GoalsScreen() {
         })}
       </ScrollView>
 
-      <View className="gap-2 px-5 pb-2">
-        <Link href="/new-goal" asChild>
-          <Button label="Nouvel objectif" size="lg" />
-        </Link>
-        <Link href="/body" asChild>
-          <Button label="Mes mensurations" variant="secondary" size="md" />
-        </Link>
-      </View>
+      <Link href="/new-goal" asChild>
+        <Fab accessibilityLabel="Nouvel objectif" />
+      </Link>
     </SafeAreaView>
   );
 }

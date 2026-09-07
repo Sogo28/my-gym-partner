@@ -3,15 +3,31 @@ import { Pressable, Text, View } from 'react-native';
 
 type SectionHeaderProps = { title: string; subtitle?: string };
 
+/** Un raccourci vers une page voisine, posé à droite du titre. */
+export type HeaderAction = { label: string; onPress: () => void };
+
 /** Variante 1 : titre de section (Historique, Exercices...). */
-export function SectionHeader({ title, subtitle }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  subtitle,
+  action,
+}: SectionHeaderProps & { action?: HeaderAction }) {
   return (
-    <View className="gap-1 pb-2">
-      <Text className="font-extrabold text-title tracking-tight text-ink dark:text-ink-dark">
-        {title}
-      </Text>
-      {subtitle && (
-        <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{subtitle}</Text>
+    <View className="flex-row items-start justify-between gap-3 pb-2">
+      <View className="shrink gap-1">
+        <Text className="font-extrabold text-title tracking-tight text-ink dark:text-ink-dark">
+          {title}
+        </Text>
+        {subtitle && (
+          <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{subtitle}</Text>
+        )}
+      </View>
+      {action && (
+        <Pressable onPress={action.onPress} hitSlop={8} className="shrink-0 pt-1">
+          <Text className="font-bold text-[14px] text-primary-ink dark:text-primary-ink-dark">
+            {action.label}
+          </Text>
+        </Pressable>
       )}
     </View>
   );

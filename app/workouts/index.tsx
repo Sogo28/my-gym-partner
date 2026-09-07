@@ -7,9 +7,9 @@ import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
 import { listActiveWorkouts } from '../../src/use-cases/edit-catalogue';
-import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { EmptyState } from '../../src/ui/empty-state';
+import { Fab } from '../../src/ui/fab';
 import { SectionHeader } from '../../src/ui/screen-header';
 
 export default function WorkoutsScreen() {
@@ -40,7 +40,8 @@ export default function WorkoutsScreen() {
       <FlatList
         data={workouts}
         keyExtractor={(item) => item.id}
-        contentContainerClassName="gap-3 pb-4"
+        // La liste s'arrête au-dessus de la pastille d'ajout.
+        contentContainerClassName="gap-3 pb-28"
         ListEmptyComponent={
           <EmptyState
             title="Aucun entraînement"
@@ -77,7 +78,7 @@ export default function WorkoutsScreen() {
       {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
 
       <Link href="/workouts/new" asChild>
-        <Button label="Nouvel entraînement" variant="secondary" size="lg" className="mb-2" />
+        <Fab accessibilityLabel="Nouvel entraînement" />
       </Link>
     </SafeAreaView>
   );
