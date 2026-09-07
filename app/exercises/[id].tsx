@@ -425,22 +425,30 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
     // Un extrait boucle sur lui-même : le lecteur natif, lui, ne sait boucler
     // que sur la vidéo entière.
     instance.loop = trim === null;
-    if (trim) instance.currentTime = trim.from;
+    // Muette : une démonstration se regarde, elle ne s'écoute pas -- et une
+    // vidéo qui parle toute seule en ouvrant une fiche est une intrusion.
+    instance.muted = true;
   });
 
   useEffect(() => {
-    if (!trim) return;
+    if (!present) return;
 
-    // Se placer au début de l'extrait dès la CRÉATION du lecteur ne servait à
-    // rien : la source n'est pas encore chargée, la position demandée est
-    // perdue, et la lecture repartait de zéro -- donc de toute la vidéo.
-    // C'est au chargement de la source qu'il faut la poser.
-    const loaded = player.addListener('sourceLoad', () => {
-      player.currentTime = trim.from;
-    });
+    /**
+     * Se placer et démarrer dès la CRÉATION du lecteur ne servirait à rien :
+     * la source n'est pas encore chargée, la position demandée est perdue, et
+     * la lecture repartirait de zéro -- donc de toute la vidéo.
+     */
+    function start() {
+      if (trim) player.currentTime = trim.from;
+      player.play();
+    }
+
+    const loaded = player.addListener('sourceLoad', start);
     // Et si la source était déjà prête avant que l'écouteur n'existe, son
-    // événement est passé : on se place tout de suite.
-    if (player.status === 'readyToPlay') player.currentTime = trim.from;
+    // événement est passé : on démarre tout de suite.
+    if (player.status === 'readyToPlay') start();
+
+    if (!trim) return () => loaded.remove();
     // Le retour au début se fait sur les battements du lecteur : l'interroger
     // nous-mêmes à intervalle fixe ferait tourner du JavaScript pour rien.
     //
@@ -458,7 +466,16 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
       loaded.remove();
       subscription.remove();
     };
-  }, [player, trim]);
+  }, [player, trim, present]);
+
+  // Quitter l'écran arrête la lecture : une vidéo qui tourne derrière une
+  // autre page ne se voit pas, elle ne fait que vider la batterie.
+  useFocusEffect(
+    useCallback(() => {
+      if (present) player.play();
+      return () => player.pause();
+    }, [player, present]),
+  );
 
   if (!present) {
     return (
@@ -475,7 +492,14 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
 
   return (
     <View className="overflow-hidden rounded-2xl border border-border bg-black dark:border-border-dark">
-      <VideoView player={player} style={{ width: '100%', height: 200 }} contentFit="contain" />
+      {/* Sans commandes : l'extrait fait quelques secondes, il n'y a rien à
+          y chercher. Une barre de lecture ne servirait qu'à le dérégler. */}
+      <VideoView
+        player={player}
+        style={{ width: '100%', height: 200 }}
+        contentFit="contain"
+        nativeControls={false}
+      />
     </View>
   );
 }
