@@ -1,10 +1,8 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
-import type { ExerciseMedia } from '../../src/domain/exercise/media';
-import { sourceOf } from '../../src/domain/exercise/media';
 import type { Muscle } from '../../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
 import { BarChart } from '../../src/ui/bar-chart';
@@ -18,11 +16,10 @@ import { BackHeader } from '../../src/ui/screen-header';
 import { cn } from '../../src/ui/cn';
 import { formatSetValues } from '../../src/ui/set-values';
 import { Sheet } from '../../src/ui/sheet';
-import { RemoteImage } from '../../src/ui/remote-image';
+import { MediaStrip } from '../../src/ui/media-strip';
 import { Tag } from '../../src/ui/tag';
 import { TrimmedVideo } from '../../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
-import { mediaExists, mediaUri } from '../../src/use-cases/media-actions';
 import { bestValue } from '../../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../../src/use-cases/exercise-detail';
 
@@ -43,6 +40,8 @@ export default function ExerciseDetailScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
+  /** Faux dès qu'on quitte l'écran : les vidéos ne tournent pas derrière. */
+  const [active, setActive] = useState(false);
   /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
   const [tracked, setTracked] = useState<string | null>(null);
   /** Combien de séances passées on montre sous la dernière. */
@@ -51,6 +50,13 @@ export default function ExerciseDetailScreen() {
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
   // l'exercice tel qu'il est maintenant.
+  useFocusEffect(
+    useCallback(() => {
+      setActive(true);
+      return () => setActive(false);
+    }, []),
+  );
+
   useFocusEffect(
     useCallback(() => {
       Promise.all([getExerciseDetail(id), findAllMeasurements(), findAllMuscles()])
@@ -80,8 +86,6 @@ export default function ExerciseDetailScreen() {
   }
 
   const { exercise, sessions, records, volume, goals } = detail;
-  const images = exercise.media.filter((item) => item.kind === 'image');
-  const playable = exercise.media.filter((item) => item.kind !== 'image');
   const [last, ...previous] = sessions;
   const totalSets = sessions.reduce((total, entry) => total + entry.sets.length, 0);
 
@@ -137,57 +141,7 @@ export default function ExerciseDetailScreen() {
 
         {/* Les démonstrations sont ce qu'on vient revoir AVANT de s'y mettre :
             elles passent devant les chiffres. */}
-        {exercise.media.length > 0 && (
-          <View className="gap-2">
-            {/* Les illustrations tiennent sur une ligne : deux poses d'un
-                même mouvement se lisent ensemble, pas l'une sous l'autre. */}
-            {images.length > 0 && (
-              <View className="flex-row gap-2">
-                {images.map((item) => (
-                  <RemoteImage key={item.uri} uri={item.uri} />
-                ))}
-              </View>
-            )}
-
-            {playable.map((item) =>
-              item.kind === 'file' ? (
-                <LocalVideo key={item.uri} media={item} />
-              ) : (
-                <Pressable
-                  key={item.uri}
-                  // Ouvert dans son application d'origine : l'afficher ici
-                  // demanderait une vue web, et Instagram la refuse une fois
-                  // sur deux.
-                  onPress={() =>
-                    Linking.openURL(item.uri).catch(() =>
-                      setError("Ce lien n'a pas pu être ouvert."),
-                    )
-                  }
-                >
-                  <Card className="flex-row items-center justify-between gap-3">
-                    <View className="shrink">
-                      <Text
-                        className="font-bold text-[15px] text-ink dark:text-ink-dark"
-                        numberOfLines={1}
-                      >
-                        {item.label ?? sourceOf(item)}
-                      </Text>
-                      <Text
-                        className="font-mono text-[11px] text-muted dark:text-muted-dark"
-                        numberOfLines={1}
-                      >
-                        {sourceOf(item)}
-                      </Text>
-                    </View>
-                    <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
-                      ouvrir
-                    </Text>
-                  </Card>
-                </Pressable>
-              ),
-            )}
-          </View>
-        )}
+        <MediaStrip media={exercise.media} active={active} />
 
         {sessions.length === 0 ? (
           <EmptyState
@@ -421,41 +375,4 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
       </Text>
     </Card>
   );
-}
-
-/**
- * Une vidéo prise sur ce téléphone.
- *
- * Composant à part : le lecteur naît d'un crochet, qui ne peut pas être
- * appelé au milieu d'une boucle.
- */
-function LocalVideo({ media }: { media: ExerciseMedia }) {
-  // Le fichier peut manquer : une sauvegarde restaurée ailleurs ramène la
-  // ligne, jamais la vidéo.
-  const present = mediaExists(media);
-  const [active, setActive] = useState(false);
-
-  // Quitter l'écran arrête la lecture : une vidéo qui tourne derrière une
-  // autre page ne se voit pas, elle ne fait que vider la batterie.
-  useFocusEffect(
-    useCallback(() => {
-      setActive(true);
-      return () => setActive(false);
-    }, []),
-  );
-
-  if (!present) {
-    return (
-      <Card className="gap-1">
-        <Text className="font-bold text-[15px] text-ink dark:text-ink-dark">
-          {media.label ?? 'Vidéo'}
-        </Text>
-        <Text className="text-[12px] text-muted dark:text-muted-dark">
-          Fichier introuvable sur ce téléphone.
-        </Text>
-      </Card>
-    );
-  }
-
-  return <TrimmedVideo uri={mediaUri(media)} trim={media.trim} active={active} />;
 }

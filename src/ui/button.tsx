@@ -19,12 +19,15 @@ const button = cva('flex-row items-center justify-center px-4', {
       danger:
         'bg-[#FDF1F0] dark:bg-[#2A1A16] border-2 border-[#EAB9B5] dark:border-[#5C332B]',
     },
+    // Des hauteurs resserrées : un bouton doit rester atteignable au pouce
+    // (44 px au minimum), pas occuper le sixième de l'écran.
     size: {
-      xl: 'min-h-[68px] rounded-xl',
+      xl: 'min-h-[56px] rounded-xl',
       // L'action unique de l'état B : plus haute, elle occupe le bas de l'écran.
-      '2xl': 'min-h-[84px] rounded-xl',
-      lg: 'min-h-[60px] rounded-xl',
-      md: 'min-h-[52px] rounded-lg',
+      '2xl': 'min-h-[64px] rounded-xl',
+      lg: 'min-h-[50px] rounded-lg',
+      md: 'min-h-[44px] rounded-lg',
+      sm: 'min-h-[38px] rounded-lg',
     },
     disabled: { true: 'bg-[#E4E7DC] dark:bg-[#232620] border-transparent', false: '' },
   },
@@ -40,10 +43,11 @@ const label = cva('text-center', {
       danger: 'text-danger dark:text-danger-dark font-bold',
     },
     size: {
-      xl: 'text-[22px]',
-      '2xl': 'text-[24px]',
-      lg: 'text-[19px]',
-      md: 'text-body',
+      xl: 'text-[19px]',
+      '2xl': 'text-[21px]',
+      lg: 'text-[17px]',
+      md: 'text-[15px]',
+      sm: 'text-[13px]',
     },
     disabled: { true: 'text-planned', false: '' },
   },

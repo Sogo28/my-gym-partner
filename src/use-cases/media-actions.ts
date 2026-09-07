@@ -1,7 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import { DomainError } from '../domain/domain-error';
-import type { ExerciseMedia } from '../domain/exercise/media';
+import { isRemote, type ExerciseMedia } from '../domain/exercise/media';
 import { findAll } from '../infra/exercise-repository';
 
 /** Où vivent les vidéos importées, à côté de la base et jamais dans le cache. */
@@ -31,24 +31,26 @@ function ensureMediaDirectory(): Directory {
  * des chemins absolus stockés pointeraient un jour dans le vide.
  */
 export function mediaUri(media: ExerciseMedia): string {
-  if (media.kind === 'link') return media.uri;
+  if (isRemote(media)) return media.uri;
   return new File(mediaDirectory(), media.uri).uri;
 }
 
 /** Le fichier est-il toujours là ? Une sauvegarde restaurée ailleurs dit non. */
 export function mediaExists(media: ExerciseMedia): boolean {
-  if (media.kind === 'link') return true;
+  if (isRemote(media)) return true;
   return new File(mediaDirectory(), media.uri).exists;
 }
 
 /**
- * Choisit une vidéo et en garde une COPIE.
+ * Choisit une démonstration -- image ou vidéo -- et en garde une COPIE.
  *
- * Le sélecteur rend un fichier temporaire : s'y référer suffirait aujourd'hui
- * et échouerait demain, quand le système aura fait le ménage.
+ * Un seul geste pour les deux : celui qui ajoute une démonstration se demande
+ * quoi montrer, pas de quel type de fichier il s'agit. Le sélecteur rend un
+ * fichier temporaire : s'y référer suffirait aujourd'hui et échouerait demain,
+ * quand le système aura fait le ménage.
  */
-export async function pickVideo(): Promise<ExerciseMedia | null> {
-  const picked = await File.pickFileAsync({ mimeTypes: ['video/*'] });
+export async function pickDemonstration(): Promise<ExerciseMedia | null> {
+  const picked = await File.pickFileAsync({ mimeTypes: ['image/*', 'video/*'] });
   if (picked.canceled) return null;
 
   const source = picked.result;
@@ -61,8 +63,11 @@ export async function pickVideo(): Promise<ExerciseMedia | null> {
     throw new DomainError("Cette vidéo n'a pas pu être copiée dans l'application.");
   }
 
-  // Bornes vides : la vidéo se lit en entier tant qu'on ne l'a pas rognée.
-  return { kind: 'file', uri: copy.name, label: null, trim: null };
+  // L'extension dit ce que c'est : le sélecteur, lui, ne le dit pas.
+  const kind = /^(mp4|mov|m4v|webm|avi|mkv)$/i.test(extension) ? 'video' : 'image';
+
+  // Bornes vides : une vidéo se lit en entier tant qu'on ne l'a pas rognée.
+  return { kind, uri: copy.name, label: null, trim: null };
 }
 
 /**
@@ -105,9 +110,7 @@ export async function forgetUnusedMedia(): Promise<void> {
   if (!directory.exists) return;
   const kept = new Set(
     (await findAll()).flatMap((exercise) =>
-      exercise.media.map((media) =>
-        media.kind === 'file' ? media.uri : cacheOf(media.uri).name,
-      ),
+      exercise.media.map((media) => (isRemote(media) ? cacheOf(media.uri).name : media.uri)),
     ),
   );
 

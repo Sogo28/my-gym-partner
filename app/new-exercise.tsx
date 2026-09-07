@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExerciseMedia } from '../src/domain/exercise/media';
-import { normalizeMedia, sourceOf, trimLabel } from '../src/domain/exercise/media';
+import { MediaStrip } from '../src/ui/media-strip';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
@@ -15,7 +15,7 @@ import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
-import { forgetUnusedMedia, mediaUri, pickVideo } from '../src/use-cases/media-actions';
+import { forgetUnusedMedia, mediaUri, pickDemonstration } from '../src/use-cases/media-actions';
 import {
   catalogueState,
   draftFrom,
@@ -47,8 +47,6 @@ export default function NewExerciseScreen() {
   const [primaryMuscle, setPrimaryMuscle] = useState<string | null>(null);
   const [secondaryMuscles, setSecondaryMuscles] = useState<string[]>([]);
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
-  /** Le lien en cours de saisie, ou null quand la feuille est fermée. */
-  const [link, setLink] = useState<{ uri: string; label: string } | null>(null);
   /** La vidéo dont on règle les bornes, s'il y en a une. */
   const [trimming, setTrimming] = useState<ExerciseMedia | null>(null);
   /** L'import depuis le catalogue : sa recherche, et ce qu'elle renvoie. */
@@ -160,34 +158,11 @@ export default function NewExerciseScreen() {
     }
   }
 
-  /** La vidéo choisie est copiée dans l'application avant d'être retenue. */
-  async function addVideo() {
+  /** Le fichier choisi est copié dans l'application avant d'être retenu. */
+  async function addDemonstration() {
     try {
-      const picked = await pickVideo();
+      const picked = await pickDemonstration();
       if (picked) setMedia((current) => [...current, picked]);
-      setError(null);
-    } catch (e) {
-      setError(messageOf(e));
-    }
-  }
-
-  /**
-   * Le lien est validé par le DOMAINE, pas par l'écran : une adresse sans
-   * schéma est refusée ici plutôt que d'échouer en silence le jour où on
-   * essaie de l'ouvrir.
-   */
-  function addLink() {
-    if (!link) return;
-    const draft: ExerciseMedia = {
-      kind: 'link',
-      uri: link.uri,
-      label: link.label.trim() || null,
-      trim: null,
-    };
-    try {
-      const next = normalizeMedia([...media, draft]);
-      setMedia([...next]);
-      setLink(null);
       setError(null);
     } catch (e) {
       setError(messageOf(e));
@@ -298,58 +273,22 @@ export default function NewExerciseScreen() {
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Démonstrations
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
-            Un lien vers une vidéo, ou une vidéo prise sur ce téléphone. Un lien s'ouvre dans son
-            application ; un fichier se lit ici, mais n'entre pas dans tes sauvegardes.
-          </Text>
 
-          {media.map((item) => (
-            <Pressable
-              key={item.uri}
-              // Seul un fichier se règle : d'un lien, nous ne pilotons pas la
-              // lecture.
-              onPress={item.kind === 'file' ? () => setTrimming(item) : undefined}
-              className="flex-row items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark"
-            >
-              <View className="shrink">
-                <Text className="font-medium text-[15px] text-ink dark:text-ink-dark" numberOfLines={1}>
-                  {item.label ?? sourceOf(item)}
-                </Text>
-                <Text className="font-mono text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
-                  {item.kind === 'file'
-                    ? item.trim
-                      ? trimLabel(item.trim)
-                      : 'vidéo entière · régler l extrait'
-                    : item.kind === 'image'
-                      ? 'illustration du catalogue'
-                      : item.uri}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => setMedia((current) => current.filter((m) => m.uri !== item.uri))}
-                hitSlop={8}
-              >
-                <Text className="text-[12px] text-danger dark:text-danger-dark">retirer</Text>
-              </Pressable>
-            </Pressable>
-          ))}
+          <MediaStrip
+            media={media}
+            onRemove={(item) =>
+              setMedia((current) => current.filter((other) => other.uri !== item.uri))
+            }
+            // Seule une vidéo se règle : une image n'a pas de durée.
+            onPress={(item) => (item.kind === 'video' ? setTrimming(item) : undefined)}
+          />
 
-          <View className="flex-row gap-2">
-            <Button
-              label="+ Lien"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={() => setLink({ uri: '', label: '' })}
-            />
-            <Button
-              label="+ Vidéo"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={addVideo}
-            />
-          </View>
+          <Button
+            label="+ Ajouter une image ou une vidéo"
+            variant="secondary"
+            size="sm"
+            onPress={addDemonstration}
+          />
         </View>
 
         <View className="flex-row items-center justify-between gap-4">
@@ -380,13 +319,13 @@ export default function NewExerciseScreen() {
           <Button
             label="Annuler"
             variant="secondary"
-            size="lg"
+            size="md"
             className="flex-1"
             onPress={() => router.back()}
           />
           <Button
             label={existing ? 'Enregistrer' : "Créer l'exercice"}
-            size="lg"
+            size="md"
             className="flex-1"
             onPress={submit}
           />
@@ -446,36 +385,6 @@ export default function NewExerciseScreen() {
         }}
         onClose={() => setTrimming(null)}
       />
-
-      <Sheet
-        visible={link !== null}
-        title="Ajouter un lien"
-        description="L'adresse de la vidéo, telle que tu la copies depuis l'application."
-        onClose={() => setLink(null)}
-      >
-        {link && (
-          <View className="gap-3 pb-2">
-            <TextInput
-              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[15px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
-              placeholder="https://youtube.com/..."
-              placeholderTextColor="#A8AD9E"
-              value={link.uri}
-              onChangeText={(uri) => setLink((current) => current && { ...current, uri })}
-              autoCapitalize="none"
-              autoCorrect={false}
-              inputMode="url"
-            />
-            <TextInput
-              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[15px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
-              placeholder="Intitulé (facultatif)"
-              placeholderTextColor="#A8AD9E"
-              value={link.label}
-              onChangeText={(label) => setLink((current) => current && { ...current, label })}
-            />
-            <Button label="Ajouter" size="md" onPress={addLink} />
-          </View>
-        )}
-      </Sheet>
 
       <Sheet
         visible={sheet === 'menu'}

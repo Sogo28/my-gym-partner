@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -613,6 +613,43 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // l'exercice renommé en français, plus rien d'autre ne permet de le savoir.
   if (version < 22) {
     await db.execAsync('ALTER TABLE exercises ADD COLUMN origin TEXT;');
+  }
+
+  // Migration 23 : un média est une image ou une vidéo, point.
+  //
+  // Le genre disait jusqu'ici où le média vivait ('link', 'file') autant que
+  // ce qu'il était ('image'). Deux questions dans un seul champ, et la
+  // réponse à la première se lit déjà dans l'adresse : `https://` est un
+  // ailleurs, le reste est un fichier d'ici.
+  //
+  // Les liens externes disparaissent : plus rien dans l'application ne sait
+  // les ouvrir, et une ligne qu'on ne peut plus afficher vaut moins que pas
+  // de ligne du tout.
+  if (version < 23) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync(`
+      CREATE TABLE exercise_media_v23 (
+        exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
+        uri TEXT NOT NULL,
+        label TEXT,
+        trim_from REAL,
+        trim_to REAL,
+        PRIMARY KEY (exercise_id, position)
+      );
+
+      INSERT INTO exercise_media_v23
+        SELECT exercise_id, position,
+               CASE kind WHEN 'file' THEN 'video' ELSE 'image' END,
+               uri, label, trim_from, trim_to
+        FROM exercise_media
+        WHERE kind <> 'link';
+
+      DROP TABLE exercise_media;
+      ALTER TABLE exercise_media_v23 RENAME TO exercise_media;
+    `);
+    await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

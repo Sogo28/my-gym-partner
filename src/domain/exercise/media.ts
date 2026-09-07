@@ -4,17 +4,16 @@ import { DomainError } from '../domain-error';
  * Un média rattaché à un exercice : une démonstration à revoir avant de s'y
  * mettre.
  *
- * Trois natures. Un LIEN vit ailleurs -- YouTube, un réel Instagram -- et
- * s'ouvre dans l'application d'origine. Une IMAGE vit ailleurs aussi, mais
- * s'affiche ici, recopiée au passage : son adresse reste la vérité, la copie
- * n'est qu'un cache, et une sauvegarde restaurée sur un autre téléphone la
- * retrouve donc toute seule. Un FICHIER, lui, vit sur ce téléphone-ci et n'en
- * sortira pas.
+ * Le genre dit CE QUE C'EST, pas où ça vit : une image ou une vidéo. Où elle
+ * vit se lit dans son adresse -- `https://` désigne un ailleurs qu'on met en
+ * cache, tout le reste est un fichier de ce téléphone. Les deux questions
+ * étaient confondues et se gênaient : une illustration importée et une photo
+ * prise soi-même sont la même chose pour qui la regarde.
  */
-export type MediaKind = 'link' | 'file' | 'image';
+export type MediaKind = 'image' | 'video';
 
 /**
- * Les bornes de lecture d'un fichier, en secondes.
+ * Les bornes de lecture d'une vidéo, en secondes.
  *
  * Le fichier n'est PAS recoupé : on retient où commencer et où s'arrêter. La
  * découpe réelle demanderait de ré-encoder la vidéo -- irréversible, et hors
@@ -24,27 +23,24 @@ export type MediaTrim = { readonly from: number; readonly to: number };
 
 export type ExerciseMedia = {
   readonly kind: MediaKind;
-  /** L'adresse du lien, ou le nom du fichier dans le stockage de l'app. */
+  /** Une adresse `https://`, ou le nom d'un fichier du stockage de l'app. */
   readonly uri: string;
-  /** Ce qu'on en dit ; à défaut, l'affichage se rabat sur la source. */
+  /** Ce qu'on en dit ; à défaut, l'affichage se rabat sur sa nature. */
   readonly label: string | null;
-  /** Null : la vidéo entière. Sur un lien, toujours null. */
+  /** Null : la vidéo entière. Sur une image, toujours null. */
   readonly trim: MediaTrim | null;
 };
+
+/** Vit-il ailleurs ? Son adresse suffit à le dire, aucune colonne nécessaire. */
+export function isRemote(media: ExerciseMedia): boolean {
+  return /^https?:\/\//i.test(media.uri);
+}
 
 export function normalizeMedia(media: readonly ExerciseMedia[]): readonly ExerciseMedia[] {
   const seen = new Set<string>();
 
   return media.map((item) => {
     const uri = item.uri.trim();
-
-    // Un lien comme une image désignent un ailleurs : sans schéma, ni le
-    // téléphone ni nous ne saurions où aller le chercher.
-    if (item.kind !== 'file' && !/^https?:\/\/\S+$/i.test(uri)) {
-      // Sans schéma, le téléphone ne saurait pas quelle application ouvrir :
-      // le lien échouerait en silence, longtemps après la saisie.
-      throw new DomainError('Un lien doit commencer par http:// ou https://');
-    }
     if (uri.length === 0) {
       throw new DomainError('Un média doit avoir une adresse.');
     }
@@ -58,27 +54,17 @@ export function normalizeMedia(media: readonly ExerciseMedia[]): readonly Exerci
   });
 }
 
-/**
- * De quoi nommer un lien qu'on n'a pas pris la peine d'intituler : son
- * domaine. « youtube.com » en dit assez pour reconnaître ce qu'on va ouvrir.
- */
+/** De quoi nommer un média qu'on n'a pas pris la peine d'intituler. */
 export function sourceOf(media: ExerciseMedia): string {
-  if (media.kind === 'file') return 'vidéo enregistrée';
-  if (media.kind === 'image') return 'illustration';
-  return /^https?:\/\/(?:www\.)?([^/:]+)/i.exec(media.uri)?.[1] ?? media.uri;
+  if (media.kind === 'video') return 'vidéo';
+  return isRemote(media) ? 'illustration' : 'photo';
 }
 
-/**
- * Des bornes n'ont de sens que sur un fichier : la lecture d'un lien se passe
- * dans une autre application, où nous n'avons pas la main.
- */
+/** Des bornes n'ont de sens que sur une vidéo : une image n'a pas de durée. */
 function normalizeTrim(media: ExerciseMedia): MediaTrim | null {
   if (media.trim === null || media.trim === undefined) return null;
 
-  if (media.kind === 'link') {
-    throw new DomainError('Un lien externe se lit en entier : nous ne le pilotons pas.');
-  }
-  if (media.kind === 'image') {
+  if (media.kind !== 'video') {
     throw new DomainError("Une image n'a pas de durée : elle ne se borne pas.");
   }
   if (media.trim.from < 0 || media.trim.to <= media.trim.from) {
@@ -88,7 +74,7 @@ function normalizeTrim(media: ExerciseMedia): MediaTrim | null {
   return { from: media.trim.from, to: media.trim.to };
 }
 
-/** « 3,2 s → 7,8 s », ou la durée retenue quand on n'a pas la place. */
+/** « extrait de 4,6 s » : la durée retenue, pas ses bornes. */
 export function trimLabel(trim: MediaTrim): string {
   const seconds = Math.round((trim.to - trim.from) * 10) / 10;
   return `extrait de ${seconds} s`;

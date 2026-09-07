@@ -117,19 +117,19 @@ describe('Démonstrations d un exercice', () => {
       primaryMuscleId: null,
       secondaryMuscleIds: [],
       media: [
-        { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo', trim: null },
-        { kind: 'link', uri: 'https://instagram.com/reel/2', label: null, trim: null },
+        { kind: 'image', uri: 'https://a.tld/start.webp', label: 'Départ', trim: null },
+        { kind: 'video', uri: 'clip.mp4', label: null, trim: { from: 2, to: 6 } },
       ],
     });
 
     const [reloaded] = await findAllExercises();
     expect(reloaded.media).toEqual([
-      { kind: 'link', uri: 'https://youtube.com/watch?v=1', label: 'Démo', trim: null },
-      { kind: 'link', uri: 'https://instagram.com/reel/2', label: null, trim: null },
+      { kind: 'image', uri: 'https://a.tld/start.webp', label: 'Départ', trim: null },
+      { kind: 'video', uri: 'clip.mp4', label: null, trim: { from: 2, to: 6 } },
     ]);
   });
 
-  it('refuse une adresse sans schéma', async () => {
+  it('refuse deux fois le même média', async () => {
     const exercise = await anExercise();
 
     await expect(
@@ -139,7 +139,10 @@ describe('Démonstrations d un exercice', () => {
         measurementIds: [...exercise.measurementIds],
         primaryMuscleId: null,
         secondaryMuscleIds: [],
-        media: [{ kind: 'link', uri: 'youtube.com/watch', label: null, trim: null }],
+        media: [
+          { kind: 'image', uri: 'illustration.webp', label: null, trim: null },
+          { kind: 'image', uri: 'illustration.webp', label: 'bis', trim: null },
+        ],
       }),
     ).rejects.toThrow();
   });

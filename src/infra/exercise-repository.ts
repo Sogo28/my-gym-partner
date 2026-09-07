@@ -14,7 +14,7 @@ type LinkRow = { exercise_id: string; measurement_id: string };
 type MuscleLinkRow = { exercise_id: string; muscle_id: string; role: 'PRIMARY' | 'SECONDARY' };
 type MediaRow = {
   exercise_id: string;
-  kind: 'link' | 'file' | 'image';
+  kind: 'image' | 'video';
   uri: string;
   label: string | null;
   trim_from: number | null;
