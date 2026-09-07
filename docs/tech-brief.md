@@ -274,21 +274,28 @@ est construit pour valider la compilation, le reste est vérifié sur appareil.
 
 ## 8. Reste à faire
 
-**Extensions cadrées**
+Les trois extensions cadrées de la première version -- objectifs de
+mensuration, exercices unilatéraux, muscles ciblés -- sont livrées. Ce qui
+reste vient de l'usage.
 
-1. **Objectifs de mensuration** — nécessite une seconde source de données :
-   relevés datés saisis à la main. Une `Condition` devrait déclarer sa source
-   (performance vs relevé) ; les exercices associés resteraient indicatifs.
-2. **Exercices unilatéraux** — `Exercise.isUnilateral` existe ; `PerformanceSet`
-   doit porter des valeurs par côté. Évolution du domaine + migration.
-3. **Muscles ciblés** — pour filtrer le catalogue.
+**Demandé, pas encore fait**
+
+1. **Filtrer l'historique par entraînement ou par exercice.** L'écran filtre
+   aujourd'hui par période. À vérifier avant de le construire : le chemin le
+   plus court vers « toutes mes séances de Pull day » passe peut-être par la
+   fiche de l'entraînement, pas par un filtre de plus.
+2. **Médias d'un exercice** — vidéo fournie par l'utilisateur (fichier local ou
+   lien externe) et illustrations importées d'un catalogue tiers.
 
 **Questions ouvertes**
 
-- Définition exacte de la « dernière session pertinente » quand un exercice est
-  travaillé deux fois dans la même séance.
+- **Regroupement du graphe de progression.** « Par séance » est le défaut.
+  À plusieurs centaines de séances, « par semaine » ou « par mois » deviendra
+  nécessaire : c'est un troisième axe, indépendant de la mesure et de
+  l'agrégation, à ne pas coder en dur.
+- **L'axe du temps du graphe** : rang de séance (actuel, points équidistants)
+  ou date réelle (honnête sur les coupures, illisible sur les enchaînements).
 - Rattachement du tempo (§15 du cahier) : hors périmètre V1.
-- Représentation d'un objectif sans exercice — dépend du point 1.
 
 ---
 
