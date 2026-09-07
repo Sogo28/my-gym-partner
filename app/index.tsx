@@ -99,7 +99,7 @@ export default function ExercisesScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <Link href={{ pathname: '/new-exercise', params: { id: item.id } }} asChild>
+          <Link href={{ pathname: '/exercises/[id]', params: { id: item.id } }} asChild>
             <Pressable>
               <Card className={item.isArchived ? 'opacity-50' : undefined}>
                 <Text className="font-bold text-[17px] text-ink dark:text-ink-dark">
