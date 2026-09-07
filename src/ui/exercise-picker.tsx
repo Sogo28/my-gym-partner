@@ -54,9 +54,13 @@ export type ExercisePickerProps = {
    * arrive quand on en choisit un. Absent : la section ne s'affiche pas.
    */
   catalogue?: {
+    /** Faux tant qu'il n'est pas téléchargé : l'écran le dit au lieu de se taire. */
+    readonly available: boolean;
     suggest: (query: string) => Promise<CataloguesuggestionList>;
     adopt: (id: string) => Promise<string>;
   };
+  /** Ouvre les réglages, d'où le catalogue se télécharge. */
+  onOpenSettings?: () => void;
 };
 
 type CataloguesuggestionList = readonly CatalogueSuggestion[];
@@ -73,6 +77,7 @@ export function ExercisePicker({
   onConfirm,
   onClose,
   catalogue,
+  onOpenSettings,
 }: ExercisePickerProps) {
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string[]>([]);
@@ -130,7 +135,7 @@ export function ExercisePicker({
    * sous les siennes noierait les siennes.
    */
   useEffect(() => {
-    if (!catalogue || query.trim() === '') {
+    if (!catalogue?.available || query.trim() === '') {
       setSuggestions([]);
       return;
     }
@@ -241,6 +246,19 @@ export function ExercisePicker({
 
           {/* Le catalogue vient APRÈS : ce que tu fais déjà passe devant ce
               qu'un tiers propose. */}
+          {/* Chercher sans rien trouver, alors qu'un catalogue de 601
+              exercices existe, ne doit pas ressembler à une app vide. */}
+          {catalogue && !catalogue.available && query.trim() !== '' && (
+            <Pressable onPress={onOpenSettings} className="py-4">
+              <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+                Le catalogue de 601 exercices n est pas téléchargé.
+              </Text>
+              <Text className="pt-1 text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                L installer depuis les réglages
+              </Text>
+            </Pressable>
+          )}
+
           {suggestions.length > 0 && (
             <>
               <SectionLabel>Dans le catalogue</SectionLabel>

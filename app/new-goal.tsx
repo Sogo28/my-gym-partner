@@ -5,7 +5,7 @@ import {
   WINDOW_LABELS,
 } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -80,6 +80,14 @@ export default function NewGoalScreen() {
         })
         .catch((e) => setError(messageOf(e)));
     }, []),
+  );
+
+  const catalogue = useMemo(
+    () =>
+      catalogueSource(() => {
+        listActiveExercises().then(setExercises).catch((e) => setError(messageOf(e)));
+      }),
+    [],
   );
 
   const exerciseOf = (id: string) => exercises.find((e) => e.id === id);
@@ -367,9 +375,11 @@ export default function NewGoalScreen() {
           dans lequel on coche les exercices. Un objectif simple n'en vise
           qu'un, et se referme dès qu'on l'a touché. */}
       <ExercisePicker
-        catalogue={catalogueSource(() => {
-          listActiveExercises().then(setExercises).catch((e) => setError(messageOf(e)));
-        })}
+        catalogue={catalogue}
+        onOpenSettings={() => {
+          setPicking('none');
+          router.push('/settings');
+        }}
         visible={picking === 'exercise'}
         mode={progressive ? 'multiple' : 'single'}
         title={progressive ? 'Ajouter des étapes' : "Choisir l'exercice"}

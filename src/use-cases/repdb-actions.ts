@@ -75,10 +75,18 @@ export async function searchUnadopted(query: string): Promise<CatalogueEntry[]> 
  * exercice.
  */
 export function catalogueSource(onAdopted?: () => void) {
-  if (!catalogueState().downloaded) return undefined;
-
   return {
+    /**
+     * Le catalogue est-il là ? La question se pose à chaque recherche et non
+     * une fois pour toutes : il a pu être téléchargé entre-temps, et surtout
+     * l'écran doit pouvoir DIRE qu'il manque plutôt que de rester muet.
+     */
+    get available() {
+      return catalogueState().downloaded;
+    },
+
     suggest: async (query: string) => {
+      if (!catalogueState().downloaded) return [];
       const entries = await searchUnadopted(query);
       return entries.slice(0, 15).map((entry) => ({
         id: entry.id,
@@ -86,6 +94,7 @@ export function catalogueSource(onAdopted?: () => void) {
         detail: entry.equipment.replace(/_/g, ' ') || 'catalogue',
       }));
     },
+
     adopt: async (id: string) => {
       const entry = entryById(id);
       if (!entry) throw new DomainError('Cet exercice n est plus dans le catalogue.');

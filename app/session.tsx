@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -130,6 +130,14 @@ export default function SessionScreen() {
       setError(messageOf(e));
     }
   }
+
+  const catalogue = useMemo(
+    () =>
+      catalogueSource(() => {
+        reload().catch((e) => setError(messageOf(e)));
+      }),
+    [reload],
+  );
 
   const plan = plans.find((p) => p.id === session?.plannedWorkoutId);
   const activity = session?.currentActivity;
@@ -622,9 +630,11 @@ export default function SessionScreen() {
       <ExercisePicker
         // Adopter depuis le catalogue crée un exercice : la liste locale doit
         // en tenir compte tout de suite.
-        catalogue={catalogueSource(() => {
-          reload().catch((e) => setError(messageOf(e)));
-        })}
+        catalogue={catalogue}
+        onOpenSettings={() => {
+          setSheet('none');
+          router.push('/settings');
+        }}
         visible={sheet === 'pick-exercise'}
         mode="single"
         title="Choisir un exercice"

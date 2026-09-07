@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
@@ -78,6 +78,14 @@ export default function NewWorkoutScreen() {
       })
       .catch((e) => setError(messageOf(e)));
   }, [id]);
+
+  const catalogue = useMemo(
+    () =>
+      catalogueSource(() => {
+        listActiveExercises().then(setAvailable).catch((e) => setError(messageOf(e)));
+      }),
+    [],
+  );
 
   const exerciseOf = (id: string) => available.find((e) => e.id === id);
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -218,9 +226,11 @@ export default function NewWorkoutScreen() {
           fin de séance --, donc rien n'est coché d'avance et chaque passage
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
-        catalogue={catalogueSource(() => {
-          listActiveExercises().then(setAvailable).catch((e) => setError(messageOf(e)));
-        })}
+        catalogue={catalogue}
+        onOpenSettings={() => {
+          setPicking(false);
+          router.push('/settings');
+        }}
         visible={picking}
         title="Ajouter des exercices"
         exercises={available}
