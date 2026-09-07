@@ -506,6 +506,9 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
         style={{ width: '100%', height: 200 }}
         contentFit="contain"
         nativeControls={false}
+        // La vue vidéo est native : sans cela, elle avale le toucher et le
+        // Pressable qui l'entoure n'apprend jamais qu'on a tapé dessus.
+        pointerEvents="none"
         // Le son n'a de sens que si on a demandé le plein écran : dans la
         // fiche, la vidéo n'est qu'une vignette qui bouge.
         onFullscreenEnter={() => {
