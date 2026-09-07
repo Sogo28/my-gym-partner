@@ -432,7 +432,14 @@ function LocalVideo({ media }: { media: ExerciseMedia }) {
     if (!trim) return;
     // Le retour au début se fait sur les battements du lecteur : l'interroger
     // nous-mêmes à intervalle fixe ferait tourner du JavaScript pour rien.
-    player.timeUpdateEventInterval = 0.2;
+    //
+    // 0,05 s plutôt que 0,2 : le lecteur dépasse la fin de l'extrait de la
+    // durée d'un battement avant qu'on le rattrape, et deux dixièmes de trop
+    // se voient sur une boucle de cinq secondes.
+    player.timeUpdateEventInterval = 0.05;
+    // Un retour au début à 50 ms près, obtenu tout de suite, vaut mieux qu'un
+    // retour à l'image exacte qui fige le lecteur le temps de le trouver.
+    player.seekTolerance = { toleranceBefore: 0.05, toleranceAfter: 0 };
     const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
       if (currentTime >= trim.to) player.currentTime = trim.from;
     });
