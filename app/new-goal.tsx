@@ -1,4 +1,3 @@
-import { createQuickExercise } from '../src/use-cases/create-exercise';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
@@ -377,11 +376,7 @@ export default function NewGoalScreen() {
           qu'un, et se referme dès qu'on l'a touché. */}
       <ExercisePicker
         catalogue={catalogue}
-        onCreate={async (name) => {
-          const created = await createQuickExercise(name);
-          listActiveExercises().then(setExercises).catch((e) => setError(messageOf(e)));
-          return created.id;
-        }}
+        onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
         onOpenSettings={() => {
           setPicking('none');
           router.push('/settings');

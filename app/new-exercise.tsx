@@ -16,13 +16,6 @@ import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
 import { forgetUnusedMedia, mediaUri, pickDemonstration } from '../src/use-cases/media-actions';
-import {
-  catalogueState,
-  draftFrom,
-  searchCatalogue,
-  type CatalogueEntry,
-} from '../src/use-cases/repdb-actions';
-import { SearchField } from '../src/ui/search';
 import { TrimSheet } from '../src/ui/trim-sheet';
 import {
   discardExercise,
@@ -40,8 +33,7 @@ export default function NewExerciseScreen() {
   const { id, name: wanted } = useLocalSearchParams<{ id?: string; name?: string }>();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [existing, setExisting] = useState<Exercise | null>(null);
-  // Le nom peut arriver de la recherche qui n'a rien trouvé.
-  const [name, setName] = useState(wanted ?? '');
+  const [name, setName] = useState('');
   const [isUnilateral, setIsUnilateral] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
@@ -50,11 +42,6 @@ export default function NewExerciseScreen() {
   const [media, setMedia] = useState<ExerciseMedia[]>([]);
   /** La vidéo dont on règle les bornes, s'il y en a une. */
   const [trimming, setTrimming] = useState<ExerciseMedia | null>(null);
-  /** L'import depuis le catalogue : sa recherche, et ce qu'elle renvoie. */
-  const [importing, setImporting] = useState(false);
-  const [hasCatalogue, setHasCatalogue] = useState(false);
-  const [query, setQuery] = useState('');
-  const [found, setFound] = useState<CatalogueEntry[]>([]);
   /** La feuille de choix ouverte, s'il y en a une. */
   const [choosing, setChoosing] = useState<'none' | 'measurements' | 'primary' | 'secondary'>(
     'none',
@@ -74,39 +61,20 @@ export default function NewExerciseScreen() {
     useCallback(() => {
       findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
       findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
-      // ...y compris celui de RepDB, qu'on a pu télécharger entre-temps.
-      setHasCatalogue(catalogueState().downloaded);
     }, []),
   );
 
   /**
-   * L'import REMPLIT le formulaire, il ne crée rien.
+   * Le nom cherché arrive en paramètre : l'écran s'ouvre avec.
    *
-   * Le nom arrive en anglais, les mesures sont devinées d'après « au poids du
-   * corps », et un muscle que nous ne nommons pas a été écarté : rien de tout
-   * cela ne doit atterrir en base sans que tu l'aies relu.
+   * Pas dans l'état initial : expo-router garde l'écran monté, et `useState`
+   * ne lit sa valeur de départ qu'au tout premier affichage -- la deuxième
+   * recherche serait arrivée dans un formulaire vide.
    */
-  function fill(entry: CatalogueEntry) {
-    const draft = draftFrom(entry);
-    setName(draft.name);
-    setIsUnilateral(draft.isUnilateral);
-    setSelected([...draft.measurementIds]);
-    setPrimaryMuscle(draft.primaryMuscleId);
-    setSecondaryMuscles([...draft.secondaryMuscleIds]);
-    // Les illustrations remplacent celles d'un import précédent, et laissent
-    // intactes les vidéos qu'on aurait déjà ajoutées soi-même.
-    setMedia((current) => [
-      ...current.filter((item) => item.kind !== 'image'),
-      ...draft.imageUris.map((uri) => ({
-        kind: 'image' as const,
-        uri,
-        label: null,
-        trim: null,
-      })),
-    ]);
-    setImporting(false);
-    setError(null);
-  }
+  useEffect(() => {
+    if (id || !wanted) return;
+    setName(wanted);
+  }, [id, wanted]);
 
   // ...mais l'exercice à modifier une seule fois : le relire écraserait ce
   // qu'on est en train de saisir.
@@ -195,21 +163,6 @@ export default function NewExerciseScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-6 px-5 pb-8">
-        {/* Modifier un exercice existant, c'est corriger CE qu'il est : y
-            déverser un exercice du catalogue écraserait tout. */}
-        {!existing && hasCatalogue && (
-          <Button
-            label="Remplir depuis le catalogue"
-            variant="secondary"
-            size="md"
-            onPress={() => {
-              setQuery('');
-              setFound(searchCatalogue(''));
-              setImporting(true);
-            }}
-          />
-        )}
-
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Démonstrations
@@ -332,45 +285,6 @@ export default function NewExerciseScreen() {
           />
         </View>
       </View>
-
-      <Sheet
-        visible={importing}
-        title="Catalogue d exercices"
-        description="Le nom arrive en anglais : renomme-le comme tu l appelles."
-        onClose={() => setImporting(false)}
-      >
-        <View className="gap-2 pb-2">
-          <SearchField
-            value={query}
-            onChange={(next) => {
-              setQuery(next);
-              setFound(searchCatalogue(next));
-            }}
-            placeholder="Chercher dans le catalogue"
-          />
-          <ScrollView className="max-h-80" contentContainerClassName="gap-2">
-            {found.length === 0 && (
-              <Text className="py-3 text-center text-[13px] text-muted dark:text-muted-dark">
-                Aucun exercice ne correspond.
-              </Text>
-            )}
-            {found.map((entry) => (
-              <Pressable
-                key={entry.id}
-                onPress={() => fill(entry)}
-                className="rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark"
-              >
-                <Text className="font-medium text-[15px] text-ink dark:text-ink-dark">
-                  {entry.name}
-                </Text>
-                <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
-                  {entry.equipment.replace(/_/g, ' ')}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </Sheet>
 
       <TrimSheet
         visible={trimming !== null}

@@ -28,14 +28,3 @@ export async function createExercise(input: {
   await save(exercise);
   return exercise;
 }
-
-/**
- * Créer au vol, sans quitter ce qu'on est en train de faire.
- *
- * Mesuré en répétitions, unilatéral non : ce sont les cas les plus fréquents,
- * et le domaine exige au moins une mesure. Tout se corrige depuis sa fiche,
- * plus tard -- en séance, ce qui compte est de pouvoir enchaîner.
- */
-export function createQuickExercise(name: string): Promise<Exercise> {
-  return createExercise({ name, isUnilateral: false, measurementIds: ['reps'] });
-}

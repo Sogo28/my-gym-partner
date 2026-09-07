@@ -63,10 +63,10 @@ export type ExercisePickerProps = {
   /** Ouvre les réglages, d'où le catalogue se télécharge. */
   onOpenSettings?: () => void;
   /**
-   * Créer l'exercice cherché, quand ni le catalogue ni toi ne l'avez.
-   * Rend son identifiant, pour le retenir aussitôt.
+   * Ouvrir le formulaire pour l'exercice cherché, quand ni le catalogue ni
+   * toi ne l'avez. Le sélecteur se referme : on part le définir.
    */
-  onCreate?: (name: string) => Promise<string>;
+  onCreate?: (name: string) => void;
 };
 
 type CataloguesuggestionList = readonly CatalogueSuggestion[];
@@ -159,25 +159,15 @@ export function ExercisePicker({
   }, [catalogue, query]);
 
   /**
-   * Créer ce qu'on cherchait : la callisthénie vit de variantes qu'aucun
-   * catalogue ne connaît -- « Front lever tuck » n'existe que chez toi.
+   * Aller définir ce qu'on cherchait : la callisthénie vit de variantes
+   * qu'aucun catalogue ne connaît -- « Front lever tuck » n'existe que chez
+   * toi, et se décrit avec ses mesures et ses muscles, pas d'un tap.
    */
-  async function create() {
+  function create() {
     if (!onCreate) return;
     const wanted = query.trim();
-    setAdopting(wanted);
-    try {
-      const exerciseId = await onCreate(wanted);
-      if (mode === 'single') {
-        onConfirm([exerciseId]);
-        onClose();
-        return;
-      }
-      setSelected((current) => [...current, exerciseId]);
-      setQuery('');
-    } finally {
-      setAdopting(null);
-    }
+    onClose();
+    onCreate(wanted);
   }
 
   /** Adopter, c'est créer l'exercice puis le retenir comme les autres. */
@@ -277,8 +267,7 @@ export function ExercisePicker({
           {onCreate && query.trim() !== '' && matching.length === 0 && (
             <CatalogueRow
               name={`Créer « ${query.trim()} »`}
-              detail="mesuré en répétitions · à préciser plus tard"
-              busy={adopting === query.trim()}
+              detail="ouvre le formulaire, nom déjà rempli"
               onPress={create}
             />
           )}
