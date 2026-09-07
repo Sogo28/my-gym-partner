@@ -15,6 +15,7 @@ import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
+import { forgetUnusedMedia, pickVideo } from '../src/use-cases/media-actions';
 import {
   discardExercise,
   unarchiveExercise,
@@ -104,7 +105,21 @@ export default function NewExerciseScreen() {
           media,
         });
       }
+      // Une vidéo retirée du formulaire n'est effacée qu'ICI : tant que
+      // l'enregistrement n'a pas eu lieu, l'exercice en base la réclame encore.
+      await forgetUnusedMedia();
       router.back();
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  /** La vidéo choisie est copiée dans l'application avant d'être retenue. */
+  async function addVideo() {
+    try {
+      const picked = await pickVideo();
+      if (picked) setMedia((current) => [...current, picked]);
+      setError(null);
     } catch (e) {
       setError(messageOf(e));
     }
@@ -137,6 +152,7 @@ export default function NewExerciseScreen() {
     if (!existing) return;
     try {
       await discardExercise(existing);
+      await forgetUnusedMedia();
       router.back();
     } catch (e) {
       setError(messageOf(e));
@@ -221,8 +237,8 @@ export default function NewExerciseScreen() {
             Démonstrations
           </Text>
           <Text className="text-[13px] text-muted dark:text-muted-dark">
-            Des liens vers une vidéo : YouTube, un réel Instagram. Ils s'ouvrent dans leur
-            application.
+            Un lien vers une vidéo, ou une vidéo prise sur ce téléphone. Un lien s'ouvre dans son
+            application ; un fichier se lit ici, mais n'entre pas dans tes sauvegardes.
           </Text>
 
           {media.map((item) => (
@@ -235,7 +251,7 @@ export default function NewExerciseScreen() {
                   {item.label ?? sourceOf(item)}
                 </Text>
                 <Text className="font-mono text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
-                  {item.uri}
+                  {item.kind === 'file' ? 'vidéo sur ce téléphone' : item.uri}
                 </Text>
               </View>
               <Pressable
@@ -247,12 +263,22 @@ export default function NewExerciseScreen() {
             </View>
           ))}
 
-          <Button
-            label="+ Ajouter un lien"
-            variant="secondary"
-            size="md"
-            onPress={() => setLink({ uri: '', label: '' })}
-          />
+          <View className="flex-row gap-2">
+            <Button
+              label="+ Lien"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={() => setLink({ uri: '', label: '' })}
+            />
+            <Button
+              label="+ Vidéo"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={addVideo}
+            />
+          </View>
         </View>
 
         <View className="flex-row items-center justify-between gap-4">

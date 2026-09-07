@@ -1,8 +1,10 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { ExerciseMedia } from '../../src/domain/exercise/media';
 import { sourceOf } from '../../src/domain/exercise/media';
 import type { Muscle } from '../../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
@@ -19,6 +21,7 @@ import { formatSetValues } from '../../src/ui/set-values';
 import { Sheet } from '../../src/ui/sheet';
 import { Tag } from '../../src/ui/tag';
 import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
+import { mediaExists, mediaUri } from '../../src/use-cases/media-actions';
 import { bestValue } from '../../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../../src/use-cases/exercise-detail';
 
@@ -133,39 +136,43 @@ export default function ExerciseDetailScreen() {
             elles passent devant les chiffres. */}
         {exercise.media.length > 0 && (
           <View className="gap-2">
-            {exercise.media.map((item) => (
-              <Pressable
-                key={item.uri}
-                // Ouvert dans son application d'origine : l'y afficher
-                // demanderait une vue web, et Instagram la refuse une fois
-                // sur deux.
-                onPress={() =>
-                  Linking.openURL(item.uri).catch(() =>
-                    setError("Ce lien n'a pas pu être ouvert."),
-                  )
-                }
-              >
-                <Card className="flex-row items-center justify-between gap-3">
-                  <View className="shrink">
-                    <Text
-                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
-                      numberOfLines={1}
-                    >
-                      {item.label ?? sourceOf(item)}
+            {exercise.media.map((item) =>
+              item.kind === 'file' ? (
+                <LocalVideo key={item.uri} media={item} />
+              ) : (
+                <Pressable
+                  key={item.uri}
+                  // Ouvert dans son application d'origine : l'afficher ici
+                  // demanderait une vue web, et Instagram la refuse une fois
+                  // sur deux.
+                  onPress={() =>
+                    Linking.openURL(item.uri).catch(() =>
+                      setError("Ce lien n'a pas pu être ouvert."),
+                    )
+                  }
+                >
+                  <Card className="flex-row items-center justify-between gap-3">
+                    <View className="shrink">
+                      <Text
+                        className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {item.label ?? sourceOf(item)}
+                      </Text>
+                      <Text
+                        className="font-mono text-[11px] text-muted dark:text-muted-dark"
+                        numberOfLines={1}
+                      >
+                        {sourceOf(item)}
+                      </Text>
+                    </View>
+                    <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                      ouvrir
                     </Text>
-                    <Text
-                      className="font-mono text-[11px] text-muted dark:text-muted-dark"
-                      numberOfLines={1}
-                    >
-                      {sourceOf(item)}
-                    </Text>
-                  </View>
-                  <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
-                    ouvrir
-                  </Text>
-                </Card>
-              </Pressable>
-            ))}
+                  </Card>
+                </Pressable>
+              ),
+            )}
           </View>
         )}
 
@@ -400,5 +407,39 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
         {label}
       </Text>
     </Card>
+  );
+}
+
+/**
+ * Une vidéo prise sur ce téléphone.
+ *
+ * Composant à part : chaque lecteur a son propre `useVideoPlayer`, et un
+ * crochet ne peut pas naître au milieu d'une boucle.
+ */
+function LocalVideo({ media }: { media: ExerciseMedia }) {
+  // Le fichier peut manquer : une sauvegarde restaurée ailleurs ramène la
+  // ligne, jamais la vidéo.
+  const present = mediaExists(media);
+  const player = useVideoPlayer(present ? mediaUri(media) : null, (instance) => {
+    instance.loop = true;
+  });
+
+  if (!present) {
+    return (
+      <Card className="gap-1">
+        <Text className="font-bold text-[15px] text-ink dark:text-ink-dark">
+          {media.label ?? 'Vidéo'}
+        </Text>
+        <Text className="text-[12px] text-muted dark:text-muted-dark">
+          Fichier introuvable sur ce téléphone.
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <View className="overflow-hidden rounded-2xl border border-border bg-black dark:border-border-dark">
+      <VideoView player={player} style={{ width: '100%', height: 200 }} contentFit="contain" />
+    </View>
   );
 }
