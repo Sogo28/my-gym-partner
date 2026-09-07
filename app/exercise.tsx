@@ -2,32 +2,37 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Measurement } from '../../src/domain/exercise/measurement';
-import type { Muscle } from '../../src/domain/exercise/muscle';
-import { findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
-import { BarChart } from '../../src/ui/bar-chart';
-import { Card } from '../../src/ui/card';
-import { Collapsible } from '../../src/ui/collapsible';
-import { EmptyState } from '../../src/ui/empty-state';
-import { formatDateTime } from '../../src/ui/format';
-import { messageOf } from '../../src/ui/message';
-import { BusinessNotice } from '../../src/ui/notice';
-import { BackHeader } from '../../src/ui/screen-header';
-import { cn } from '../../src/ui/cn';
-import { formatSetValues } from '../../src/ui/set-values';
-import { Sheet } from '../../src/ui/sheet';
-import { MediaStrip } from '../../src/ui/media-strip';
-import { Tag } from '../../src/ui/tag';
-import { TrimmedVideo } from '../../src/ui/trimmed-video';
-import { discardExercise, unarchiveExercise } from '../../src/use-cases/edit-catalogue';
-import { bestValue } from '../../src/domain/performance/records';
-import { getExerciseDetail, type ExerciseDetail } from '../../src/use-cases/exercise-detail';
+import type { Measurement } from '../src/domain/exercise/measurement';
+import type { Muscle } from '../src/domain/exercise/muscle';
+import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
+import { BarChart } from '../src/ui/bar-chart';
+import { Card } from '../src/ui/card';
+import { Collapsible } from '../src/ui/collapsible';
+import { EmptyState } from '../src/ui/empty-state';
+import { formatDateTime } from '../src/ui/format';
+import { messageOf } from '../src/ui/message';
+import { BusinessNotice } from '../src/ui/notice';
+import { BackHeader } from '../src/ui/screen-header';
+import { cn } from '../src/ui/cn';
+import { formatSetValues } from '../src/ui/set-values';
+import { Sheet } from '../src/ui/sheet';
+import { MediaStrip } from '../src/ui/media-strip';
+import { Tag } from '../src/ui/tag';
+import { TrimmedVideo } from '../src/ui/trimmed-video';
+import { discardExercise, unarchiveExercise } from '../src/use-cases/edit-catalogue';
+import { bestValue } from '../src/domain/performance/records';
+import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
 const PAGE = 5;
 
 /**
  * La fiche d'un exercice : ce qu'il est, et ce qu'il a produit.
+ *
+ * Route plate, l'identifiant en paramètre -- comme le formulaire. Une pile
+ * `exercises/[id]` donnait au geste de retour d'Android une racine à laquelle
+ * revenir : /exercises, un écran sans identifiant, qui s'affichait donc en
+ * « Exercice introuvable » au lieu de rendre la main à la liste.
  *
  * Consulter n'est pas modifier. Tant que la liste ouvrait le formulaire,
  * regarder un exercice et le casser par mégarde étaient le même geste ; le

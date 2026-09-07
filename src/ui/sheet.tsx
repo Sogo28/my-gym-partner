@@ -6,10 +6,10 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { cn } from './cn';
+import { SearchField } from './search';
 
 export type SheetAction = {
   label: string;
@@ -74,14 +74,9 @@ export function Sheet({
         )}
 
         {searchPlaceholder && (
-          <TextInput
-            className="mb-1 h-12 rounded-lg border border-border bg-surface px-4 text-[16px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
-            placeholder={searchPlaceholder}
-            placeholderTextColor="#A8AD9E"
-            value={query}
-            onChangeText={setQuery}
-            autoCorrect={false}
-          />
+          <View className="mb-1">
+            <SearchField value={query} onChange={setQuery} placeholder={searchPlaceholder} />
+          </View>
         )}
 
         {children}
