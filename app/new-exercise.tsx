@@ -10,6 +10,7 @@ import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exerc
 import { Button } from '../src/ui/button';
 import { BusinessNotice } from '../src/ui/notice';
 import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
+import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
 import {
@@ -38,6 +39,8 @@ export default function NewExerciseScreen() {
   const [choosing, setChoosing] = useState<'none' | 'measurements' | 'primary' | 'secondary'>(
     'none',
   );
+  /** Le menu de l'écran, et la confirmation qu'il peut demander. */
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
   const [error, setError] = useState<string | null>(null);
 
   const toggle =
@@ -117,6 +120,8 @@ export default function NewExerciseScreen() {
           title={existing ? "Modifier l'exercice" : 'Nouvel exercice'}
           subtitle={existing ? 'les séances passées ne changent pas' : undefined}
           onBack={() => router.back()}
+          // Rien à retirer tant que l'exercice n'existe pas : pas de menu.
+          onMenu={existing ? () => setSheet('menu') : undefined}
         />
       </View>
 
@@ -204,24 +209,7 @@ export default function NewExerciseScreen() {
         {error && <BusinessNotice message={error} />}
       </ScrollView>
 
-      <View className="gap-2 p-5 pt-2">
-        {/* Retirer ou remettre au catalogue reste au-dessus : c'est une action
-            sur ce qui existe, pas une façon de quitter l'écran. */}
-        {existing?.isArchived ? (
-          <Button
-            label="Remettre au catalogue"
-            variant="secondary"
-            size="md"
-            onPress={() =>
-              unarchiveExercise(existing)
-                .then(() => router.back())
-                .catch((e) => setError(messageOf(e)))
-            }
-          />
-        ) : existing ? (
-          <Button label="Retirer du catalogue" variant="danger" size="md" onPress={discard} />
-        ) : null}
-
+      <View className="p-5 pt-2">
         <View className="flex-row gap-3">
           <Button
             label="Annuler"
@@ -238,6 +226,42 @@ export default function NewExerciseScreen() {
           />
         </View>
       </View>
+
+      <Sheet
+        visible={sheet === 'menu'}
+        title={existing?.name ?? 'Exercice'}
+        actions={
+          existing?.isArchived
+            ? [
+                {
+                  label: 'Remettre au catalogue',
+                  onPress: () =>
+                    unarchiveExercise(existing)
+                      .then(() => router.back())
+                      .catch((e) => setError(messageOf(e))),
+                },
+              ]
+            : [
+                {
+                  label: 'Retirer du catalogue',
+                  tone: 'danger' as const,
+                  onPress: () => setSheet('confirm-discard'),
+                },
+              ]
+        }
+        onClose={() => setSheet('none')}
+      />
+
+      {/* Retirer n'est pas toujours la même opération : la base tranche entre
+          archiver et supprimer. La confirmation annonce les deux, faute de
+          pouvoir dire laquelle avant d'avoir regardé. */}
+      <Sheet
+        visible={sheet === 'confirm-discard'}
+        title="Retirer cet exercice ?"
+        description="S'il a déjà servi, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
+        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        onClose={() => setSheet('none')}
+      />
 
       <OptionSheet
         visible={choosing === 'measurements'}

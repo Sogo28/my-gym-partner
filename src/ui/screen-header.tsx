@@ -33,12 +33,13 @@ export function SectionHeader({
   );
 }
 
-/** Variante 2 : retour + titre. */
+/** Variante 2 : retour + titre, et son menu quand la page en a un. */
 export function BackHeader({
   title,
   subtitle,
   onBack,
-}: SectionHeaderProps & { onBack: () => void }) {
+  onMenu,
+}: SectionHeaderProps & { onBack: () => void; onMenu?: () => void }) {
   return (
     <View className="flex-row items-center gap-3 pb-2">
       <Pressable
@@ -47,7 +48,7 @@ export function BackHeader({
       >
         <Ionicons name="chevron-back" size={22} color="#8B9086" />
       </Pressable>
-      <View className="shrink gap-0.5">
+      <View className="shrink grow gap-0.5">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark" numberOfLines={1}>
           {title}
         </Text>
@@ -55,6 +56,15 @@ export function BackHeader({
           <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{subtitle}</Text>
         )}
       </View>
+      {onMenu && (
+        <Pressable
+          onPress={onMenu}
+          hitSlop={8}
+          className="h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
+        </Pressable>
+      )}
     </View>
   );
 }
