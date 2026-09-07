@@ -125,15 +125,17 @@ function LargeVideo({
 
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable className="flex-1 items-center justify-center bg-black" onPress={onClose}>
+      <View className="flex-1 bg-black">
         <VideoView
           player={player}
           style={{ width: '100%', height: '100%' }}
           contentFit="contain"
           nativeControls={false}
-          pointerEvents="none"
         />
-      </Pressable>
+        {/* Par-dessus, comme pour la vignette : entourer la vidéo ne suffit
+            pas, elle garde ses touchers pour elle. */}
+        <Pressable className="absolute inset-0" onPress={onClose} />
+      </View>
     </Modal>
   );
 }
