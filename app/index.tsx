@@ -8,8 +8,8 @@ import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { Tag } from '../src/ui/tag';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
-import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
+import { Fab } from '../src/ui/fab';
 import { EmptyState } from '../src/ui/empty-state';
 import { MuscleFilterChip, MuscleFilterSheet } from '../src/ui/muscle-filter';
 import { SectionHeader } from '../src/ui/screen-header';
@@ -76,7 +76,8 @@ export default function ExercisesScreen() {
       <FlatList
         data={shown}
         keyExtractor={(item) => item.id}
-        contentContainerClassName="gap-3 pb-4"
+        // La liste s'arrête au-dessus de la pastille d'ajout.
+        contentContainerClassName="gap-3 pb-28"
         ListEmptyComponent={
           <EmptyState
             title={query || filter.length > 0 ? 'Aucun résultat' : 'Aucun exercice'}
@@ -126,7 +127,7 @@ export default function ExercisesScreen() {
       {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
 
       <Link href="/new-exercise" asChild>
-        <Button label="Nouvel exercice" size="lg" className="mb-2" />
+        <Fab accessibilityLabel="Nouvel exercice" />
       </Link>
 
       <MuscleFilterSheet
