@@ -6,7 +6,7 @@ import { Archivo_900Black } from '@expo-google-fonts/archivo/900Black';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono/400Regular';
 import { JetBrainsMono_800ExtraBold } from '@expo-google-fonts/jetbrains-mono/800ExtraBold';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
@@ -37,7 +37,20 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
+  /**
+   * Le thème du NAVIGATEUR, distinct de celui de nos écrans.
+   *
+   * Chaque navigateur peint un fond sous l'écran qu'il affiche, et le thème
+   * par défaut de react-navigation est clair : d'où l'éclair blanc entre deux
+   * écrans, que déclarer le fond d'une pile ne suffisait pas à couvrir --
+   * les onglets ont le leur, et la racine de l'application aussi.
+   */
+  const theme = dark
+    ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: '#0E0F0D', card: '#141613' } }
+    : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#F6F7F3', card: '#EDEFE8' } };
+
   return (
+    <ThemeProvider value={theme}>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -57,5 +70,6 @@ export default function RootLayout() {
       <Stack.Screen name="body" />
       <Stack.Screen name="settings" />
     </Stack>
+    </ThemeProvider>
   );
 }
