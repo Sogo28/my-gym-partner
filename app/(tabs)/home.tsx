@@ -345,25 +345,27 @@ export default function HomeScreen() {
 
                 return (
                   <Pressable key={goal.id} onPress={() => router.push('/goals')}>
-                    <Card className="min-h-[104px] w-[190px] gap-2">
+                    <Card className="w-[190px] gap-2">
+                      {/* Deux lignes RÉSERVÉES, occupées ou non : c'est ce qui
+                          aligne les vignettes entre elles sans les étirer, un
+                          nom court ne devant pas raccourcir sa carte. */}
                       <Text
-                        className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                        className="h-[38px] font-bold text-[15px] leading-[19px] text-ink dark:text-ink-dark"
                         numberOfLines={2}
                       >
                         {goal.name}
                       </Text>
 
-                      {/* L'étape en cours se nomme : son NUMÉRO ne dit pas
-                          quelle variante on travaille, et c'est elle qu'on
-                          cherche en regardant la vignette. */}
-                      {goal.isProgressive && (
-                        <Text
-                          className="text-[12px] text-primary-ink dark:text-primary-ink-dark"
-                          numberOfLines={1}
-                        >
-                          {subjectName(goal.currentSubject)}
-                        </Text>
-                      )}
+                      {/* Ce qui est visé, nommé -- l'étape en cours pour une
+                          progression, le sujet pour un objectif simple. Le
+                          numéro d'étape ne dirait pas quelle variante on
+                          travaille, et c'est elle qu'on cherche ici. */}
+                      <Text
+                        className="text-[12px] text-primary-ink dark:text-primary-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {subjectName(goal.currentSubject)}
+                      </Text>
 
                       {first ? (
                         <View className="gap-0.5">
