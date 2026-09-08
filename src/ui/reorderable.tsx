@@ -77,10 +77,15 @@ export function Reorderable<T>({
     }
     from.current = null;
     travelled.current = 0;
-    offset.setValue(0);
+
+    // Le déplacement est un état React, la position de la carte une valeur
+    // animée appliquée tout de suite : remettre celle-ci à zéro avant que
+    // celui-là ne soit peint ferait revenir la carte à sa place d'origine
+    // le temps d'une image, juste avant qu'elle n'apparaisse à la nouvelle.
     setDragged(null);
     setPreview(null);
     onDraggingChange?.(false);
+    requestAnimationFrame(() => offset.setValue(0));
   }
 
   return (
