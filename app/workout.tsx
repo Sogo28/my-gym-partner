@@ -9,7 +9,9 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { Button } from '../src/ui/button';
+import { BodyMap } from '../src/ui/body-map';
 import { Collapsible } from '../src/ui/collapsible';
+import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
@@ -74,6 +76,22 @@ export default function WorkoutDetailScreen() {
 
   const totalSets = plan.exercises.reduce((total, e) => total + e.sets.length, 0);
 
+  /**
+   * Les muscles de l'entraînement : ceux de ses exercices.
+   *
+   * Rien n'est stocké -- un entraînement ne déclare pas de muscles, il en
+   * hérite de ce qu'il contient, et le jour où un exercice change de muscle
+   * principal, sa fiche le dit sans qu'on ait rien à mettre à jour.
+   */
+  const planned = plan.exercises
+    .map((entry) => exercises.find((exercise) => exercise.id === entry.exerciseId))
+    .filter((exercise) => exercise !== undefined);
+
+  const worked = highlight(
+    planned.map((exercise) => exercise.primaryMuscleId).filter((id) => id !== null),
+    planned.flatMap((exercise) => exercise.secondaryMuscleIds),
+  );
+
   /** Archivé s'il a déjà produit des séances, supprimé sinon. */
   async function discard() {
     if (!plan) return;
@@ -96,6 +114,10 @@ export default function WorkoutDetailScreen() {
         />
       </View>
       <ScrollView contentContainerClassName="gap-3 p-5 pb-8">
+        {/* Ce que l'entraînement travaille, avant ce qu'il contient : c'est
+            la question qu'on se pose en ouvrant sa fiche. */}
+        <BodyMap parts={worked} />
+
 
         {plan.exercises.map((planned, position) => (
           <Collapsible
