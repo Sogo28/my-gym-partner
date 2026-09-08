@@ -42,16 +42,13 @@ const LABELS: Record<SetRowStatus, string | null> = {
  * (trait pointillé) à "en cours" gardait son pointillé jusqu'au prochain
  * remontage.
  */
-function outlineOf(status: SetRowStatus, accent: string, compact: boolean): ViewStyle {
+function outlineOf(status: SetRowStatus, accent: string): ViewStyle {
   return {
     borderWidth: 2,
     borderColor: accent,
     borderLeftWidth: 2,
     borderLeftColor: accent,
-    // Le pointillé dit « pas encore faite », ce qui n'apprend rien sur une
-    // fiche où aucune ne l'est. En séance, il distingue le reste à faire de
-    // ce qui est derrière soi.
-    borderStyle: status === 'planned' && !compact ? 'dashed' : 'solid',
+    borderStyle: status === 'planned' ? 'dashed' : 'solid',
   };
 }
 
@@ -63,14 +60,6 @@ type SetRowProps = {
   /** Rend la ligne tapable, pour ouvrir l'ajustement de cette série. */
   onPress?: () => void;
   selected?: boolean;
-  /**
-   * Version resserrée, pour une liste qu'on LIT plutôt qu'on exécute.
-   *
-   * En séance, une série se déchiffre d'un coup d'oeil entre deux efforts et
-   * mérite sa taille ; sur la fiche d'un entraînement, cinq lignes pleine
-   * hauteur écrasent tout ce qu'il y a autour.
-   */
-  compact?: boolean;
 };
 
 /**
@@ -78,14 +67,7 @@ type SetRowProps = {
  * l'étiquette -- jamais par la seule luminance du texte, qui tomberait sous
  * le seuil de contraste lisible en salle.
  */
-export function SetRow({
-  index,
-  status,
-  values,
-  onPress,
-  selected = false,
-  compact = false,
-}: SetRowProps) {
+export function SetRow({ index, status, values, onPress, selected = false }: SetRowProps) {
   const accents = ACCENTS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   // Ouvrir une série à l'ajustement, c'est y revenir : elle se montre comme
   // celle qu'on est en train de faire.
@@ -99,8 +81,7 @@ export function SetRow({
     <Row
       onPress={onPress}
       className={cn(
-        'flex-row items-center gap-3 rounded-xl',
-        compact ? 'min-h-[42px] gap-2 px-3' : 'min-h-[60px] px-4',
+        'min-h-[60px] flex-row items-center gap-3 rounded-xl px-4',
         status === 'completed' && 'bg-surface dark:bg-surface-dark',
         status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
         status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
@@ -109,17 +90,13 @@ export function SetRow({
       // La bordure passe en style direct : appliquée par la feuille de styles,
       // elle pouvait manquer au premier tracé d'une ligne qui vient
       // d'apparaître, et ne revenir qu'au remontage de la liste.
-      style={outlineOf(selected ? 'in-progress' : status, outline, compact)}
+      style={outlineOf(selected ? 'in-progress' : status, outline)}
     >
-      {/* Pas de pastille en version resserrée : sur une fiche, toutes les
-          séries sont prévues, donc le cercle y est toujours vide -- il ne
-          marque rien et ne fait que décaler la valeur. */}
-      {!compact && <Badge index={index} status={status} accent={accents[status]} />}
+      <Badge index={index} status={status} accent={accents[status]} />
 
       <Text
         className={cn(
-          'flex-1 font-mono-bold',
-          compact ? 'text-[15px]' : 'text-[20px]',
+          'flex-1 font-mono-bold text-[20px]',
           status === 'completed' && 'text-ink dark:text-ink-dark',
           status === 'planned' && 'text-planned dark:text-planned-dark',
           status === 'abandoned' && 'text-muted line-through dark:text-muted-dark',
@@ -131,10 +108,8 @@ export function SetRow({
         {values}
       </Text>
 
-      {/* shrink-0 : cette mention ne doit jamais rogner la valeur. Resserrée,
-          elle disparaît : toutes les lignes d'une fiche partagent le même
-          état, le répéter à chacune n'apprend rien. */}
-      {!compact && LABELS[status] && (
+      {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
+      {LABELS[status] && (
         <Text
           className="shrink-0 font-bold uppercase text-label"
           style={{ color: accents[status] }}

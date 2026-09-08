@@ -12,7 +12,6 @@ import { Button } from '../src/ui/button';
 import { Ionicons } from '@expo/vector-icons';
 import { BodyMap } from '../src/ui/body-map';
 import { Card } from '../src/ui/card';
-import { SetRow } from '../src/ui/set-row';
 import { formatTargets } from '../src/ui/set-values';
 import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
@@ -147,17 +146,21 @@ export default function WorkoutDetailScreen() {
                   aucune série prévue
                 </Text>
               ) : (
-                // Les mêmes lignes qu'en séance : une série prévue se dessine
-                // pareil, qu'on la lise avant ou qu'on la fasse.
-                planned.sets.map((set, index) => (
-                  <SetRow
-                    compact
-                    key={index}
-                    index={index + 1}
-                    status="planned"
-                    values={formatTargets(set.targets, unitOf)}
-                  />
-                ))
+                /* Du texte, pas des cadres : cinq encadrés sous chaque exercice
+                   pesaient plus que ce qu'ils contenaient. La hiérarchie tient
+                   au corps et à la couleur -- le nom en gras sombre, les séries
+                   en chiffres alignés. */
+                <View className="gap-0.5">
+                  {planned.sets.map((set, index) => (
+                    <Text
+                      key={index}
+                      className="font-mono text-[13px] text-planned dark:text-planned-dark"
+                      style={{ fontVariant: ['tabular-nums'] }}
+                    >
+                      {index + 1}.  {formatTargets(set.targets, unitOf)}
+                    </Text>
+                  ))}
+                </View>
               )}
             </Card>
           </Pressable>
