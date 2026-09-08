@@ -223,7 +223,7 @@ export default function HomeScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-5 px-5 pb-10">
         {error && <BusinessNotice message={error} />}
 
         {/* Une séance ouverte passe avant tout le reste : sans ce bandeau,
@@ -329,7 +329,11 @@ export default function HomeScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerClassName="items-stretch gap-2 pr-4"
+              // Une hauteur commune, pas un étirement : la rangée vit dans
+              // une page qui défile, et s'étirer sur elle allongeait les
+              // vignettes bien au-delà de ce qu'elles contiennent.
+              className="grow-0"
+              contentContainerClassName="gap-2 pb-1 pr-4"
             >
               {goals.map((goal) => {
                 const evaluation = evaluations.get(goal.id);
@@ -341,7 +345,7 @@ export default function HomeScreen() {
 
                 return (
                   <Pressable key={goal.id} onPress={() => router.push('/goals')}>
-                    <Card className="h-full w-[190px] gap-2">
+                    <Card className="min-h-[104px] w-[190px] gap-2">
                       <Text
                         className="font-bold text-[15px] text-ink dark:text-ink-dark"
                         numberOfLines={2}
