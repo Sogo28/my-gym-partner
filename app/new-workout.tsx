@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -27,6 +28,23 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 /**
+ * Ce que vise une série qu'on vient de créer.
+ *
+ * Un exercice arrive toujours avec UNE série : un exercice sans série ne veut
+ * rien dire dans un entraînement, et partir d'une valeur plausible se corrige
+ * plus vite que de partir de rien.
+ */
+const DEFAULTS: Record<string, number> = { reps: 8, weight: 0, duration: 20, distance: 100 };
+
+function defaultSet(exercise: Exercise): { targets: Record<string, number> } {
+  return {
+    targets: Object.fromEntries(
+      exercise.measurementIds.map((id) => [id, DEFAULTS[id] ?? 0]),
+    ),
+  };
+}
+
+/**
  * Création ET édition : un identifiant dans la route fait passer l'écran en
  * mode édition. Le brouillon vit dans l'écran, rien n'est écrit avant
  * validation -- y compris quand on modifie un entraînement existant.
@@ -43,7 +61,6 @@ export default function NewWorkoutScreen() {
   const [name, setName] = useState('');
   // Le brouillon vit dans l'écran : rien n'est écrit avant validation.
   const [draft, setDraft] = useState<PlannedExercise[]>([]);
-  const [inputs, setInputs] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
   // Les exercices disponibles se rechargent à chaque affichage...
@@ -90,26 +107,48 @@ export default function NewWorkoutScreen() {
   const exerciseOf = (id: string) => available.find((e) => e.id === id);
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
 
+  /**
+   * Ajouter une série, c'est répéter la précédente.
+   *
+   * Quatre séries identiques sont le cas courant ; on les corrige ensuite là
+   * où elles diffèrent, au lieu de saisir quatre fois la même chose.
+   */
   function addSet(position: number) {
     const exercise = exerciseOf(draft[position].exerciseId);
     if (!exercise) return;
 
-    const targets: Record<string, number> = {};
-    for (const measurementId of exercise.measurementIds) {
-      const value = inputs[`${position}|${measurementId}`];
-      if (value !== undefined) targets[measurementId] = value;
-    }
-    if (Object.keys(targets).length === 0) {
-      setError('Renseigne au moins une valeur pour cette série.');
-      return;
-    }
-
     setDraft((current) =>
-      current.map((planned, i) =>
-        i === position ? { ...planned, sets: [...planned.sets, { targets }] } : planned,
-      ),
+      current.map((planned, index) => {
+        if (index !== position) return planned;
+        const last = planned.sets[planned.sets.length - 1];
+        return {
+          ...planned,
+          sets: [...planned.sets, last ? { targets: { ...last.targets } } : defaultSet(exercise)],
+        };
+      }),
     );
     setError(null);
+  }
+
+  /** Une cible se change directement sur sa série, sans étape de validation. */
+  function changeTarget(
+    position: number,
+    setIndex: number,
+    measurementId: string,
+    value: number,
+  ) {
+    setDraft((current) =>
+      current.map((planned, index) =>
+        index === position
+          ? {
+              ...planned,
+              sets: planned.sets.map((set, i) =>
+                i === setIndex ? { targets: { ...set.targets, [measurementId]: value } } : set,
+              ),
+            }
+          : planned,
+      ),
+    );
   }
 
   function removeExercise(position: number) {
@@ -175,36 +214,30 @@ export default function NewWorkoutScreen() {
                 </Text>
               </Pressable>
               {planned.sets.map((set, index) => (
-                <View key={index} className="flex-row items-center justify-between gap-3">
-                  <Text className="shrink font-mono text-[14px] text-planned">
-                    Série {index + 1} ·{' '}
-                    {Object.entries(set.targets)
-                      .map(([id, value]) => `${value} ${unitOf(id)}`)
-                      .join(' · ')}
-                  </Text>
-                  <Pressable onPress={() => removeSet(position, index)} hitSlop={8}>
-                    <Text className="text-[12px] text-danger dark:text-danger-dark">retirer</Text>
+                <View key={index} className="flex-row items-center gap-2 pt-1">
+                  {exercise?.measurementIds.map((measurementId) => (
+                    <NumberField
+                      key={measurementId}
+                      compact
+                      unit={unitOf(measurementId)}
+                      value={set.targets[measurementId] ?? 0}
+                      step={STEPS[measurementId] ?? 1}
+                      onChange={(value) => changeTarget(position, index, measurementId, value)}
+                    />
+                  ))}
+                  <Pressable
+                    onPress={() => removeSet(position, index)}
+                    className="h-[44px] w-[44px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
+                  >
+                    <Ionicons name="remove" size={18} color="#B3261E" />
                   </Pressable>
                 </View>
               ))}
 
-              <View className="mt-2 flex-row gap-2">
-                {exercise?.measurementIds.map((measurementId) => (
-                  <NumberField
-                    key={measurementId}
-                    unit={unitOf(measurementId)}
-                    value={inputs[`${position}|${measurementId}`] ?? 0}
-                    step={STEPS[measurementId] ?? 1}
-                    onChange={(value) =>
-                      setInputs((current) => ({ ...current, [`${position}|${measurementId}`]: value }))
-                    }
-                  />
-                ))}
-              </View>
               <Button
-                label="+ Ajouter cette série"
+                label="+ Ajouter une série"
                 variant="secondary"
-                size="md"
+                size="sm"
                 className="mt-2"
                 onPress={() => addSet(position)}
               />
@@ -240,7 +273,13 @@ export default function NewWorkoutScreen() {
         onConfirm={(ids) =>
           setDraft((current) => [
             ...current,
-            ...ids.map((exerciseId) => ({ exerciseId, sets: [] })),
+            ...ids.map((exerciseId) => {
+              const exercise = available.find((candidate) => candidate.id === exerciseId);
+              return {
+                exerciseId,
+                sets: exercise ? [defaultSet(exercise)] : [],
+              };
+            }),
           ])
         }
         onClose={() => setPicking(false)}

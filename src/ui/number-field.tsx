@@ -10,6 +10,12 @@ type NumberFieldProps = {
   /** Titre au-dessus du champ (« Côté gauche », « Poids »...). */
   label?: string;
   step?: number;
+  /**
+   * Version basse, pour une LIGNE de champs : en construisant un
+   * entraînement, on empile quatre séries de deux valeurs -- à pleine
+   * hauteur, la page ne montrerait plus qu'un exercice à la fois.
+   */
+  compact?: boolean;
 };
 
 /**
@@ -19,7 +25,14 @@ type NumberFieldProps = {
  * Le champ affiche la valeur RÉELLEMENT enregistrée et l'écrit à chaque
  * ajustement : il n'y a rien à confirmer, donc rien à oublier de confirmer.
  */
-export function NumberField({ value, onChange, unit, label, step = 1 }: NumberFieldProps) {
+export function NumberField({
+  value,
+  onChange,
+  unit,
+  label,
+  step = 1,
+  compact = false,
+}: NumberFieldProps) {
   return (
     <View className="flex-1 gap-1">
       {label && (
@@ -30,20 +43,24 @@ export function NumberField({ value, onChange, unit, label, step = 1 }: NumberFi
 
       <View
         className={cn(
-          'h-[56px] flex-row items-center justify-between rounded-lg border-2',
+          'flex-row items-center justify-between rounded-lg border-2',
           'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
+          compact ? 'h-[44px] px-2' : 'h-[56px]',
         )}
       >
         <Pressable
           onPress={() => onChange(Math.max(0, round(value - step)))}
           hitSlop={10}
-          className="h-10 w-8 items-center justify-center"
+          className={cn('items-center justify-center', compact ? 'h-9 w-7' : 'h-10 w-8')}
         >
-          <Ionicons name="remove" size={20} color="#8B9086" />
+          <Ionicons name="remove" size={compact ? 17 : 20} color="#8B9086" />
         </Pressable>
 
         <Text
-          className="font-mono-bold text-[20px] text-ink dark:text-ink-dark"
+          className={cn(
+            'font-mono-bold text-ink dark:text-ink-dark',
+            compact ? 'text-[16px]' : 'text-[20px]',
+          )}
           style={{ fontVariant: ['tabular-nums'] }}
           numberOfLines={1}
         >
@@ -54,9 +71,9 @@ export function NumberField({ value, onChange, unit, label, step = 1 }: NumberFi
         <Pressable
           onPress={() => onChange(round(value + step))}
           hitSlop={10}
-          className="h-10 w-8 items-center justify-center"
+          className={cn('items-center justify-center', compact ? 'h-9 w-7' : 'h-10 w-8')}
         >
-          <Ionicons name="add" size={20} color="#8B9086" />
+          <Ionicons name="add" size={compact ? 17 : 20} color="#8B9086" />
         </Pressable>
       </View>
 
