@@ -132,20 +132,39 @@ export function Reorderable<T>({
     if (ticking.current) return;
 
     requested.current = autoScroll.offsetY();
+    let stalled = 0;
+
     ticking.current = setInterval(() => {
       const reported = autoScroll.offsetY();
 
-      // La page n'a pas suivi -- bout de course, ou geste plus rapide qu'elle :
-      // on se recale sur ce qu'elle affiche vraiment plutôt que de tirer dans
-      // le vide.
-      if (Math.abs(requested.current - reported) > 80) requested.current = reported;
+      /**
+       * La page a-t-elle cessé de bouger ? Bout de course, haut ou bas.
+       *
+       * On ne continue pas de demander plus loin : la carte se décalerait
+       * d'un défilement qui n'a pas lieu.
+       */
+      if (Math.abs(reported - requested.current) > 120) {
+        stalled += 1;
+        if (stalled > 2) {
+          requested.current = reported;
+          return;
+        }
+      } else {
+        stalled = 0;
+      }
 
       requested.current = Math.max(0, requested.current + direction * SPEED);
       autoScroll.scrollTo(requested.current);
 
-      // La compensation, elle, suit le RÉEL : c'est ce que l'oeil voit passer
-      // sous la carte.
-      scrolled.current = reported - startedAt.current;
+      /**
+       * La carte se décale de ce QU'ON A DEMANDÉ, pas de ce qu'on observe.
+       *
+       * C'est le même nombre qui déplace la page : les deux bougent donc
+       * exactement ensemble. Se fier aux événements de défilement les ferait
+       * avancer sur deux horloges différentes -- l'une régulière, l'autre par
+       * à-coups --, et la carte tremblerait de leur écart.
+       */
+      scrolled.current = requested.current - startedAt.current;
       apply();
     }, 16);
   }
