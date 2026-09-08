@@ -24,6 +24,7 @@ import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
+import { takeCreated } from '../src/ui/created-exercise';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
@@ -54,6 +55,8 @@ export default function NewGoalScreen() {
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   /** Ce que le sélecteur propose : des exercices, ou des mensurations. */
   const [picking, setPicking] = useState<'none' | 'exercise' | 'body'>('none');
+  /** L'exercice qu'on vient de créer, coché d'avance à la réouverture. */
+  const [preselected, setPreselected] = useState<string[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
@@ -376,12 +379,15 @@ export default function NewGoalScreen() {
           qu'un, et se referme dès qu'on l'a touché. */}
       <ExercisePicker
         catalogue={catalogue}
-        onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
+        onCreate={(name) =>
+          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } })
+        }
         onOpenSettings={() => {
           setPicking('none');
           router.push('/settings');
         }}
         visible={picking === 'exercise'}
+        selectedIds={preselected}
         mode={progressive ? 'multiple' : 'single'}
         title={progressive ? 'Ajouter des étapes' : "Choisir l'exercice"}
         exercises={exercises}

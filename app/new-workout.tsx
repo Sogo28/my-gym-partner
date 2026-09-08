@@ -24,6 +24,7 @@ import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
+import { takeCreated } from '../src/ui/created-exercise';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import {
@@ -84,6 +85,8 @@ export default function NewWorkoutScreen() {
     (planned: PlannedExercise): Planned => ({ key: String(nextKey.current++), planned }),
     [],
   );
+  /** L'exercice qu'on vient de créer, coché d'avance à la réouverture. */
+  const [preselected, setPreselected] = useState<string[]>([]);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +107,16 @@ export default function NewWorkoutScreen() {
           setRecentIds(recent);
         })
         .catch((e) => setError(messageOf(e)));
+
+      /**
+       * Revenir du formulaire d'exercice reprend le geste interrompu : le
+       * sélecteur se rouvre avec ce qu'on vient de créer, déjà retenu.
+       */
+      const created = takeCreated();
+      if (created) {
+        setPreselected([created]);
+        setPicking(true);
+      }
     }, []),
   );
 
@@ -301,12 +314,15 @@ export default function NewWorkoutScreen() {
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
         catalogue={catalogue}
-        onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
+        onCreate={(name) =>
+          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } })
+        }
         onOpenSettings={() => {
           setPicking(false);
           router.push('/settings');
         }}
         visible={picking}
+        selectedIds={preselected}
         title="Ajouter des exercices"
         exercises={available}
         muscles={muscles}

@@ -1,3 +1,4 @@
+import { announceCreated } from '../src/ui/created-exercise';
 import { messageOf } from '../src/ui/message';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -30,7 +31,12 @@ import {
  */
 export default function NewExerciseScreen() {
   const router = useRouter();
-  const { id, name: wanted } = useLocalSearchParams<{ id?: string; name?: string }>();
+  const { id, name: wanted, announce } = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    /** Posé par un sélecteur : il attend l'exercice pour le retenir. */
+    announce?: string;
+  }>();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [existing, setExisting] = useState<Exercise | null>(null);
   const [name, setName] = useState('');
@@ -109,7 +115,7 @@ export default function NewExerciseScreen() {
           media,
         });
       } else {
-        await createExercise({
+        const created = await createExercise({
           name,
           isUnilateral,
           measurementIds: selected,
@@ -117,6 +123,8 @@ export default function NewExerciseScreen() {
           secondaryMuscleIds: secondaryMuscles,
           media,
         });
+        // L'écran d'où l'on vient reprendra son geste avec cet exercice.
+        if (announce) announceCreated(created.id);
       }
       // Une vidéo retirée du formulaire n'est effacée qu'ICI : tant que
       // l'enregistrement n'a pas eu lieu, l'exercice en base la réclame encore.

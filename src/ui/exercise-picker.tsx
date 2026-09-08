@@ -64,7 +64,8 @@ export type ExercisePickerProps = {
   onOpenSettings?: () => void;
   /**
    * Ouvrir le formulaire pour l'exercice cherché, quand ni le catalogue ni
-   * toi ne l'avez. Le sélecteur se referme : on part le définir.
+   * toi ne l'avez. Le sélecteur se referme : on part le définir, et l'écran
+   * appelant le rouvrira quand l'exercice existera.
    */
   onCreate?: (name: string) => void;
 };
