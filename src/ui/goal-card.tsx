@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import type { Goal } from '../domain/goal/goal';
 import { Card } from './card';
-import { describeSourceShort } from './goal-labels';
+import { describeSourceShort, targetUnit } from './goal-labels';
 import type { GoalEvaluation } from '../use-cases/goal-actions';
 
 /**
@@ -63,7 +63,7 @@ export function GoalCard({
               {first.actual === null ? '—' : `${Math.round(first.actual * 10) / 10}`}
               <Text className="font-sans text-[12px] text-muted dark:text-muted-dark">
                 {' / '}
-                {first.condition.target} {unitOf(first.condition.measurementId)}
+                {first.condition.target} {targetUnit(first.condition, unitOf)}
               </Text>
             </Text>
             <Text className="text-[10px] text-muted dark:text-muted-dark" numberOfLines={1}>

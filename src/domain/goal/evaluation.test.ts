@@ -19,6 +19,80 @@ const holdAtLeast10: Requirement = { conditions: [condition()] };
 /** Raccourci : des séries pour la seule fenêtre de la dernière séance. */
 const lastSession = (samples: { duration: number }[]) => ({ LAST_SESSION: samples });
 
+/** Une série de développé couché : deux mesures qui vont de paire. */
+const bench = (reps: number, kg: number) => ({ reps, kg });
+
+const benchSets = (samples: { reps: number; kg: number }[]) => ({ LAST_SESSION: samples });
+
+/** « au moins <count> séries de 10 reps à 60 kg ». */
+const qualifyingSets = (count: number): Requirement => ({
+  conditions: [
+    {
+      measurementId: null,
+      window: 'LAST_SESSION',
+      aggregation: 'setCount',
+      operator: '>=',
+      target: count,
+      qualifying: [
+        { measurementId: 'reps', operator: '>=', target: 10 },
+        { measurementId: 'kg', operator: '>=', target: 60 },
+      ],
+    },
+  ],
+});
+
+describe('les séries qualifiantes', () => {
+  // Le piège que des conditions séparées ne voient pas : deux moyennes
+  // correctes, aucune série correcte.
+  it('refuse deux séries dont seule la MOYENNE atteint la cible', () => {
+    const requirement = qualifyingSets(1);
+
+    const result = evaluateRequirement(requirement, benchSets([bench(15, 40), bench(5, 80)]));
+
+    expect(result.satisfied).toBe(false);
+    expect(result.results[0].actual).toBe(0);
+  });
+
+  it('ne compte pas une série qui n atteint qu une des deux cibles', () => {
+    const result = evaluateRequirement(
+      qualifyingSets(1),
+      benchSets([bench(12, 55), bench(8, 70)]),
+    );
+
+    expect(result.results[0].actual).toBe(0);
+  });
+
+  it('compte les séries qui atteignent les deux cibles à la fois', () => {
+    const result = evaluateRequirement(
+      qualifyingSets(2),
+      benchSets([bench(10, 60), bench(11, 65), bench(9, 80)]),
+    );
+
+    expect(result.satisfied).toBe(true);
+    expect(result.results[0].actual).toBe(2);
+  });
+
+  it('ne compte pas une série qui n a pas noté l une des mesures', () => {
+    // Rien ne permet d'affirmer que cette série valait 60 kg.
+    const result = evaluateRequirement(qualifyingSets(1), {
+      LAST_SESSION: [{ reps: 12 } as Record<string, number>],
+    });
+
+    expect(result.results[0].actual).toBe(0);
+  });
+
+  it('compte toutes les séries quand la condition n en décrit aucune', () => {
+    const requirement: Requirement = {
+      conditions: [condition({ aggregation: 'setCount', measurementId: null, target: 2 })],
+    };
+
+    const result = evaluateRequirement(requirement, benchSets([bench(1, 1), bench(2, 2)]));
+
+    expect(result.satisfied).toBe(true);
+    expect(result.results[0].actual).toBe(2);
+  });
+});
+
 describe('evaluateRequirement', () => {
   // L'exemple exact du modèle métier (§6).
   it('refuse une moyenne de 8 secondes pour une cible de 10', () => {

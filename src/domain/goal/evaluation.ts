@@ -1,6 +1,6 @@
 import type { MeasurementId } from '../exercise/measurement';
 import type {
-  Aggregation,
+  Clause,
   Condition,
   EvaluationWindow,
   Operator,
@@ -61,7 +61,7 @@ export function evaluateRequirement(
     // Chaque condition lit la fenêtre qu'elle déclare, pas une fenêtre
     // supposée par le code qui l'évalue.
     const window = samples[condition.window] ?? [];
-    const actual = aggregate(condition.aggregation, condition.measurementId, window);
+    const actual = aggregate(condition, window);
 
     return {
       condition,
@@ -86,12 +86,14 @@ export function windowsUsedBy(requirements: readonly Requirement[]): EvaluationW
 }
 
 /** null quand rien n'alimente la métrique : aucun échantillon ne la porte. */
-function aggregate(
-  aggregation: Aggregation,
-  measurementId: string | null,
-  samples: readonly Sample[],
-): number | null {
-  if (aggregation === 'setCount') return samples.length;
+function aggregate(condition: Condition, samples: readonly Sample[]): number | null {
+  const { aggregation, measurementId } = condition;
+
+  // Un décompte ne lit aucune mesure : il compte les séries qui répondent à
+  // la description, et toutes quand il n'y en a pas.
+  if (aggregation === 'setCount') {
+    return samples.filter((sample) => qualifies(sample, condition.qualifying ?? [])).length;
+  }
   if (measurementId === null) return null;
 
   const values = samples
@@ -110,6 +112,19 @@ function aggregate(
     case 'total':
       return values.reduce((total, value) => total + value, 0);
   }
+}
+
+/**
+ * Une série qualifiante satisfait TOUTES ses clauses, lues sur elle seule.
+ *
+ * Une série qui ne porte pas l'une des mesures exigées ne qualifie pas : on
+ * ne peut pas affirmer qu'elle valait 60 kg si elle n'a pas noté de poids.
+ */
+function qualifies(sample: Sample, clauses: readonly Clause[]): boolean {
+  return clauses.every((clause) => {
+    const value = sample[clause.measurementId];
+    return value !== undefined && compare(value, clause.operator, clause.target);
+  });
 }
 
 function compare(actual: number, operator: Operator, target: number): boolean {

@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -650,6 +650,29 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       ALTER TABLE exercise_media_v23 RENAME TO exercise_media;
     `);
     await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+
+  // Migration 24 : une condition de décompte décrit les séries qu'elle compte.
+  //
+  // Une table plutôt que des colonnes : le nombre de clauses suit le nombre
+  // de mesures de l'exercice, et rien ne dit qu'il s'arrête à deux.
+  //
+  // Rien à reprendre des objectifs existants : leurs conditions comptaient
+  // toutes les séries, ce qu'une absence de clause dit déjà.
+  if (version < 24) {
+    await db.execAsync(`
+      CREATE TABLE goal_condition_clauses (
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        step_position INTEGER NOT NULL,
+        requirement_index INTEGER NOT NULL,
+        condition_index INTEGER NOT NULL,
+        measurement_id TEXT NOT NULL REFERENCES measurements(id),
+        operator TEXT NOT NULL CHECK (operator IN ('>=', '>', '<=', '<', '==')),
+        target REAL NOT NULL,
+        PRIMARY KEY (goal_id, step_position, requirement_index,
+                     condition_index, measurement_id)
+      );
+    `);
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

@@ -1,6 +1,7 @@
 import {
   Goal,
   type Aggregation,
+  type Clause,
   type Condition,
   type EvaluationWindow,
   type GoalStatus,
@@ -36,9 +37,19 @@ type ConditionRow = {
   goal_id: string;
   step_position: number;
   requirement_index: number;
+  condition_index: number;
   measurement_id: string | null;
   window: EvaluationWindow;
   aggregation: Aggregation;
+  operator: Operator;
+  target: number;
+};
+type ClauseRow = {
+  goal_id: string;
+  step_position: number;
+  requirement_index: number;
+  condition_index: number;
+  measurement_id: string;
   operator: Operator;
   target: number;
 };
@@ -70,6 +81,7 @@ export async function save(goal: Goal): Promise<void> {
 
     await db.runAsync('DELETE FROM goal_steps WHERE goal_id = ?;', goal.id);
     await db.runAsync('DELETE FROM goal_conditions WHERE goal_id = ?;', goal.id);
+    await db.runAsync('DELETE FROM goal_condition_clauses WHERE goal_id = ?;', goal.id);
 
     if (target.kind === 'simple') {
       await saveRequirements(db, goal.id, GOAL_ITSELF, target.requirements);
@@ -114,6 +126,22 @@ async function saveRequirements(
         condition.operator,
         condition.target,
       );
+
+      for (const clause of condition.qualifying ?? []) {
+        await db.runAsync(
+          `INSERT INTO goal_condition_clauses
+             (goal_id, step_position, requirement_index, condition_index,
+              measurement_id, operator, target)
+           VALUES (?, ?, ?, ?, ?, ?, ?);`,
+          goalId,
+          stepPosition,
+          requirementIndex,
+          conditionIndex,
+          clause.measurementId,
+          clause.operator,
+          clause.target,
+        );
+      }
     }
   }
 }
@@ -140,6 +168,22 @@ export async function findAll(): Promise<Goal[]> {
     `SELECT * FROM goal_conditions
      ORDER BY goal_id, step_position, requirement_index, condition_index;`,
   );
+  const clauseRows = await db.getAllAsync<ClauseRow>(
+    'SELECT * FROM goal_condition_clauses;',
+  );
+
+  // Les clauses rejoignent leur condition par sa position exacte.
+  const clausesOf = new Map<string, Clause[]>();
+  for (const row of clauseRows) {
+    const key = `${row.goal_id}|${row.step_position}|${row.requirement_index}|${row.condition_index}`;
+    const list = clausesOf.get(key) ?? [];
+    list.push({
+      measurementId: row.measurement_id,
+      operator: row.operator,
+      target: row.target,
+    });
+    clausesOf.set(key, list);
+  }
 
   // Regroupées par étape, puis par requirement.
   const requirementsOf = new Map<string, Map<number, Condition[]>>();
@@ -147,12 +191,17 @@ export async function findAll(): Promise<Goal[]> {
     const key = `${row.goal_id}|${row.step_position}`;
     const byRequirement = requirementsOf.get(key) ?? new Map<number, Condition[]>();
     const list = byRequirement.get(row.requirement_index) ?? [];
+    const clauses =
+      clausesOf.get(
+        `${row.goal_id}|${row.step_position}|${row.requirement_index}|${row.condition_index}`,
+      ) ?? [];
     list.push({
       measurementId: row.measurement_id,
       window: row.window,
       aggregation: row.aggregation,
       operator: row.operator,
       target: row.target,
+      ...(clauses.length > 0 ? { qualifying: clauses } : {}),
     });
     byRequirement.set(row.requirement_index, list);
     requirementsOf.set(key, byRequirement);

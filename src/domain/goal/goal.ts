@@ -43,11 +43,31 @@ export function windowsFor(subject: GoalSubject): EvaluationWindow[] {
 export type Operator = '>=' | '>' | '<=' | '<' | '==';
 
 /**
+ * Une Clause : ce qu'une SÉRIE doit valoir sur une mesure.
+ *
+ * Les mesures d'un exercice vont de paire -- 10 reps À 60 kg décrit UNE
+ * série, et non deux exigences séparées. Des conditions indépendantes ne
+ * savent pas dire cela : une moyenne de 10 reps et une moyenne de 60 kg sont
+ * atteintes par 15×40 puis 5×80, sans qu'aucune série n'ait jamais valu
+ * 10 reps à 60 kg. Les clauses d'une même condition, elles, se lisent
+ * TOUJOURS sur la même série.
+ */
+export type Clause = {
+  readonly measurementId: MeasurementId;
+  readonly operator: Operator;
+  readonly target: number;
+};
+
+/**
  * Une Condition (§5) : quelle mesure, sur quelle fenêtre, agrégée comment,
  * comparée par quel opérateur, à quelle cible.
  *
  * measurementId est nul pour 'setCount', qui compte des séries et non des
  * valeurs.
+ *
+ * qualifying n'appartient qu'à 'setCount' : il décrit les séries à compter.
+ * Vide, la condition les compte toutes ; renseigné, elle ne compte que celles
+ * qui satisfont chaque clause -- « au moins 3 séries de 10 reps à 60 kg ».
  */
 export type Condition = {
   readonly measurementId: MeasurementId | null;
@@ -55,6 +75,7 @@ export type Condition = {
   readonly aggregation: Aggregation;
   readonly operator: Operator;
   readonly target: number;
+  readonly qualifying?: readonly Clause[];
 };
 
 /** Au moins une Condition, et toutes doivent être satisfaites (n°9, n°10). */
@@ -235,6 +256,7 @@ function checkRequirement(requirement: Requirement, subject: GoalSubject): void 
     if (condition.aggregation !== 'setCount' && condition.measurementId === null) {
       throw new DomainError('Cette condition doit préciser la mesure qu elle observe.');
     }
+    checkQualifying(condition, subject);
     // Une mensuration n'a pas de séances, un exercice n'a pas de relevés :
     // une condition ne peut pas demander une période que son sujet ignore.
     if (!allowed.includes(condition.window)) {
@@ -244,5 +266,31 @@ function checkRequirement(requirement: Requirement, subject: GoalSubject): void 
           : 'Un exercice ne s évalue pas sur un relevé corporel.',
       );
     }
+  }
+}
+
+/**
+ * Les clauses décrivent une série : seul un décompte de séries peut s'en
+ * servir, et seul un exercice en produit.
+ */
+function checkQualifying(condition: Condition, subject: GoalSubject): void {
+  const clauses = condition.qualifying ?? [];
+  if (clauses.length === 0) return;
+
+  if (condition.aggregation !== 'setCount') {
+    throw new DomainError(
+      'Seul un décompte de séries peut décrire les séries qu il compte.',
+    );
+  }
+  if (subject.kind === 'body') {
+    throw new DomainError('Un relevé corporel n est pas une série.');
+  }
+
+  const seen = new Set<MeasurementId>();
+  for (const clause of clauses) {
+    if (seen.has(clause.measurementId)) {
+      throw new DomainError('Une même mesure ne peut pas être exigée deux fois.');
+    }
+    seen.add(clause.measurementId);
   }
 }

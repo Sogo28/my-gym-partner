@@ -1,4 +1,4 @@
-import type { Aggregation, Condition, EvaluationWindow } from '../domain/goal/goal';
+import type { Aggregation, Clause, Condition, EvaluationWindow } from '../domain/goal/goal';
 
 /**
  * Le vocabulaire des objectifs, en français.
@@ -43,7 +43,45 @@ export const WINDOW_LABELS: { value: EvaluationWindow; label: string }[] = [
 /** « moyenne des valeurs lors de la dernière séance ». */
 export function describeSource(condition: Condition): string {
   if (condition.window === 'LATEST_READING') return 'valeur de ton dernier relevé';
-  return `${AGGREGATION_PHRASES[condition.aggregation]} ${WINDOW_PHRASES[condition.window]}`;
+  return `${sourcePhrase(condition)} ${WINDOW_PHRASES[condition.window]}`;
+}
+
+/** Un décompte qui décrit ses séries ne compte plus les mêmes. */
+function sourcePhrase(condition: Condition): string {
+  return qualifying(condition).length > 0
+    ? 'nombre de séries qualifiantes'
+    : AGGREGATION_PHRASES[condition.aggregation];
+}
+
+function qualifying(condition: Condition): readonly Clause[] {
+  return condition.qualifying ?? [];
+}
+
+/**
+ * La description d'une série : « 10 reps · 60 kg ».
+ *
+ * Les cibles sont séparées par un point médian et non par « et » : elles ne
+ * sont pas deux exigences, mais une seule série vue sous deux mesures.
+ */
+export function describeClauses(
+  clauses: readonly Clause[],
+  unitOf: (measurementId: string) => string,
+): string {
+  return clauses
+    .map((clause) => {
+      const prefix = clause.operator === '>=' ? '' : `${clause.operator} `;
+      return `${prefix}${clause.target} ${unitOf(clause.measurementId)}`;
+    })
+    .join(' · ');
+}
+
+/** L'unité de la cible : un décompte se compte en séries. */
+export function targetUnit(
+  condition: Condition,
+  unitOf: (measurementId: string) => string,
+): string {
+  if (condition.aggregation === 'setCount') return 'séries';
+  return condition.measurementId === null ? '' : unitOf(condition.measurementId);
 }
 
 /**
@@ -62,7 +100,10 @@ export function describeCondition(
   }
 
   if (condition.aggregation === 'setCount') {
-    return `séries complétées ${condition.operator} ${condition.target}`;
+    const clauses = qualifying(condition);
+    const counted =
+      clauses.length > 0 ? `séries de ${describeClauses(clauses, unitOf)}` : 'séries complétées';
+    return `${counted} ${condition.operator} ${condition.target}`;
   }
 
   const label = AGGREGATION_PHRASES[condition.aggregation];

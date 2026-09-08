@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { anExercise, useCleanDatabase } from '../../test/support';
 import type { Condition } from '../domain/goal/goal';
 import { recordReading } from './body-actions';
-import { createGoal, evaluateGoal } from './goal-actions';
+import { createGoal, evaluateGoal, listGoals } from './goal-actions';
 import {
   completePerformanceSet,
   finishActivity,
@@ -295,5 +295,78 @@ describe('Séries abandonnées', () => {
     );
 
     expect(evaluation!.results[0].actual).toBe(1);
+  });
+});
+
+/**
+ * Les séries qualifiantes, de la base jusqu'au verdict.
+ *
+ * Les clauses vivent dans leur propre table : un aller-retour complet est le
+ * seul moyen de vérifier qu'elles rejoignent bien LEUR condition.
+ */
+describe('les séries qualifiantes', () => {
+  const benchGoal = (exerciseId: string, count: number) =>
+    goalOn(exerciseId, [
+      {
+        measurementId: null,
+        window: 'LAST_SESSION',
+        aggregation: 'setCount',
+        operator: '>=',
+        target: count,
+        qualifying: [
+          { measurementId: 'reps', operator: '>=', target: 10 },
+          { measurementId: 'weight', operator: '>=', target: 60 },
+        ],
+      },
+    ]);
+
+  /** Une séance de développé couché : chaque série porte ses deux mesures. */
+  async function aBenchSession(exerciseId: string, sets: [number, number][]) {
+    await startWorkoutSession();
+    await startActivity(exerciseId);
+    for (const [reps, weight] of sets) {
+      await startPerformanceSet();
+      await completePerformanceSet({ BOTH: { reps, weight } });
+    }
+    await finishWorkoutSession();
+  }
+
+  it('ne valide pas deux séries dont seule la moyenne atteint les cibles', async () => {
+    const exercise = await anExercise('Développé couché', ['reps', 'weight']);
+    await aBenchSession(exercise.id, [
+      [15, 40],
+      [5, 80],
+    ]);
+
+    const evaluation = await evaluateGoal(await benchGoal(exercise.id, 1));
+
+    expect(evaluation?.satisfied).toBe(false);
+    expect(evaluation?.results[0].actual).toBe(0);
+  });
+
+  it('compte les séries qui atteignent les deux cibles ensemble', async () => {
+    const exercise = await anExercise('Développé couché', ['reps', 'weight']);
+    await aBenchSession(exercise.id, [
+      [10, 60],
+      [12, 62],
+      [8, 70],
+    ]);
+
+    const evaluation = await evaluateGoal(await benchGoal(exercise.id, 2));
+
+    expect(evaluation?.satisfied).toBe(true);
+    expect(evaluation?.results[0].actual).toBe(2);
+  });
+
+  it('relit les clauses telles qu elles ont été enregistrées', async () => {
+    const exercise = await anExercise('Développé couché', ['reps', 'weight']);
+    await benchGoal(exercise.id, 3);
+
+    const [reloaded] = await listGoals();
+
+    expect(reloaded.currentRequirements[0].conditions[0].qualifying).toEqual([
+      { measurementId: 'reps', operator: '>=', target: 10 },
+      { measurementId: 'weight', operator: '>=', target: 60 },
+    ]);
   });
 });

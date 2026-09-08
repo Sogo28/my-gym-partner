@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
   describeSource,
+  targetUnit,
   WINDOW_LABELS,
 } from '../src/ui/goal-labels';
 import { messageOf } from '../src/ui/message';
@@ -12,7 +13,7 @@ import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import type { BodyMetric } from '../src/domain/body/body-metric';
-import type { Condition, GoalSubject, ProgressionStep } from '../src/domain/goal/goal';
+import type { Clause, Condition, GoalSubject, ProgressionStep } from '../src/domain/goal/goal';
 import { windowsFor } from '../src/domain/goal/goal';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { findRecentExerciseIds } from '../src/infra/performance-repository';
@@ -35,11 +36,32 @@ type Entry = { subject: GoalSubject; conditions: Condition[] };
 /**
  * La condition de départ dépend du sujet : une mensuration s'observe au
  * dernier relevé, un exercice sur sa dernière séance.
+ *
+ * Dès que l'exercice a PLUSIEURS mesures, elles vont de paire : 10 reps À
+ * 60 kg décrit une série, pas deux exigences. La condition compte alors les
+ * séries qui répondent à cette description -- moyenner chaque mesure de son
+ * côté validerait 15×40 puis 5×80, qu'aucune de ces deux séries ne vaut.
  */
-function defaultCondition(subject: GoalSubject, measurementId: string): Condition {
+function defaultCondition(subject: GoalSubject, measurementIds: readonly string[]): Condition {
   const isBody = subject.kind === 'body';
+
+  if (!isBody && measurementIds.length > 1) {
+    return {
+      measurementId: null,
+      window: 'LAST_SESSION',
+      aggregation: 'setCount',
+      operator: '>=',
+      target: 1,
+      qualifying: measurementIds.map((measurementId) => ({
+        measurementId,
+        operator: '>=' as const,
+        target: 10,
+      })),
+    };
+  }
+
   return {
-    measurementId,
+    measurementId: measurementIds[0],
     window: isBody ? 'LATEST_READING' : 'LAST_SESSION',
     aggregation: isBody ? 'max' : 'average',
     operator: '>=',
@@ -116,10 +138,10 @@ export default function NewGoalScreen() {
         [subject.metricId];
 
   function addEntry(subject: GoalSubject) {
-    const measurementId = measurementsOf(subject)[0];
-    if (!measurementId) return;
+    const available = measurementsOf(subject);
+    if (available.length === 0) return;
 
-    const entry: Entry = { subject, conditions: [defaultCondition(subject, measurementId)] };
+    const entry: Entry = { subject, conditions: [defaultCondition(subject, available)] };
     // Un objectif simple ne vise qu'une chose : le nouveau remplace l'ancien.
     setEntries((current) => (progressive ? [...current, entry] : [entry]));
   }
@@ -139,17 +161,31 @@ export default function NewGoalScreen() {
     );
   }
 
+  /** La cible d'une mesure DANS la série décrite : les autres ne bougent pas. */
+  function updateClause(
+    index: number,
+    conditionIndex: number,
+    measurementId: string,
+    target: number,
+  ) {
+    const condition = entries[index].conditions[conditionIndex];
+    const qualifying: Clause[] = (condition.qualifying ?? []).map((clause) =>
+      clause.measurementId === measurementId ? { ...clause, target } : clause,
+    );
+    update(index, conditionIndex, { qualifying });
+  }
+
   /** Toutes les conditions d'un requirement doivent tenir : c'est un ET. */
   function addCondition(index: number) {
     const entry = entries[index];
-    const measurementId = measurementsOf(entry.subject)[0];
-    if (!measurementId) return;
+    const available = measurementsOf(entry.subject);
+    if (available.length === 0) return;
     setEntries((current) =>
       current.map((item, i) =>
         i === index
           ? {
               ...item,
-              conditions: [...item.conditions, defaultCondition(item.subject, measurementId)],
+              conditions: [...item.conditions, defaultCondition(item.subject, available)],
             }
           : item,
       ),
@@ -240,6 +276,9 @@ export default function NewGoalScreen() {
           // Un relevé est une valeur unique : il n'y a ni période ni
           // agrégation à choisir, seulement une cible à atteindre.
           const isReading = entry.subject.kind === 'body';
+          // Plusieurs mesures ne se règlent pas séparément : elles décrivent
+          // ensemble la série qui compte.
+          const paired = !isReading && available.length > 1;
 
           return (
             <Card key={index} density="titled" className="gap-3">
@@ -264,7 +303,7 @@ export default function NewGoalScreen() {
                     </Text>
                   )}
 
-                  {!isReading && (
+                  {!isReading && !paired && (
                   <View className="flex-row flex-wrap gap-2">
                     {AGGREGATION_LABELS.map(({ value, label }) => (
                       <Chip
@@ -285,29 +324,34 @@ export default function NewGoalScreen() {
                   </View>
                   )}
 
-                  {!isReading && condition.aggregation !== 'setCount' && available.length > 1 && (
-                      <View className="flex-row flex-wrap gap-2">
-                        {available.map((measurementId) => (
-                          <Chip
-                            key={measurementId}
-                            label={unitOf(measurementId)}
-                            selected={condition.measurementId === measurementId}
-                            onPress={() => update(index, conditionIndex, { measurementId })}
+                  {/* La série décrite d'un bloc : une cible par mesure, lues
+                      TOUJOURS sur la même série. */}
+                  {paired && (
+                    <View className="gap-2">
+                      <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                        Une série qui compte
+                      </Text>
+                      <View className="flex-row flex-wrap gap-3">
+                        {(condition.qualifying ?? []).map((clause) => (
+                          <NumberField
+                            key={clause.measurementId}
+                            unit={unitOf(clause.measurementId)}
+                            value={clause.target}
+                            onChange={(target) =>
+                              updateClause(index, conditionIndex, clause.measurementId, target)
+                            }
                           />
                         ))}
                       </View>
-                    )}
+                    </View>
+                  )}
 
                   <View className="flex-row items-end gap-3">
                     <Text className="mb-4 text-[15px] text-muted dark:text-muted-dark">
                       au moins
                     </Text>
                     <NumberField
-                      unit={
-                        condition.aggregation === 'setCount'
-                          ? 'séries'
-                          : unitOf(condition.measurementId ?? '')
-                      }
+                      unit={targetUnit(condition, unitOf)}
                       value={condition.target}
                       onChange={(target) => update(index, conditionIndex, { target })}
                     />

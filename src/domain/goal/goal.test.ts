@@ -168,3 +168,64 @@ describe('Goal', () => {
     ).toThrow();
   });
 });
+
+describe('les clauses d une condition', () => {
+  const exercise = { kind: 'exercise' as const, exerciseId: 'bench' };
+
+  const withQualifying = (over: Partial<Condition>, subject = exercise) =>
+    Goal.create({
+      id: 'g',
+      name: 'Développé',
+      target: {
+        kind: 'simple',
+        subject,
+        requirements: [
+          {
+            conditions: [
+              {
+                measurementId: null,
+                window: subject.kind === 'exercise' ? 'LAST_SESSION' : 'LATEST_READING',
+                aggregation: 'setCount',
+                operator: '>=',
+                target: 1,
+                qualifying: [
+                  { measurementId: 'reps', operator: '>=', target: 10 },
+                  { measurementId: 'weight', operator: '>=', target: 60 },
+                ],
+                ...over,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+  it('accepte un décompte qui décrit les séries qu il compte', () => {
+    expect(() => withQualifying({})).not.toThrow();
+  });
+
+  // Une moyenne réduit une colonne de valeurs : elle ne sait pas ce qu'une
+  // série valait ailleurs, donc elle ne peut pas la décrire.
+  it('refuse des clauses sur autre chose qu un décompte de séries', () => {
+    expect(() => withQualifying({ aggregation: 'average', measurementId: 'reps' })).toThrow(
+      /décompte de séries/,
+    );
+  });
+
+  it('refuse la même mesure exigée deux fois', () => {
+    expect(() =>
+      withQualifying({
+        qualifying: [
+          { measurementId: 'reps', operator: '>=', target: 10 },
+          { measurementId: 'reps', operator: '<=', target: 20 },
+        ],
+      }),
+    ).toThrow(/deux fois/);
+  });
+
+  it('refuse de décrire une série sur un relevé corporel', () => {
+    expect(() => withQualifying({}, { kind: 'body', metricId: 'cuisse' } as never)).toThrow(
+      /n est pas une série/,
+    );
+  });
+});

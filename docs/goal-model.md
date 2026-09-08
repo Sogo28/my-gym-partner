@@ -69,6 +69,36 @@ Une condition détermine :
 - quel **opérateur** appliquer ;
 - quelle **valeur cible** atteindre.
 
+### 5.1 Séries qualifiantes
+
+Les mesures d'un exercice **vont de paire** : « 10 reps à 60 kg » décrit **une
+série**, pas deux exigences (décidé le 2026-09-08).
+
+Deux conditions indépendantes ne savent pas dire cela. Chacune agrège **sa**
+mesure sur toutes les séries, puis les verdicts se combinent -- mais ce ET
+porte sur des agrégats, plus sur les séries qui les ont produits :
+
+    moyenne(reps) ≥ 10  ET  moyenne(kg) ≥ 60
+    séries : 15×40, 5×80
+    → moyennes : 10 reps, 60 kg → SATISFAIT
+    → et pourtant aucune série n'a valu 10 reps à 60 kg.
+
+Une condition de **décompte** peut donc **décrire les séries qu'elle compte**,
+par une ou plusieurs `Clause` -- une mesure, un opérateur, une cible. Une série
+qualifie quand elle satisfait **toutes** les clauses, lues sur elle seule :
+
+    au moins 3 séries de (reps ≥ 10 · kg ≥ 60)   sur LAST_SESSION
+
+Une série qui **ne porte pas** l'une des mesures exigées ne qualifie pas : rien
+ne permet d'affirmer qu'elle valait 60 kg si aucun poids n'a été noté.
+
+Sans clause, le décompte compte **toutes** les séries -- la forme précédente
+reste donc dite.
+
+`moyenne`, `meilleure`, `plus faible` et `cumul` gardent tout leur sens sur un
+exercice à **une seule** mesure ; dès qu'il en a plusieurs, elles ne peuvent
+plus rien affirmer sur une série et ne sont plus proposées.
+
 ## 6. Fenêtre d'évaluation
 
 La fenêtre appartient à **chaque Condition** : deux conditions d'une même
@@ -171,4 +201,8 @@ modification **ne réécrit jamais les performances historiques** :
 17. La progression suivante n'est jamais appliquée automatiquement.
 18. L'utilisateur peut accepter ou refuser la suggestion.
 19. La représentation technique des Conditions reste ouverte.
+19bis. Une Condition de décompte peut décrire les séries qu'elle compte par
+    des Clauses. Une série qualifie quand elle satisfait toutes les clauses,
+    lues sur elle seule. Une même mesure n'est pas exigée deux fois. Seul un
+    décompte porte des clauses, et seul un exercice en produit.
 20. La persistence et les choix technologiques ne font pas partie du modèle.
