@@ -157,7 +157,10 @@ export default function ExerciseDetailScreen() {
         ) : (
           <>
             {/* Les records en bandeau : trois nombres qui se lisent d'un coup
-                d'oeil, là où trois cartes empilées se lisaient une par une. */}
+                d'oeil, là où trois cartes empilées se lisaient une par une.
+                Le titre est ce qui les dit RECORDS : sans lui, ce ne sont que
+                des nombres posés sous les illustrations. */}
+            <Section title="Records">
             <View className="flex-row gap-2">
               {records.map((record) => (
                 <Stat
@@ -171,12 +174,13 @@ export default function ExerciseDetailScreen() {
                   dont il est le produit. */}
               {volume && (
                 <Stat
-                  label="Volume"
+                  label="Volume d une série"
                   value={`${Math.round(volume.value * 10) / 10}`}
                   unit="kg"
                 />
               )}
             </View>
+            </Section>
 
             {/* La carte reste là même sans courbe à tracer : les puces
                 d'unité vivent dedans, et les faire disparaître enfermerait
