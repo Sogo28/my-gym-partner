@@ -40,6 +40,8 @@ export function Reorderable<T>({
 }) {
   const heights = useRef<number[]>([]);
   const [dragged, setDragged] = useState<number | null>(null);
+  /** Où la carte atterrirait si on lâchait maintenant. */
+  const [preview, setPreview] = useState<number | null>(null);
   /** Sa position pendant le glissement, pour que le rendu suive le doigt. */
   const offset = useRef(new Animated.Value(0)).current;
   /** Le décalage courant, lu hors du rendu : un `Animated.Value` ne se lit pas. */
@@ -51,12 +53,20 @@ export function Reorderable<T>({
     travelled.current = 0;
     offset.setValue(0);
     setDragged(index);
+    setPreview(index);
     onDraggingChange?.(true);
   }
 
   function move(dy: number) {
     travelled.current = dy;
     offset.setValue(dy);
+
+    // L'aperçu ne change qu'en franchissant une carte : recalculer à chaque
+    // pixel ne dirait rien de plus, et redessinerait la liste pour rien.
+    const start = from.current;
+    if (start === null) return;
+    const to = targetOf(start, dy, heights.current);
+    setPreview((current) => (current === to ? current : to));
   }
 
   function end() {
@@ -69,6 +79,7 @@ export function Reorderable<T>({
     travelled.current = 0;
     offset.setValue(0);
     setDragged(null);
+    setPreview(null);
     onDraggingChange?.(false);
   }
 
@@ -80,6 +91,8 @@ export function Reorderable<T>({
           index={index}
           spacing={index === items.length - 1 ? 0 : spacing}
           dragging={dragged === index}
+          // Les autres cartes s'écartent pour montrer la place qui se libère.
+          shift={shiftOf(index, dragged, preview, heights.current)}
           offset={offset}
           onBegin={begin}
           onMove={move}
@@ -96,10 +109,32 @@ export function Reorderable<T>({
   );
 }
 
+/**
+ * De combien une carte se décale pour laisser voir le trou.
+ *
+ * Celles qu'on a dépassées reculent d'exactement la hauteur de la carte
+ * déplacée -- ni plus ni moins, sinon la place laissée ne serait pas la
+ * sienne.
+ */
+function shiftOf(
+  index: number,
+  dragged: number | null,
+  preview: number | null,
+  heights: readonly number[],
+): number {
+  if (dragged === null || preview === null || index === dragged) return 0;
+
+  const height = heights[dragged] ?? 0;
+  if (preview > dragged && index > dragged && index <= preview) return -height;
+  if (preview < dragged && index >= preview && index < dragged) return height;
+  return 0;
+}
+
 function Row({
   index,
   spacing,
   dragging,
+  shift,
   offset,
   onBegin,
   onMove,
@@ -110,6 +145,7 @@ function Row({
   index: number;
   spacing: number;
   dragging: boolean;
+  shift: number;
   offset: Animated.Value;
   onBegin: (index: number) => void;
   onMove: (dy: number) => void;
@@ -148,7 +184,7 @@ function Row({
                 elevation: 8,
                 opacity: 0.95,
               }
-            : undefined
+            : { transform: [{ translateY: shift }] }
         }
       >
         {render({ handle: responder.panHandlers, dragging })}
