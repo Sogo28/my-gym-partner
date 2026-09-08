@@ -309,15 +309,15 @@ export default function NewWorkoutScreen() {
         onClose={() => setPicking(false)}
       />
 
-      {/* Au-dessus de l'action principale, pas par-dessus : les deux doivent
-          rester atteignables. */}
-      <Fab
-        accessibilityLabel="Ajouter des exercices"
-        className="bottom-24"
-        onPress={() => setPicking(true)}
-      />
-
       <View className="p-5 pt-2">
+        {/* Ancrée sur la barre d'action plutôt que sur l'écran : sa hauteur
+            dépend de la marge système du téléphone, qu'aucune valeur fixe ne
+            peut deviner. */}
+        <Fab
+          accessibilityLabel="Ajouter des exercices"
+          className="-top-20 right-0"
+          onPress={() => setPicking(true)}
+        />
         <Button
           label={existing ? 'Enregistrer les modifications' : 'Créer l entraînement'}
           size="lg"
