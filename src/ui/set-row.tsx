@@ -108,7 +108,10 @@ export function SetRow({
       // d'apparaître, et ne revenir qu'au remontage de la liste.
       style={outlineOf(selected ? 'in-progress' : status, outline)}
     >
-      <Badge index={index} status={status} accent={accents[status]} compact={compact} />
+      {/* Pas de pastille en version resserrée : sur une fiche, toutes les
+          séries sont prévues, donc le cercle y est toujours vide -- il ne
+          marque rien et ne fait que décaler la valeur. */}
+      {!compact && <Badge index={index} status={status} accent={accents[status]} />}
 
       <Text
         className={cn(
@@ -149,29 +152,25 @@ function Badge({
   index,
   status,
   accent,
-  compact,
 }: {
   index: number;
   status: SetRowStatus;
   accent: string;
-  compact: boolean;
 }) {
   return (
     <View
-      className={cn('shrink-0 items-center justify-center rounded-full', compact ? 'h-5 w-5' : 'h-7 w-7')}
+      className="h-7 w-7 shrink-0 items-center justify-center rounded-full"
       style={{
         borderWidth: 2,
         borderColor: accent,
         borderStyle: status === 'planned' ? 'dashed' : 'solid',
       }}
     >
-      {status === 'completed' && (
-        <Ionicons name="checkmark" size={compact ? 12 : 15} color={accent} />
-      )}
-      {status === 'abandoned' && <Ionicons name="close" size={compact ? 11 : 14} color={accent} />}
+      {status === 'completed' && <Ionicons name="checkmark" size={15} color={accent} />}
+      {status === 'abandoned' && <Ionicons name="close" size={14} color={accent} />}
       {status === 'in-progress' && (
         <Text
-          className={cn('font-mono', compact ? 'text-[10px]' : 'text-[12px]')}
+          className="font-mono text-[12px]"
           style={{ color: accent, fontVariant: ['tabular-nums'] }}
         >
           {index}
