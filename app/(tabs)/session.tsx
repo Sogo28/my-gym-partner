@@ -38,7 +38,7 @@ import { EmptyState } from '../../src/ui/empty-state';
 import { ExercisePicker } from '../../src/ui/exercise-picker';
 import { catalogueSource } from '../../src/use-cases/repdb-actions';
 import { BusinessNotice } from '../../src/ui/notice';
-import { SectionHeader, SessionHeader } from '../../src/ui/screen-header';
+import { BackHeader, SectionHeader, SessionHeader } from '../../src/ui/screen-header';
 import { Sheet, type SheetAction } from '../../src/ui/sheet';
 import { SetChip } from '../../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../../src/ui/set-row';
@@ -342,9 +342,15 @@ export default function SessionScreen() {
     return (
       <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
         <View className="px-5 pt-4">
-          <SectionHeader
+          {/* Une flèche de retour comme partout ailleurs : le paramètre se
+              vide en partant, sinon revenir ramènerait ici. */}
+          <BackHeader
             title={waiting.name}
             subtitle={`${waiting.exercises.length} exercice${waiting.exercises.length > 1 ? 's' : ''} · ${sets} série${sets > 1 ? 's' : ''} prévue${sets > 1 ? 's' : ''}`}
+            onBack={() => {
+              router.setParams({ plan: '', scheduled: '' });
+              router.back();
+            }}
           />
         </View>
 
@@ -369,20 +375,11 @@ export default function SessionScreen() {
           ))}
         </ScrollView>
 
-        <View className="gap-2 px-5 pb-2">
+        <View className="px-5 pb-2">
           <Button
-            label="Démarrer la première série"
+            label="Let s go"
             size="xl"
             onPress={() => begin(waiting.id, scheduledParam || undefined)}
-          />
-          <Button
-            label="Revenir"
-            variant="ghost"
-            size="md"
-            onPress={() => {
-              router.setParams({ plan: '', scheduled: '' });
-              router.back();
-            }}
           />
         </View>
       </SafeAreaView>
