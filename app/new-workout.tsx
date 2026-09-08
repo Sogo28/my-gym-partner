@@ -13,6 +13,7 @@ import { findRecentExerciseIds } from '../src/infra/performance-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
 import { Collapsible } from '../src/ui/collapsible';
+import { Reorderable } from '../src/ui/reorderable';
 import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
@@ -62,6 +63,8 @@ export default function NewWorkoutScreen() {
   // Le brouillon vit dans l'écran : rien n'est écrit avant validation.
   const [draft, setDraft] = useState<PlannedExercise[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** La page cesse de défiler pendant qu'on déplace une carte. */
+  const [scrolls, setScrolls] = useState(true);
 
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
@@ -151,6 +154,16 @@ export default function NewWorkoutScreen() {
     );
   }
 
+  /** Déplacer un exercice : le retirer de sa place, le remettre à l'autre. */
+  function moveExercise(from: number, to: number) {
+    setDraft((current) => {
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
   function removeExercise(position: number) {
     setDraft((current) => current.filter((_, index) => index !== position));
   }
@@ -190,7 +203,7 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8">
+      <ScrollView scrollEnabled={scrolls} contentContainerClassName="gap-4 px-5 pb-8">
         <TextInput
           className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"
@@ -199,58 +212,68 @@ export default function NewWorkoutScreen() {
           onChangeText={setName}
         />
 
-        {draft.map((planned, position) => {
-          const exercise = exerciseOf(planned.exerciseId);
-          return (
-            <Collapsible
-              key={`${planned.exerciseId}-${position}`}
-              title={exercise?.name ?? planned.exerciseId}
-              summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
-              defaultOpen
-            >
-              <Pressable onPress={() => removeExercise(position)} hitSlop={8} className="pb-1">
-                <Text className="text-[12px] text-danger dark:text-danger-dark">
-                  Retirer cet exercice
-                </Text>
-              </Pressable>
-              {planned.sets.map((set, index) => (
-                <View key={index} className="flex-row items-center gap-2 pt-1">
-                  {exercise?.measurementIds.map((measurementId) => (
-                    <NumberField
-                      key={measurementId}
-                      compact
-                      unit={unitOf(measurementId)}
-                      value={set.targets[measurementId] ?? 0}
-                      step={STEPS[measurementId] ?? 1}
-                      onChange={(value) => changeTarget(position, index, measurementId, value)}
-                    />
-                  ))}
-                  <Pressable
-                    onPress={() => removeSet(position, index)}
-                    className="h-[44px] w-[44px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
-                  >
-                    <Ionicons name="remove" size={18} color="#B3261E" />
-                  </Pressable>
-                </View>
-              ))}
+        {/* L'ordre des exercices EST une décision d'entraînement : on ne met
+            pas le gainage avant les tractions. Appui long, puis on glisse. */}
+        <Reorderable
+          items={draft}
+          spacing={16}
+          keyOf={(planned, position) => `${planned.exerciseId}-${position}`}
+          onDraggingChange={(dragging) => setScrolls(!dragging)}
+          onReorder={moveExercise}
+          renderItem={(planned, position, dragging) => {
+            const exercise = exerciseOf(planned.exerciseId);
+            return (
+              <Collapsible
+                key={`${planned.exerciseId}-${position}`}
+                title={exercise?.name ?? planned.exerciseId}
+                summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
+                defaultOpen
+              >
+                <Pressable onPress={() => removeExercise(position)} hitSlop={8} className="pb-1">
+                  <Text className="text-[12px] text-danger dark:text-danger-dark">
+                    Retirer cet exercice
+                  </Text>
+                </Pressable>
+                {planned.sets.map((set, index) => (
+                  <View key={index} className="flex-row items-center gap-2 pt-1">
+                    {exercise?.measurementIds.map((measurementId) => (
+                      <NumberField
+                        key={measurementId}
+                        compact
+                        unit={unitOf(measurementId)}
+                        value={set.targets[measurementId] ?? 0}
+                        step={STEPS[measurementId] ?? 1}
+                        onChange={(value) => changeTarget(position, index, measurementId, value)}
+                      />
+                    ))}
+                    <Pressable
+                      onPress={() => removeSet(position, index)}
+                      className="h-[40px] w-[40px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
+                    >
+                      <Ionicons name="remove" size={18} color="#B3261E" />
+                    </Pressable>
+                  </View>
+                ))}
 
-              <Button
-                label="+ Ajouter une série"
-                variant="secondary"
-                size="sm"
-                className="mt-2"
-                onPress={() => addSet(position)}
-              />
-            </Collapsible>
-          );
-        })}
-
-        <Button
-          label="+ Ajouter des exercices"
-          variant="secondary"
-          size="lg"
-          onPress={() => setPicking(true)}
+                <Button
+                  label="+ Ajouter une série"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  onPress={() => addSet(position)}
+                />
+              </Collapsible>
+            );
+          }}
         />
+
+        {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
+            d'autres sur cette page, pas ce qu'elle demande. */}
+        <Pressable onPress={() => setPicking(true)} className="py-2">
+          <Text className="text-center text-[15px] text-primary-ink dark:text-primary-ink-dark">
+            + Ajouter des exercices
+          </Text>
+        </Pressable>
 
         {error && <BusinessNotice message={error} />}
       </ScrollView>

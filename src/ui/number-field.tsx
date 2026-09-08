@@ -45,13 +45,13 @@ export function NumberField({
         className={cn(
           'flex-row items-center justify-between rounded-lg border-2',
           'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
-          compact ? 'h-[44px] px-2' : 'h-[56px]',
+          compact ? 'h-[40px] px-2' : 'h-[56px]',
         )}
       >
         <Pressable
           onPress={() => onChange(Math.max(0, round(value - step)))}
           hitSlop={10}
-          className={cn('items-center justify-center', compact ? 'h-9 w-7' : 'h-10 w-8')}
+          className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
         >
           <Ionicons name="remove" size={compact ? 17 : 20} color="#8B9086" />
         </Pressable>
@@ -59,7 +59,7 @@ export function NumberField({
         <Text
           className={cn(
             'font-mono-bold text-ink dark:text-ink-dark',
-            compact ? 'text-[16px]' : 'text-[20px]',
+            compact ? 'text-[15px]' : 'text-[20px]',
           )}
           style={{ fontVariant: ['tabular-nums'] }}
           numberOfLines={1}
@@ -71,7 +71,7 @@ export function NumberField({
         <Pressable
           onPress={() => onChange(round(value + step))}
           hitSlop={10}
-          className={cn('items-center justify-center', compact ? 'h-9 w-7' : 'h-10 w-8')}
+          className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
         >
           <Ionicons name="add" size={compact ? 17 : 20} color="#8B9086" />
         </Pressable>
