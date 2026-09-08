@@ -65,6 +65,11 @@ export default function NewExerciseScreen() {
   // Les catalogues se rechargent à chaque affichage...
   useFocusEffect(
     useCallback(() => {
+      // Une erreur appartient au moment où elle s'est produite : la garder
+      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
+      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
+      setError(null);
+
       findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
       findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
     }, []),

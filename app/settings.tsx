@@ -40,6 +40,11 @@ export default function SettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Une erreur appartient au moment où elle s'est produite : la garder
+      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
+      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
+      setError(null);
+
       setState(catalogueState());
     }, []),
   );
