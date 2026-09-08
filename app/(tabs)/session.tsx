@@ -100,6 +100,16 @@ export default function SessionScreen() {
    * laisse aucune séance ouverte derrière soi.
    */
   const [pending, setPending] = useState<string | null>(null);
+  /**
+   * Ce que visera la PREMIÈRE série d'un exercice libre.
+   *
+   * Un exercice libre n'a pas de plan pour le dire : ces valeurs en tiennent
+   * lieu. Elles partent des valeurs de départ, se règlent avant de commencer,
+   * et survivent au démarrage -- c'est la série qui les porte ensuite.
+   */
+  const [freeTargets, setFreeTargets] = useState<Record<string, number> | null>(null);
+  /** La première série ouverte au réglage, avant d'avoir commencé. */
+  const [adjustingStart, setAdjustingStart] = useState(false);
   /** L'entraînement programmé qu'on est en train de déplacer. */
   const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
   /** La programmation en cours : d'abord l'entraînement, puis sa date. */
@@ -233,10 +243,13 @@ export default function SessionScreen() {
     const targets = plannedExercise?.sets[sets.length - 1]?.targets;
     if (targets && Object.keys(targets).length > 0) return spreadOverSides(targets);
 
-    // Hors programme : on reprend la dernière série faite, sinon les valeurs
-    // de départ -- un zéro demanderait de tout saisir avant de commencer.
+    // Hors programme : on reprend la dernière série faite, sinon ce qui a été
+    // réglé avant de commencer -- un zéro demanderait de tout saisir.
     const previous = [...sets].reverse().find((set) => set.status === 'COMPLETED');
-    return previous?.values ?? spreadOverSides(defaultTargets(performance.measurementIds ?? []));
+    return (
+      previous?.values ??
+      spreadOverSides(freeTargets ?? defaultTargets(performance.measurementIds ?? []))
+    );
   }
 
   // La série en cours n'est plus recouverte par la saisie locale : celle-ci
@@ -312,11 +325,22 @@ export default function SessionScreen() {
    * première série reste un geste explicite.
    */
   function addExercise(exerciseId: string) {
+    // Un autre exercice, d'autres mesures : les valeurs réglées pour le
+    // précédent ne veulent plus rien dire.
+    setFreeTargets(null);
     run(async () => {
       closeEditing();
       if (activity) await finishActivity();
       await startActivity(exerciseId);
     });
+  }
+
+  /** Retenir l'exercice choisi pour une séance libre, et ce qu'il visera. */
+  function choose(exerciseId: string) {
+    const exercise = exercises.find((candidate) => candidate.id === exerciseId);
+    setFreeTargets(defaultTargets(exercise?.measurementIds ?? []));
+    setAdjustingStart(false);
+    setPending(exerciseId);
   }
 
   /**
@@ -329,6 +353,7 @@ export default function SessionScreen() {
       await startActivity(exerciseId);
       await startPerformanceSet();
       setPending(null);
+      setAdjustingStart(false);
     });
   }
 
@@ -393,46 +418,65 @@ export default function SessionScreen() {
   const waiting = planParam ? plans.find((candidate) => candidate.id === planParam) : undefined;
 
   /**
-   * L'attente d'une séance libre : l'exercice est choisi, rien n'est encore
-   * écrit. Le même palier que pour un entraînement, avec ce qu'on s'apprête
-   * à faire sous les yeux.
+   * L'exercice choisi pour une séance libre, avant qu'elle ne commence.
+   *
+   * Le MÊME écran que pendant la séance -- le nom, les séries, les valeurs --
+   * à ceci près qu'il ne s'est encore rien passé : une seule série, prévue,
+   * et un bouton pour s'y mettre. Rien n'est écrit tant qu'on ne l'a pas
+   * tapé, donc revenir en arrière n'a rien à annuler.
    */
   const pendingExercise = pending ? exercises.find((e) => e.id === pending) : undefined;
 
   if (!session && pendingExercise) {
-    const targets = defaultTargets(pendingExercise.measurementIds);
+    const targets = freeTargets ?? defaultTargets(pendingExercise.measurementIds);
 
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
-        <View className="px-5 pt-4">
-          {/* Revenir n'annule rien : il n'y avait rien à annuler. */}
-          <BackHeader
-            title={pendingExercise.name}
-            subtitle="Séance libre"
-            onBack={() => setPending(null)}
+      <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
+        {/* Pas de menu : il n'y a ni série à abandonner ni séance à terminer. */}
+        <BackHeader title="Séance libre" subtitle="rien n a encore commencé" onBack={() => setPending(null)} />
+
+        <Text
+          className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
+          numberOfLines={2}
+        >
+          {pendingExercise.name}
+        </Text>
+
+        <Text className="mt-6 py-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
+          Séries 0/1
+        </Text>
+
+        <View className="gap-2 px-1 pt-0.5">
+          {/* Taper la série ouvre ses valeurs : les cibles de départ sont une
+              proposition, pas une consigne. */}
+          <SetRow
+            index={1}
+            status="planned"
+            values={formatPlanned(targets)}
+            selected={adjustingStart}
+            onPress={() => setAdjustingStart((open) => !open)}
           />
         </View>
 
-        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
+        <View className="flex-1" />
+
+        <View className="gap-3 pb-2">
           {error && <BusinessNotice message={error} />}
 
-          <Card density="titled" className="gap-1">
-            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-              Première série
-            </Text>
-            <Text
-              className="font-mono text-[13px] text-planned dark:text-planned-dark"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {formatTargets(targets, unitOf)}
-            </Text>
-            <Text className="text-[12px] text-muted dark:text-muted-dark">
-              Des valeurs de départ : tu les ajustes en cours de série.
-            </Text>
-          </Card>
-        </ScrollView>
+          {adjustingStart && (
+            <View className="flex-row gap-3">
+              {pendingExercise.measurementIds.map((id) => (
+                <NumberField
+                  key={id}
+                  unit={unitOf(id)}
+                  value={targets[id] ?? 0}
+                  step={STEPS[id] ?? 1}
+                  onChange={(value) => setFreeTargets({ ...targets, [id]: value })}
+                />
+              ))}
+            </View>
+          )}
 
-        <View className="px-5 pb-2">
           <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
         </View>
       </SafeAreaView>
@@ -652,7 +696,7 @@ export default function SessionScreen() {
           onClose={() => setPlanning(null)}
         />
 
-        {exercisePicker(setPending)}
+        {exercisePicker(choose)}
       </SafeAreaView>
     );
   }
