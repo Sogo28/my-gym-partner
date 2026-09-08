@@ -220,12 +220,34 @@ export default function NewWorkoutScreen() {
           keyOf={(planned, position) => `${planned.exerciseId}-${position}`}
           onDraggingChange={(dragging) => setScrolls(!dragging)}
           onReorder={moveExercise}
-          renderItem={(planned, position, dragging) => {
+          renderItem={(planned, position, drag) => {
             const exercise = exerciseOf(planned.exerciseId);
             return (
               <Collapsible
                 key={`${planned.exerciseId}-${position}`}
-                title={exercise?.name ?? planned.exerciseId}
+                title={
+                  <View className="flex-row items-center gap-2">
+                    {/* La poignée prend le geste dès le contact : posée sur
+                        la carte entière, il serait capté par le premier
+                        élément tapable qu'elle contient. */}
+                    <View
+                      {...drag.handle}
+                      className="h-9 w-8 items-center justify-center rounded-md"
+                    >
+                      <Ionicons
+                        name="reorder-two"
+                        size={20}
+                        color={drag.dragging ? '#BFF04A' : '#8B9086'}
+                      />
+                    </View>
+                    <Text
+                      className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {exercise?.name ?? planned.exerciseId}
+                    </Text>
+                  </View>
+                }
                 summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
                 defaultOpen
               >

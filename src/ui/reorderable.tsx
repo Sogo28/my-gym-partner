@@ -1,14 +1,21 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
 
+/** Ce qu'il faut poser sur la poignée pour qu'elle prenne le geste. */
+export type DragHandle = { readonly handle: object; readonly dragging: boolean };
+
 /**
- * Une liste dont on réordonne les éléments au doigt : appui long, puis on
- * glisse.
+ * Une liste dont on réordonne les éléments au doigt, par une POIGNÉE.
+ *
+ * L'appui long sur la carte entière ne peut pas fonctionner ici : elle
+ * contient des zones tapables -- l'en-tête dépliable, les champs, le bouton
+ * de retrait -- et c'est la plus intérieure d'entre elles qui reçoit le
+ * toucher. Le parent n'apprend jamais qu'on appuie. Une poignée dédiée prend
+ * le geste dès le contact, sans délai ni ambiguïté avec le défilement.
  *
  * Écrite avec `PanResponder` et l'`Animated` de React Native, comme le bloc
  * dépliable et pour la même raison : Reanimated embarque du code natif qui
- * doit correspondre trait pour trait à celui d'Expo Go, et ne pardonne pas un
- * écart de version.
+ * doit correspondre trait pour trait à celui d'Expo Go.
  *
  * Les hauteurs sont MESURÉES plutôt que supposées : un exercice à une série
  * et un exercice à cinq n'occupent pas la même place, et c'est en cumulant
@@ -24,7 +31,7 @@ export function Reorderable<T>({
 }: {
   items: readonly T[];
   keyOf: (item: T, index: number) => string;
-  renderItem: (item: T, index: number, dragging: boolean) => ReactNode;
+  renderItem: (item: T, index: number, drag: DragHandle) => ReactNode;
   onReorder: (from: number, to: number) => void;
   /** La page doit cesser de défiler pendant qu'on déplace une carte. */
   onDraggingChange?: (dragging: boolean) => void;
@@ -35,80 +42,117 @@ export function Reorderable<T>({
   const [dragged, setDragged] = useState<number | null>(null);
   /** Sa position pendant le glissement, pour que le rendu suive le doigt. */
   const offset = useRef(new Animated.Value(0)).current;
-  /** Le décalage courant, lu hors du rendu : `Animated.Value` ne se lit pas. */
+  /** Le décalage courant, lu hors du rendu : un `Animated.Value` ne se lit pas. */
   const travelled = useRef(0);
-  const draggedIndex = useRef<number | null>(null);
+  const from = useRef<number | null>(null);
 
   function begin(index: number) {
-    draggedIndex.current = index;
+    from.current = index;
     travelled.current = 0;
     offset.setValue(0);
     setDragged(index);
     onDraggingChange?.(true);
   }
 
+  function move(dy: number) {
+    travelled.current = dy;
+    offset.setValue(dy);
+  }
+
   function end() {
-    const from = draggedIndex.current;
-    if (from !== null) {
-      const to = targetOf(from, travelled.current, heights.current);
-      if (to !== from) onReorder(from, to);
+    const start = from.current;
+    if (start !== null) {
+      const to = targetOf(start, travelled.current, heights.current);
+      if (to !== start) onReorder(start, to);
     }
-    draggedIndex.current = null;
+    from.current = null;
     travelled.current = 0;
     offset.setValue(0);
     setDragged(null);
     onDraggingChange?.(false);
   }
 
-  const responder = useRef(
-    PanResponder.create({
-      // On ne prend la main QUE pendant un appui long déjà commencé : sans
-      // cela, la page ne défilerait plus.
-      onMoveShouldSetPanResponderCapture: () => draggedIndex.current !== null,
-      onPanResponderMove: (_, gesture) => {
-        travelled.current = gesture.dy;
-        offset.setValue(gesture.dy);
-      },
-      onPanResponderRelease: end,
-      onPanResponderTerminate: end,
-    }),
-  ).current;
+  return (
+    <View>
+      {items.map((item, index) => (
+        <Row
+          key={keyOf(item, index)}
+          index={index}
+          spacing={index === items.length - 1 ? 0 : spacing}
+          dragging={dragged === index}
+          offset={offset}
+          onBegin={begin}
+          onMove={move}
+          onEnd={end}
+          onHeight={(height) => {
+            // La hauteur mesurée inclut l'écart : c'est bien de place occupée
+            // qu'il s'agit quand on cherche où la carte atterrit.
+            heights.current[index] = height + spacing;
+          }}
+          render={(drag) => renderItem(item, index, drag)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function Row({
+  index,
+  spacing,
+  dragging,
+  offset,
+  onBegin,
+  onMove,
+  onEnd,
+  onHeight,
+  render,
+}: {
+  index: number;
+  spacing: number;
+  dragging: boolean;
+  offset: Animated.Value;
+  onBegin: (index: number) => void;
+  onMove: (dy: number) => void;
+  onEnd: () => void;
+  onHeight: (height: number) => void;
+  render: (drag: DragHandle) => ReactNode;
+}) {
+  // Recréé quand la position change : le geste doit déplacer la carte là où
+  // elle est MAINTENANT, pas là où elle était au premier rendu.
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        // Le défilement ne doit pas pouvoir reprendre le doigt en route.
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => onBegin(index),
+        onPanResponderMove: (_, gesture) => onMove(gesture.dy),
+        onPanResponderRelease: onEnd,
+        onPanResponderTerminate: onEnd,
+      }),
+    [index, onBegin, onMove, onEnd],
+  );
 
   return (
-    <View {...responder.panHandlers}>
-      {items.map((item, index) => {
-        const isDragged = dragged === index;
-
-        return (
-          <View
-            key={keyOf(item, index)}
-            style={{ marginBottom: index === items.length - 1 ? 0 : spacing }}
-            onLayout={(event) => {
-              // La hauteur mesurée inclut l'écart : c'est bien de place
-              // occupée qu'il s'agit quand on cherche où la carte atterrit.
-              heights.current[index] = event.nativeEvent.layout.height + spacing;
-            }}
-          >
-            <Animated.View
-              style={
-                isDragged
-                  ? {
-                      transform: [{ translateY: offset }],
-                      // Elle passe au-dessus des autres, et le dit.
-                      zIndex: 10,
-                      elevation: 8,
-                      opacity: 0.95,
-                    }
-                  : undefined
+    <View
+      style={{ marginBottom: spacing }}
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
+    >
+      <Animated.View
+        style={
+          dragging
+            ? {
+                transform: [{ translateY: offset }],
+                // Elle passe au-dessus des autres, et le dit.
+                zIndex: 10,
+                elevation: 8,
+                opacity: 0.95,
               }
-            >
-              <LongPressable onHold={() => begin(index)} enabled={dragged === null}>
-                {renderItem(item, index, isDragged)}
-              </LongPressable>
-            </Animated.View>
-          </View>
-        );
-      })}
+            : undefined
+        }
+      >
+        {render({ handle: responder.panHandlers, dragging })}
+      </Animated.View>
     </View>
   );
 }
@@ -138,44 +182,4 @@ function targetOf(from: number, travelled: number, heights: readonly number[]): 
   }
 
   return index;
-}
-
-/**
- * Un appui long qui n'empêche pas les taps de ses enfants.
- *
- * `Pressable` capturerait le toucher : les champs et les boutons de la carte
- * ne répondraient plus. On écoute donc le toucher sans le prendre, et on ne
- * déclenche qu'à l'expiration du délai.
- */
-function LongPressable({
-  children,
-  onHold,
-  enabled,
-}: {
-  children: ReactNode;
-  onHold: () => void;
-  enabled: boolean;
-}) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancel = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  };
-
-  return (
-    <View
-      onTouchStart={() => {
-        if (!enabled) return;
-        cancel();
-        timer.current = setTimeout(onHold, 350);
-      }}
-      // Un doigt qui bouge avant le délai voulait faire défiler la page.
-      onTouchMove={cancel}
-      onTouchEnd={cancel}
-      onTouchCancel={cancel}
-    >
-      {children}
-    </View>
-  );
 }
