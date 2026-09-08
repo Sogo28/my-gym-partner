@@ -25,7 +25,6 @@ import {
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { GoalSubject } from '../../src/domain/goal/goal';
 import { describeSource } from '../../src/ui/goal-labels';
-import { StepGauge } from '../../src/ui/step-gauge';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
@@ -330,7 +329,7 @@ export default function HomeScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerClassName="gap-2 pr-4"
+              contentContainerClassName="items-stretch gap-2 pr-4"
             >
               {goals.map((goal) => {
                 const evaluation = evaluations.get(goal.id);
@@ -342,7 +341,7 @@ export default function HomeScreen() {
 
                 return (
                   <Pressable key={goal.id} onPress={() => router.push('/goals')}>
-                    <Card className="w-[190px] gap-2">
+                    <Card className="h-full w-[190px] gap-2">
                       <Text
                         className="font-bold text-[15px] text-ink dark:text-ink-dark"
                         numberOfLines={2}
@@ -376,25 +375,14 @@ export default function HomeScreen() {
                               {first.condition.target} {unitOf(first.condition.measurementId)}
                             </Text>
                           </Text>
-                          {/* Les carrés prennent la place de la légende : ils
-                              disent la position dans l'échelle mieux qu'un
-                              « étape 2 sur 4 » ne le ferait. */}
-                          {goal.isProgressive ? (
-                            <StepGauge
-                              total={goal.steps.length}
-                              done={goal.currentStepIndex}
-                              currentSatisfied={evaluation?.satisfied ?? false}
-                            />
-                          ) : (
-                            <Text
-                              className="text-[10px] text-muted dark:text-muted-dark"
-                              numberOfLines={1}
-                            >
-                              {results.length > 1
-                                ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
-                                : describeSource(first.condition)}
-                            </Text>
-                          )}
+                          <Text
+                            className="text-[10px] text-muted dark:text-muted-dark"
+                            numberOfLines={1}
+                          >
+                            {results.length > 1
+                              ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
+                              : describeSource(first.condition)}
+                          </Text>
                         </View>
                       ) : (
                         <Text className="text-[11px] text-muted dark:text-muted-dark">
