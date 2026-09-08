@@ -121,7 +121,7 @@ export default function SessionScreen() {
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(true);
   const [sheet, setSheet] = useState<
-    'none' | 'menu' | 'confirm-cancel' | 'end-of-plan' | 'pick-exercise'
+    'none' | 'menu' | 'pending-menu' | 'confirm-cancel' | 'end-of-plan' | 'pick-exercise'
   >('none');
   const [error, setError] = useState<string | null>(null);
 
@@ -432,8 +432,12 @@ export default function SessionScreen() {
 
     return (
       <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
-        {/* Pas de menu : il n'y a ni série à abandonner ni séance à terminer. */}
-        <BackHeader title="Séance libre" subtitle="rien n a encore commencé" onBack={() => setPending(null)} />
+        <BackHeader
+          title="Séance libre"
+          subtitle="rien n a encore commencé"
+          onBack={() => setPending(null)}
+          onMenu={() => setSheet('pending-menu')}
+        />
 
         <Text
           className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
@@ -479,6 +483,26 @@ export default function SessionScreen() {
 
           <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
         </View>
+
+        {/* Le menu ne propose que ce qui existe à ce stade : rien n'a été
+            écrit, donc rien à abandonner ni à terminer. */}
+        <Sheet
+          visible={sheet === 'pending-menu'}
+          title="Avant de commencer"
+          actions={[
+            { label: "Changer d'exercice", onPress: () => setSheet('pick-exercise') },
+            {
+              label: 'Ne pas commencer',
+              onPress: () => {
+                setSheet('none');
+                setPending(null);
+              },
+            },
+          ]}
+          onClose={() => setSheet('none')}
+        />
+
+        {exercisePicker(choose)}
       </SafeAreaView>
     );
   }
