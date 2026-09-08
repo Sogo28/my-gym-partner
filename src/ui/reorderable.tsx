@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
 
 /** Ce qu'il faut poser sur la poignée pour qu'elle prenne le geste. */
@@ -153,21 +153,28 @@ function Row({
   onHeight: (height: number) => void;
   render: (drag: DragHandle) => ReactNode;
 }) {
-  // Recréé quand la position change : le geste doit déplacer la carte là où
-  // elle est MAINTENANT, pas là où elle était au premier rendu.
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        // Le défilement ne doit pas pouvoir reprendre le doigt en route.
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: () => onBegin(index),
-        onPanResponderMove: (_, gesture) => onMove(gesture.dy),
-        onPanResponderRelease: onEnd,
-        onPanResponderTerminate: onEnd,
-      }),
-    [index, onBegin, onMove, onEnd],
-  );
+  /**
+   * Ce que le geste doit savoir, tenu à jour SANS recréer le responder.
+   *
+   * C'est tout le piège : un `PanResponder` recréé au rendu remplace les
+   * gestionnaires de la vue, et React Native perd le geste en cours -- la
+   * carte revenait donc à sa place au moment même où elle commençait à
+   * bouger, puisque commencer à bouger provoque un rendu.
+   */
+  const latest = useRef({ index, onBegin, onMove, onEnd });
+  latest.current = { index, onBegin, onMove, onEnd };
+
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      // Le défilement ne doit pas pouvoir reprendre le doigt en route.
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => latest.current.onBegin(latest.current.index),
+      onPanResponderMove: (_, gesture) => latest.current.onMove(gesture.dy),
+      onPanResponderRelease: () => latest.current.onEnd(),
+      onPanResponderTerminate: () => latest.current.onEnd(),
+    }),
+  ).current;
 
   return (
     <View
