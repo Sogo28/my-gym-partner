@@ -13,7 +13,6 @@ import { findRecentExerciseIds } from '../src/infra/performance-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
 import { Collapsible } from '../src/ui/collapsible';
-import { Fab } from '../src/ui/fab';
 import {
   NestedReorderableList,
   ScrollViewContainer,
@@ -22,7 +21,6 @@ import {
   useReorderableDrag,
 } from 'react-native-reorderable-list';
 import { NumberField } from '../src/ui/number-field';
-import { groupConsecutive } from '../src/ui/set-groups';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
@@ -158,16 +156,10 @@ export default function NewWorkoutScreen() {
     setError(null);
   }
 
-  /**
-   * Une cible se change directement sur sa série, sans étape de validation.
-   *
-   * Sur un GROUPE, elle change les séries qu'il représente : « 4 × 8 reps »
-   * affiché comme une ligne doit se corriger comme une ligne.
-   */
-  function changeTargets(
+  /** Une cible se change directement sur sa série, sans étape de validation. */
+  function changeTarget(
     position: number,
     setIndex: number,
-    count: number,
     measurementId: string,
     value: number,
   ) {
@@ -179,9 +171,7 @@ export default function NewWorkoutScreen() {
               planned: {
                 ...entry.planned,
                 sets: entry.planned.sets.map((set, i) =>
-                  i >= setIndex && i < setIndex + count
-                    ? { targets: { ...set.targets, [measurementId]: value } }
-                    : set,
+                  i === setIndex ? { targets: { ...set.targets, [measurementId]: value } } : set,
                 ),
               },
             }
@@ -246,7 +236,7 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollViewContainer contentContainerClassName="gap-4 px-5 pb-32">
+      <ScrollViewContainer contentContainerClassName="gap-4 px-5 pb-8">
         <TextInput
           className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"
@@ -271,13 +261,21 @@ export default function NewWorkoutScreen() {
               unitOf={unitOf}
               onRemoveExercise={() => removeExercise(index)}
               onRemoveSet={(setIndex) => removeSet(index, setIndex)}
-              onChangeTarget={(setIndex, count, measurementId, value) =>
-                changeTargets(index, setIndex, count, measurementId, value)
+              onChangeTarget={(setIndex, measurementId, value) =>
+                changeTarget(index, setIndex, measurementId, value)
               }
               onAddSet={() => addSet(index)}
             />
           )}
         />
+
+        {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
+            d'autres sur cette page, pas ce qu'elle demande. */}
+        <Pressable onPress={() => setPicking(true)} className="py-2">
+          <Text className="text-center text-[15px] text-primary-ink dark:text-primary-ink-dark">
+            + Ajouter des exercices
+          </Text>
+        </Pressable>
 
         {error && <BusinessNotice message={error} />}
       </ScrollViewContainer>
@@ -310,14 +308,6 @@ export default function NewWorkoutScreen() {
       />
 
       <View className="p-5 pt-2">
-        {/* Ancrée sur la barre d'action plutôt que sur l'écran : sa hauteur
-            dépend de la marge système du téléphone, qu'aucune valeur fixe ne
-            peut deviner. */}
-        <Fab
-          accessibilityLabel="Ajouter des exercices"
-          className="-top-20 right-0"
-          onPress={() => setPicking(true)}
-        />
         <Button
           label={existing ? 'Enregistrer les modifications' : 'Créer l entraînement'}
           size="lg"
@@ -349,7 +339,7 @@ function DraftCard({
   unitOf: (measurementId: string) => string;
   onRemoveExercise: () => void;
   onRemoveSet: (setIndex: number) => void;
-  onChangeTarget: (setIndex: number, count: number, measurementId: string, value: number) => void;
+  onChangeTarget: (setIndex: number, measurementId: string, value: number) => void;
   onAddSet: () => void;
 }) {
   const drag = useReorderableDrag();
@@ -380,32 +370,20 @@ function DraftCard({
         <Text className="text-[12px] text-danger dark:text-danger-dark">Retirer cet exercice</Text>
       </Pressable>
 
-      {/* Quatre séries identiques tiennent sur une ligne : c'est ainsi qu'on
-          les écrit sur un carnet, et cela évite quatre rangées de champs
-          rigoureusement semblables. */}
-      {groupConsecutive(planned.sets).map((group) => (
-        <View key={group.from} className="flex-row items-center gap-2 pt-1">
-          <Text
-            className="w-7 font-mono-bold text-[13px] text-muted dark:text-muted-dark"
-            style={{ fontVariant: ['tabular-nums'] }}
-          >
-            ×{group.count}
-          </Text>
-
+      {planned.sets.map((set, index) => (
+        <View key={index} className="flex-row items-center gap-2 pt-1">
           {exercise?.measurementIds.map((measurementId) => (
             <NumberField
               key={measurementId}
               compact
               unit={unitOf(measurementId)}
-              value={group.targets[measurementId] ?? 0}
+              value={set.targets[measurementId] ?? 0}
               step={STEPS[measurementId] ?? 1}
-              onChange={(value) => onChangeTarget(group.from, group.count, measurementId, value)}
+              onChange={(value) => onChangeTarget(index, measurementId, value)}
             />
           ))}
-
-          {/* On retire UNE série du groupe : « ×3 » devient « ×2 ». */}
           <Pressable
-            onPress={() => onRemoveSet(group.from)}
+            onPress={() => onRemoveSet(index)}
             className="h-[40px] w-[40px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
           >
             <Ionicons name="remove" size={18} color="#B3261E" />
