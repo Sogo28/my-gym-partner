@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
 import { Button } from './button';
 import { cn } from './cn';
@@ -178,7 +178,9 @@ export function DatePickerSheet({
           <Text className="font-mono-bold text-[26px] text-ink dark:text-ink-dark">:</Text>
           <TimeUnit
             value={selected.getMinutes()}
-            step={15}
+            // Une minute par tap : le pas de quinze supposait qu'on ne
+            // programme qu'aux quarts d'heure. L'appui long couvre la
+            // distance quand elle est longue.
             onChange={(by) => shiftTime('minutes', by)}
             color={muted}
           />
@@ -193,6 +195,13 @@ export function DatePickerSheet({
   );
 }
 
+/**
+ * Une unité de temps qui avance d'un pas au tap, et défile à l'appui long.
+ *
+ * Sans la répétition, un pas fin obligerait à taper cinquante fois pour
+ * traverser une heure -- c'est ce qui avait fait choisir un pas de quinze
+ * minutes, au prix des horaires qui ne tombent pas sur un quart.
+ */
 function TimeUnit({
   value,
   step = 1,
@@ -204,9 +213,26 @@ function TimeUnit({
   onChange: (by: number) => void;
   color: string;
 }) {
+  const repeating = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const hold = (by: number) => () => {
+    stop();
+    repeating.current = setInterval(() => onChange(by), 80);
+  };
+  const stop = () => {
+    if (repeating.current) clearInterval(repeating.current);
+    repeating.current = null;
+  };
+
   return (
     <View className="items-center gap-1">
-      <Pressable onPress={() => onChange(step)} hitSlop={8} className="px-3">
+      <Pressable
+        onPress={() => onChange(step)}
+        onLongPress={hold(step)}
+        onPressOut={stop}
+        hitSlop={8}
+        className="px-3"
+      >
         <Ionicons name="chevron-up" size={18} color={color} />
       </Pressable>
 
@@ -217,7 +243,13 @@ function TimeUnit({
         {String(value).padStart(2, '0')}
       </Text>
 
-      <Pressable onPress={() => onChange(-step)} hitSlop={8} className="px-3">
+      <Pressable
+        onPress={() => onChange(-step)}
+        onLongPress={hold(-step)}
+        onPressOut={stop}
+        hitSlop={8}
+        className="px-3"
+      >
         <Ionicons name="chevron-down" size={18} color={color} />
       </Pressable>
     </View>
