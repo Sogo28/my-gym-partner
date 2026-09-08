@@ -206,13 +206,20 @@ export default function NewWorkoutScreen() {
     });
   }
 
-  function removeExercise(position: number) {
-    setDraft((current) => current.filter((_, index) => index !== position));
-  }
-
+  /**
+   * Retirer la dernière série retire l'exercice.
+   *
+   * Un exercice sans série ne veut rien dire dans un entraînement -- c'est
+   * pour cela qu'il en reçoit une à l'ajout. Le laisser vide obligeait à un
+   * second bouton pour dire la même chose.
+   */
   function removeSet(position: number, setIndex: number) {
-    setDraft((current) =>
-      current.map((entry, index) =>
+    setDraft((current) => {
+      if (current[position].planned.sets.length <= 1) {
+        return current.filter((_, index) => index !== position);
+      }
+
+      return current.map((entry, index) =>
         index === position
           ? {
               ...entry,
@@ -222,8 +229,8 @@ export default function NewWorkoutScreen() {
               },
             }
           : entry,
-      ),
-    );
+      );
+    });
   }
 
   /** Archivé s'il a déjà produit des séances, supprimé sinon : la base tranche. */
@@ -288,7 +295,6 @@ export default function NewWorkoutScreen() {
               entry={item}
               exercise={exerciseOf(item.planned.exerciseId)}
               unitOf={unitOf}
-              onRemoveExercise={() => removeExercise(index)}
               onRemoveSet={(setIndex) => removeSet(index, setIndex)}
               onChangeTarget={(setIndex, measurementId, value) =>
                 changeTarget(index, setIndex, measurementId, value)
@@ -327,16 +333,22 @@ export default function NewWorkoutScreen() {
         exercises={available}
         muscles={muscles}
         recentIds={recentIds}
-        onConfirm={(ids) =>
+        onConfirm={(ids) => {
+          // Elle a fait son office : la garder cocherait le même exercice à
+          // chaque ouverture suivante.
+          setPreselected([]);
           setDraft((current) => [
             ...current,
             ...ids.map((exerciseId) => {
               const exercise = available.find((candidate) => candidate.id === exerciseId);
               return keyed({ exerciseId, sets: exercise ? [defaultSet(exercise)] : [] });
             }),
-          ])
-        }
-        onClose={() => setPicking(false)}
+          ]);
+        }}
+        onClose={() => {
+          setPreselected([]);
+          setPicking(false);
+        }}
       />
 
       <Sheet
@@ -385,7 +397,6 @@ function DraftCard({
   entry,
   exercise,
   unitOf,
-  onRemoveExercise,
   onRemoveSet,
   onChangeTarget,
   onAddSet,
@@ -393,7 +404,6 @@ function DraftCard({
   entry: Planned;
   exercise: Exercise | undefined;
   unitOf: (measurementId: string) => string;
-  onRemoveExercise: () => void;
   onRemoveSet: (setIndex: number) => void;
   onChangeTarget: (setIndex: number, measurementId: string, value: number) => void;
   onAddSet: () => void;
@@ -422,10 +432,6 @@ function DraftCard({
       summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
       defaultOpen
     >
-      <Pressable onPress={onRemoveExercise} hitSlop={8} className="pb-1">
-        <Text className="text-[12px] text-danger dark:text-danger-dark">Retirer cet exercice</Text>
-      </Pressable>
-
       {planned.sets.map((set, index) => (
         <View key={index} className="flex-row items-center gap-2 pt-1">
           {exercise?.measurementIds.map((measurementId) => (
