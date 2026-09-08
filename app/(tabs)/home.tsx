@@ -153,17 +153,10 @@ export default function HomeScreen() {
               : 'Travaillé cette semaine'}
           </Text>
 
-          {shown.exerciseCount === 0 ? (
-            <Card density="titled">
-              <Text className="text-[13px] text-muted dark:text-muted-dark">
-                {day
-                  ? 'Rien de validé ce jour-là.'
-                  : 'Rien de travaillé depuis lundi. Le schéma se remplira à ta première série validée.'}
-              </Text>
-            </Card>
-          ) : (
-            <BodyMap parts={worked} scale={0.62} />
-          )}
+          {/* Le schéma reste, même vide : une silhouette sans couleur dit
+              « rien ce jour-là » sans faire sauter la page, et garde le
+              calendrier à la même place d'un jour à l'autre. */}
+          <BodyMap parts={worked} scale={0.62} />
 
           <WeekStrip days={strip} selected={day} onSelect={select} />
         </View>

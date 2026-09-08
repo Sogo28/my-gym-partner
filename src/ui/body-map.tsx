@@ -42,10 +42,13 @@ export function BodyMap({ parts, scale = 0.75 }: { parts: HighlightedPart[]; sca
         />
       </View>
 
-      <View className="flex-row items-center gap-4">
-        <Legend color={colors[1]} label="visé" />
-        <Legend color={colors[0]} label="en soutien" />
-      </View>
+      {/* Sans rien de colorié, la légende n'a rien à légender. */}
+      {parts.length > 0 && (
+        <View className="flex-row items-center gap-4">
+          <Legend color={colors[1]} label="visé" />
+          <Legend color={colors[0]} label="en soutien" />
+        </View>
+      )}
     </View>
   );
 }
