@@ -92,6 +92,14 @@ export default function SessionScreen() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
+  /**
+   * L'exercice choisi pour une séance libre, tant qu'elle n'a pas commencé.
+   *
+   * Il vit ICI et non en base : une séance date de sa première série, donc
+   * choisir l'exercice ne doit encore rien écrire -- revenir en arrière ne
+   * laisse aucune séance ouverte derrière soi.
+   */
+  const [pending, setPending] = useState<string | null>(null);
   /** L'entraînement programmé qu'on est en train de déplacer. */
   const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
   /** La programmation en cours : d'abord l'entraînement, puis sa date. */
@@ -300,34 +308,27 @@ export default function SessionScreen() {
   }
 
   /**
-   * Démarre un exercice hors programme, et sa première série dans la foulée.
-   *
-   * Choisir un exercice, c'est déjà s'y mettre : demander ensuite « Démarrer »
-   * ajoutait un geste entre la décision et la barre. La série s'ouvre sur les
-   * valeurs de départ, qui restent ajustables.
+   * Démarre un exercice hors programme. Comme pour l'exercice suivant, la
+   * première série reste un geste explicite.
    */
   function addExercise(exerciseId: string) {
     run(async () => {
       closeEditing();
       if (activity) await finishActivity();
       await startActivity(exerciseId);
-      await startPerformanceSet();
     });
   }
 
   /**
-   * Une séance libre commence par le choix de l'exercice.
-   *
-   * Rien n'est créé avant : renoncer dans le sélecteur ne laisse donc aucune
-   * séance ouverte derrière soi, et la séance date bien de sa première série
-   * -- comme celle qui vient d'un entraînement.
+   * Commencer une séance libre pour de bon : la séance, l'exercice et sa
+   * première série naissent du même geste, celui du bouton.
    */
   function beginFree(exerciseId: string) {
-    setSheet('none');
     run(async () => {
       await startWorkoutSession();
       await startActivity(exerciseId);
       await startPerformanceSet();
+      setPending(null);
     });
   }
 
@@ -390,6 +391,53 @@ export default function SessionScreen() {
   }
 
   const waiting = planParam ? plans.find((candidate) => candidate.id === planParam) : undefined;
+
+  /**
+   * L'attente d'une séance libre : l'exercice est choisi, rien n'est encore
+   * écrit. Le même palier que pour un entraînement, avec ce qu'on s'apprête
+   * à faire sous les yeux.
+   */
+  const pendingExercise = pending ? exercises.find((e) => e.id === pending) : undefined;
+
+  if (!session && pendingExercise) {
+    const targets = defaultTargets(pendingExercise.measurementIds);
+
+    return (
+      <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+        <View className="px-5 pt-4">
+          {/* Revenir n'annule rien : il n'y avait rien à annuler. */}
+          <BackHeader
+            title={pendingExercise.name}
+            subtitle="Séance libre"
+            onBack={() => setPending(null)}
+          />
+        </View>
+
+        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
+          {error && <BusinessNotice message={error} />}
+
+          <Card density="titled" className="gap-1">
+            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+              Première série
+            </Text>
+            <Text
+              className="font-mono text-[13px] text-planned dark:text-planned-dark"
+              style={{ fontVariant: ['tabular-nums'] }}
+            >
+              {formatTargets(targets, unitOf)}
+            </Text>
+            <Text className="text-[12px] text-muted dark:text-muted-dark">
+              Des valeurs de départ : tu les ajustes en cours de série.
+            </Text>
+          </Card>
+        </ScrollView>
+
+        <View className="px-5 pb-2">
+          <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!session && waiting) {
     const sets = waiting.exercises.reduce((total, entry) => total + entry.sets.length, 0);
@@ -604,7 +652,7 @@ export default function SessionScreen() {
           onClose={() => setPlanning(null)}
         />
 
-        {exercisePicker(beginFree)}
+        {exercisePicker(setPending)}
       </SafeAreaView>
     );
   }
