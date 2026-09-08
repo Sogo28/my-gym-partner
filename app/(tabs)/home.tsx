@@ -17,7 +17,10 @@ import { messageOf } from '../../src/ui/message';
 import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
 import { listGoals } from '../../src/use-cases/goal-actions';
-import { listSchedule } from '../../src/use-cases/scheduling-actions';
+import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
+import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
+import { DatePickerSheet } from '../../src/ui/date-picker';
+import { Sheet } from '../../src/ui/sheet';
 import {
   startOfDay,
   startOfWeek,
@@ -51,6 +54,9 @@ export default function HomeScreen() {
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  /** L'étape de la planification : choisir l'entraînement, puis sa date. */
+  const [planning, setPlanning] = useState<'none' | 'workout' | 'date'>('none');
+  const [chosen, setChosen] = useState<PlannedWorkout | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -104,6 +110,9 @@ export default function HomeScreen() {
   const worked = highlight(shown.primaryMuscleIds, shown.secondaryMuscleIds);
 
   const today = startOfDay(new Date());
+  const plannedToday = thisWeek.filter(
+    (entry) => startOfDay(entry.scheduledAt).getTime() === today.getTime(),
+  );
   const strip = weekDays(new Date()).map((date) => ({
     date,
     worked: done.some((entry) => entry.getTime() === date.getTime()),
@@ -112,6 +121,38 @@ export default function HomeScreen() {
     ),
     today: date.getTime() === today.getTime(),
   }));
+
+  /** Démarrer la séance prévue : elle est marquée exécutée en se terminant. */
+  async function start(plannedWorkoutId: string, scheduledId: string) {
+    try {
+      await startWorkoutSession(plannedWorkoutId, scheduledId);
+      router.push('/session');
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  /**
+   * Programmer : l'entraînement d'abord, la date ensuite.
+   *
+   * La date proposée est le jour REGARDÉ dans le calendrier, à défaut
+   * aujourd'hui : venir de taper jeudi puis se voir proposer lundi ferait
+   * refaire à la main ce qu'on vient de dire.
+   */
+  async function planFor(at: Date) {
+    const plan = chosen;
+    setPlanning('none');
+    setChosen(null);
+    if (!plan) return;
+
+    try {
+      await scheduleWorkout({ plannedWorkoutId: plan.id, at });
+      setSchedule((await listSchedule()).filter((entry) => entry.status === 'SCHEDULED'));
+      setError(null);
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
@@ -171,27 +212,48 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Ce qui vient. */}
-        {thisWeek.length > 0 && (
-          <View className="gap-2">
-            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-              Prévu cette semaine
-            </Text>
-            {thisWeek.map((entry) => (
-              <Card key={entry.id} className="flex-row items-center justify-between gap-3">
-                <Text
-                  className="shrink font-bold text-[15px] text-ink dark:text-ink-dark"
-                  numberOfLines={1}
-                >
-                  {planNameOf(entry.plannedWorkoutId)}
-                </Text>
-                <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-                  {formatDateTime(entry.scheduledAt)}
-                </Text>
+        {/* Ce qui est prévu AUJOURD'HUI, et rien de plus : le reste de la
+            semaine se lit déjà dans les carrés du calendrier. */}
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Aujourd hui
+          </Text>
+
+          {plannedToday.length === 0 ? (
+            <Card density="titled" className="gap-2">
+              <Text className="text-[13px] text-muted dark:text-muted-dark">
+                Aucune séance prévue aujourd hui.
+              </Text>
+              <Button
+                label="Planifier une séance"
+                variant="secondary"
+                size="md"
+                onPress={() => setPlanning('workout')}
+              />
+            </Card>
+          ) : (
+            plannedToday.map((entry) => (
+              <Card key={entry.id} density="titled" className="gap-2">
+                <View className="flex-row items-start justify-between gap-3">
+                  <Text
+                    className="shrink font-extrabold text-[17px] text-ink dark:text-ink-dark"
+                    numberOfLines={1}
+                  >
+                    {planNameOf(entry.plannedWorkoutId)}
+                  </Text>
+                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                    {formatDateTime(entry.scheduledAt)}
+                  </Text>
+                </View>
+                <Button
+                  label="Démarrer"
+                  size="md"
+                  onPress={() => start(entry.plannedWorkoutId, entry.id)}
+                />
               </Card>
-            ))}
-          </View>
-        )}
+            ))
+          )}
+        </View>
 
         {/* Où tu vas. Une ligne qui défile : les objectifs se consultent d'un
             coup d'oeil, ils ne se lisent pas un par un depuis l'accueil. */}
@@ -234,6 +296,35 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Sheet
+        visible={planning === 'workout'}
+        title="Planifier une séance"
+        description="Lequel de tes entraînements, et pour quel jour."
+        searchPlaceholder="Chercher un entraînement"
+        actions={plans
+          .filter((plan) => !plan.isArchived)
+          .map((plan) => ({
+            label: plan.name,
+            onPress: () => {
+              setChosen(plan);
+              setPlanning('date');
+            },
+          }))}
+        onClose={() => setPlanning('none')}
+      />
+
+      <DatePickerSheet
+        visible={planning === 'date'}
+        title={chosen ? `Programmer ${chosen.name}` : 'Programmer'}
+        confirmLabel="Programmer"
+        initial={day ?? new Date()}
+        onConfirm={planFor}
+        onClose={() => {
+          setPlanning('none');
+          setChosen(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
