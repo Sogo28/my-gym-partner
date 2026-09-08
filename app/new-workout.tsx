@@ -78,8 +78,10 @@ export default function NewWorkoutScreen() {
     [],
   );
   const [error, setError] = useState<string | null>(null);
-  /** La page cesse de défiler pendant qu'on déplace une carte. */
+  /** La page cesse de défiler AU DOIGT pendant qu'on déplace une carte. */
   const [scrolls, setScrolls] = useState(true);
+  const scroller = useRef<ScrollView>(null);
+  const scrolled = useRef(0);
 
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
@@ -232,7 +234,17 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollView scrollEnabled={scrolls} contentContainerClassName="gap-4 px-5 pb-8">
+      <ScrollView
+        ref={scroller}
+        scrollEnabled={scrolls}
+        // La position est suivie pour que le déplacement d'une carte sache
+        // combien la page a défilé sous elle.
+        onScroll={(event) => {
+          scrolled.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        contentContainerClassName="gap-4 px-5 pb-8"
+      >
         <TextInput
           className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"
@@ -248,6 +260,10 @@ export default function NewWorkoutScreen() {
           spacing={16}
           keyOf={(entry) => entry.key}
           onDraggingChange={(dragging) => setScrolls(!dragging)}
+          autoScroll={{
+            offsetY: () => scrolled.current,
+            scrollTo: (y) => scroller.current?.scrollTo({ y: Math.max(0, y), animated: false }),
+          }}
           onReorder={moveExercise}
           renderItem={(entry, position, drag) => {
             const planned = entry.planned;

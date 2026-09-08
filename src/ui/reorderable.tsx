@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, PanResponder, View } from 'react-native';
+import { Animated, Dimensions, PanResponder, View } from 'react-native';
+
+/**
+ * De quoi faire défiler la page pendant qu'on déplace une carte.
+ *
+ * La liste ne possède pas la zone qui défile -- la page a d'autres choses
+ * autour --, alors elle demande : voici où j'en suis, emmène-moi là.
+ */
+export type AutoScroll = {
+  /** Le défilement courant, en pixels. */
+  offsetY: () => number;
+  scrollTo: (y: number) => void;
+};
+
+/** Les bandes, en haut et en bas de l'écran, où le défilement se déclenche. */
+const EDGE = 140;
+/** Ce qu'on fait défiler par battement, au plus. */
+const SPEED = 14;
 
 /** Ce qu'il faut poser sur la poignée pour qu'elle prenne le geste. */
 export type DragHandle = { readonly handle: object; readonly dragging: boolean };
@@ -27,6 +44,7 @@ export function Reorderable<T>({
   renderItem,
   onReorder,
   onDraggingChange,
+  autoScroll,
   spacing = 0,
 }: {
   items: readonly T[];
@@ -35,6 +53,7 @@ export function Reorderable<T>({
   onReorder: (from: number, to: number) => void;
   /** La page doit cesser de défiler pendant qu'on déplace une carte. */
   onDraggingChange?: (dragging: boolean) => void;
+  autoScroll?: AutoScroll;
   /** L'écart entre deux éléments, en pixels. */
   spacing?: number;
 }) {
@@ -47,29 +66,83 @@ export function Reorderable<T>({
   /** Le décalage courant, lu hors du rendu : un `Animated.Value` ne se lit pas. */
   const travelled = useRef(0);
   const from = useRef<number | null>(null);
+  /** Le glissement du doigt seul, sans ce que le défilement a ajouté. */
+  const fingerY = useRef(0);
+  /** Ce que le défilement a fait défiler depuis le début du geste. */
+  const scrolled = useRef(0);
+  /** Le battement qui fait défiler tant que le doigt reste près d'un bord. */
+  const ticking = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function begin(index: number) {
     from.current = index;
     travelled.current = 0;
+    fingerY.current = 0;
+    scrolled.current = 0;
     offset.setValue(0);
     setDragged(index);
     setPreview(index);
     onDraggingChange?.(true);
   }
 
-  function move(dy: number) {
-    travelled.current = dy;
-    offset.setValue(dy);
+  /**
+   * Ce que la carte a parcouru : le doigt PLUS ce que la page a défilé.
+   *
+   * Sans le second terme, la carte resterait collée au contenu et fuirait
+   * sous le doigt dès que la page se met à bouger.
+   */
+  function apply() {
+    travelled.current = fingerY.current + scrolled.current;
+    offset.setValue(travelled.current);
 
-    // L'aperçu ne change qu'en franchissant une carte : recalculer à chaque
-    // pixel ne dirait rien de plus, et redessinerait la liste pour rien.
     const start = from.current;
     if (start === null) return;
-    const to = targetOf(start, dy, heights.current);
+    const to = targetOf(start, travelled.current, heights.current);
     setPreview((current) => (current === to ? current : to));
   }
 
+  /**
+   * Fait défiler tant que le doigt reste dans une bande de bord.
+   *
+   * Le décalage réellement obtenu est mesuré, jamais supposé : en bout de
+   * course, la page ne défile plus et la carte doit alors s'arrêter avec elle.
+   */
+  function edgeScroll(screenY: number) {
+    if (!autoScroll) return;
+    const height = Dimensions.get('window').height;
+
+    const up = screenY < EDGE ? (screenY - EDGE) / EDGE : 0;
+    const down = screenY > height - EDGE ? (screenY - (height - EDGE)) / EDGE : 0;
+    const direction = up || down;
+
+    if (direction === 0) {
+      stopScrolling();
+      return;
+    }
+    if (ticking.current) return;
+
+    ticking.current = setInterval(() => {
+      const before = autoScroll.offsetY();
+      autoScroll.scrollTo(before + direction * SPEED);
+      scrolled.current += autoScroll.offsetY() - before;
+      apply();
+    }, 16);
+  }
+
+  function stopScrolling() {
+    if (ticking.current) clearInterval(ticking.current);
+    ticking.current = null;
+  }
+
+  // L'aperçu ne change qu'en franchissant une carte : recalculer à chaque
+  // pixel ne dirait rien de plus, et redessinerait la liste pour rien.
+  function move(dy: number, screenY: number) {
+    fingerY.current = dy;
+    apply();
+    edgeScroll(screenY);
+  }
+
   function end() {
+    stopScrolling();
     const start = from.current;
     if (start !== null) {
       const to = targetOf(start, travelled.current, heights.current);
@@ -77,6 +150,8 @@ export function Reorderable<T>({
     }
     from.current = null;
     travelled.current = 0;
+    fingerY.current = 0;
+    scrolled.current = 0;
 
     setDragged(null);
     setPreview(null);
@@ -162,7 +237,7 @@ function Row({
   shift: number;
   offset: Animated.Value;
   onBegin: (index: number) => void;
-  onMove: (dy: number) => void;
+  onMove: (dy: number, screenY: number) => void;
   onEnd: () => void;
   onHeight: (height: number) => void;
   render: (drag: DragHandle) => ReactNode;
@@ -184,7 +259,10 @@ function Row({
       // Le défilement ne doit pas pouvoir reprendre le doigt en route.
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => latest.current.onBegin(latest.current.index),
-      onPanResponderMove: (_, gesture) => latest.current.onMove(gesture.dy),
+      // pageY est la position du doigt À L'ÉCRAN : c'est elle qui dit qu'on
+      // approche d'un bord, ce que dy ne peut pas savoir.
+      onPanResponderMove: (event, gesture) =>
+        latest.current.onMove(gesture.dy, event.nativeEvent.pageY),
       onPanResponderRelease: () => latest.current.onEnd(),
       onPanResponderTerminate: () => latest.current.onEnd(),
     }),
