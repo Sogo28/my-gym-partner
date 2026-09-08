@@ -166,6 +166,7 @@ export default function HomeScreen() {
   const worked = highlight(shown.primaryMuscleIds, shown.secondaryMuscleIds);
 
   const today = startOfDay(new Date());
+  const schedulable = plans.filter((plan) => !plan.isArchived);
   const plannedToday = thisWeek.filter(
     (entry) => startOfDay(entry.scheduledAt).getTime() === today.getTime(),
   );
@@ -278,13 +279,23 @@ export default function HomeScreen() {
           {plannedToday.length === 0 ? (
             <Card density="titled" className="gap-2">
               <Text className="text-[13px] text-muted dark:text-muted-dark">
-                Aucune séance prévue aujourd hui.
+                {schedulable.length === 0
+                  ? "Aucun entraînement à programmer pour l'instant. Un entraînement regroupe des exercices et leurs séries cibles."
+                  : 'Aucune séance prévue aujourd hui.'}
               </Text>
+              {/* Sans entraînement, « Planifier » n'ouvrirait qu'une liste
+                  vide : l'invitation mène là où il y a quelque chose à faire. */}
               <Button
-                label="Planifier une séance"
+                label={
+                  schedulable.length === 0 ? 'Créer un entraînement' : 'Planifier une séance'
+                }
                 variant="secondary"
                 size="md"
-                onPress={() => setPlanning('workout')}
+                onPress={() =>
+                  schedulable.length === 0
+                    ? router.push('/new-workout')
+                    : setPlanning('workout')
+                }
               />
             </Card>
           ) : (
@@ -313,19 +324,36 @@ export default function HomeScreen() {
 
         {/* Où tu vas. Une ligne qui défile : les objectifs se consultent d'un
             coup d'oeil, ils ne se lisent pas un par un depuis l'accueil. */}
-        {goals.length > 0 && (
-          <View className="gap-2">
+        <View className="gap-2">
             <View className="flex-row items-center justify-between">
               <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
                 Objectifs
               </Text>
-              <Pressable onPress={() => router.push('/goals')} hitSlop={8}>
-                <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
-                  tout voir
-                </Text>
-              </Pressable>
+              {goals.length > 0 && (
+                <Pressable onPress={() => router.push('/goals')} hitSlop={8}>
+                  <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                    tout voir
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
+            {/* Toujours affichée, même vide : cachée, elle ne dit pas qu'un
+                objectif existe et personne ne va le chercher. */}
+            {goals.length === 0 ? (
+              <Card density="titled" className="gap-2">
+                <Text className="text-[13px] text-muted dark:text-muted-dark">
+                  Aucun objectif. Un objectif suit une progression : chaque étape est ce qu il
+                  faut atteindre pour passer à la suivante.
+                </Text>
+                <Button
+                  label="Créer un objectif"
+                  variant="secondary"
+                  size="md"
+                  onPress={() => router.push('/new-goal')}
+                />
+              </Card>
+            ) : (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -402,8 +430,8 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
-          </View>
-        )}
+            )}
+        </View>
       </ScrollView>
 
       <Sheet

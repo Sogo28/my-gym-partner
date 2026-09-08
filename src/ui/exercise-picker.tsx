@@ -264,11 +264,13 @@ export function ExercisePicker({
             </Text>
           )}
 
-          {/* Ce que personne n'a : à ce stade, c'est le tien. */}
-          {onCreate && query.trim() !== '' && matching.length === 0 && (
+          {/* Ce que personne n'a : à ce stade, c'est le tien. Et sur un
+              catalogue encore vide, l'invitation ne doit pas attendre qu'on
+              ait tapé un nom -- il n'y a rien à chercher. */}
+          {onCreate && matching.length === 0 && (query.trim() !== '' || exercises.length === 0) && (
             <CatalogueRow
-              name={`Créer « ${query.trim()} »`}
-              detail="ouvre le formulaire, nom déjà rempli"
+              name={query.trim() === '' ? 'Créer un exercice' : `Créer « ${query.trim()} »`}
+              detail="ouvre le formulaire"
               onPress={create}
             />
           )}
