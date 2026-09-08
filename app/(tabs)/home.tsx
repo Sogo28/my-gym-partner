@@ -181,6 +181,8 @@ export default function HomeScreen() {
    * muscles de mardi au-dessus de la séance d'aujourd'hui.
    */
   const shownDay = day ?? today;
+  /** Un jour passé ne se planifie plus : il se lit. */
+  const past = shownDay.getTime() < today.getTime();
   const plannedThatDay = thisWeek.filter(
     (entry) => startOfDay(entry.scheduledAt).getTime() === shownDay.getTime(),
   );
@@ -296,24 +298,30 @@ export default function HomeScreen() {
           {plannedThatDay.length === 0 ? (
             <Card density="titled" className="gap-2">
               <Text className="text-[13px] text-muted dark:text-muted-dark">
-                {schedulable.length === 0
-                  ? "Aucun entraînement à programmer pour l'instant. Un entraînement regroupe des exercices et leurs séries cibles."
-                  : `Aucune séance prévue ${dayLabel(shownDay, new Date())}.`}
+                {past
+                  ? `Aucune séance faite ${dayLabel(shownDay, new Date())}.`
+                  : schedulable.length === 0
+                    ? "Aucun entraînement à programmer pour l'instant. Un entraînement regroupe des exercices et leurs séries cibles."
+                    : `Aucune séance prévue ${dayLabel(shownDay, new Date())}.`}
               </Text>
-              {/* Sans entraînement, « Planifier » n'ouvrirait qu'une liste
-                  vide : l'invitation mène là où il y a quelque chose à faire. */}
-              <Button
-                label={
-                  schedulable.length === 0 ? 'Créer un entraînement' : 'Planifier une séance'
-                }
-                variant="secondary"
-                size="md"
-                onPress={() =>
-                  schedulable.length === 0
-                    ? router.push('/new-workout')
-                    : setPlanning('workout')
-                }
-              />
+
+              {/* Rien à proposer sur un jour passé : on ne programme pas
+                  hier. Et sans entraînement, « Planifier » n'ouvrirait qu'une
+                  liste vide -- l'invitation mène là où il y a à faire. */}
+              {!past && (
+                <Button
+                  label={
+                    schedulable.length === 0 ? 'Créer un entraînement' : 'Planifier une séance'
+                  }
+                  variant="secondary"
+                  size="md"
+                  onPress={() =>
+                    schedulable.length === 0
+                      ? router.push('/new-workout')
+                      : setPlanning('workout')
+                  }
+                />
+              )}
             </Card>
           ) : (
             plannedThatDay.map((entry) => (
@@ -336,6 +344,13 @@ export default function HomeScreen() {
                 {entry.status === 'EXECUTED' ? (
                   <Text className="text-[13px] text-success dark:text-success-dark">
                     Séance faite.
+                  </Text>
+                ) : past ? (
+                  // Prévue et non faite, et le jour est passé : le dire, sans
+                  // proposer de la démarrer -- elle ne le serait plus ce
+                  // jour-là de toute façon.
+                  <Text className="text-[13px] text-muted dark:text-muted-dark">
+                    Séance non faite.
                   </Text>
                 ) : (
                   <Button
