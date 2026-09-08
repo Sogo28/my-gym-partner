@@ -241,7 +241,7 @@ export default function NewGoalScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
         <TextInput
           className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Front Lever"

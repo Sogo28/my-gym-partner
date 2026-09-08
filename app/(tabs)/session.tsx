@@ -525,7 +525,10 @@ export default function SessionScreen() {
           />
         </View>
 
-        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
+        <ScrollView
+          contentContainerClassName="grow gap-3 px-5 pb-4"
+          keyboardShouldPersistTaps="handled"
+        >
           {error && <BusinessNotice message={error} />}
 
           {waiting.exercises.map((planned, position) => (
@@ -612,7 +615,10 @@ export default function SessionScreen() {
           />
         </View>
 
-        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
+        <ScrollView
+          contentContainerClassName="grow gap-3 px-5 pb-4"
+          keyboardShouldPersistTaps="handled"
+        >
           {error && <BusinessNotice message={error} />}
 
           {today.length > 0 && (
@@ -761,6 +767,7 @@ export default function SessionScreen() {
           {showDetail ? (
             <ScrollView
               key={activity.performanceId ?? 'none'}
+              keyboardShouldPersistTaps="handled"
               className="max-h-[40%] shrink grow-0"
               contentContainerClassName="gap-2 px-1 pb-1 pt-0.5"
             >
@@ -796,6 +803,7 @@ export default function SessionScreen() {
           ) : (
             <ScrollView
               key={activity.performanceId ?? 'none'}
+              keyboardShouldPersistTaps="handled"
               horizontal
               showsHorizontalScrollIndicator={false}
               className="max-h-12 grow-0"

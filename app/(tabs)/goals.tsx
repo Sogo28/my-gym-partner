@@ -105,7 +105,10 @@ export default function GoalsScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerClassName="grow gap-3 px-5 pb-28">
+      <ScrollView
+        contentContainerClassName="grow gap-3 px-5 pb-28"
+        keyboardShouldPersistTaps="handled"
+      >
         {error && <BusinessNotice message={error} />}
         {active.length === 0 && (
           <EmptyState

@@ -104,7 +104,11 @@ export function OptionSheet({
           {title}
         </Text>
 
-        <ScrollView className="max-h-96 grow-0" contentContainerClassName="flex-row flex-wrap gap-2">
+        <ScrollView
+          className="max-h-96 grow-0"
+          contentContainerClassName="flex-row flex-wrap gap-2"
+          keyboardShouldPersistTaps="handled"
+        >
           {options.map((option) => {
             const on = selected.includes(option.id);
             return (

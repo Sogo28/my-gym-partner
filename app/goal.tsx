@@ -114,7 +114,7 @@ export default function GoalScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
         {error && <BusinessNotice message={error} />}
 
         {/* Ce qui est visé maintenant, et ce que ça demande. */}

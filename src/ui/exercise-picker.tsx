@@ -247,7 +247,11 @@ export function ExercisePicker({
           />
         </View>
 
-        <ScrollView className="flex-1" contentContainerClassName="px-5 pb-4">
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-5 pb-4"
+          keyboardShouldPersistTaps="handled"
+        >
           {recent.length > 0 && (
             <>
               <SectionLabel>Exercices récents</SectionLabel>

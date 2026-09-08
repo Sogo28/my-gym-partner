@@ -125,6 +125,7 @@ export default function ExercisesScreen() {
       </View>
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={shown}
         keyExtractor={(item) => item.id}
         // La liste s'arrête au-dessus de la pastille d'ajout.

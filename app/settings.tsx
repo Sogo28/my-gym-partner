@@ -67,7 +67,7 @@ export default function SettingsScreen() {
         <BackHeader title="Réglages" onBack={() => router.back()} />
       </View>
 
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
         {error && <BusinessNotice message={error} />}
 
         <Card density="titled" className="gap-2">

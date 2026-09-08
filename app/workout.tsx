@@ -116,7 +116,7 @@ export default function WorkoutDetailScreen() {
           onBack={() => router.back()}
         />
       </View>
-      <ScrollView contentContainerClassName="gap-3 p-5 pb-8">
+      <ScrollView contentContainerClassName="gap-3 p-5 pb-8" keyboardShouldPersistTaps="handled">
         {/* Ce que l'entraînement travaille, avant ce qu'il contient : c'est
             la question qu'on se pose en ouvrant sa fiche. */}
         <BodyMap parts={worked} />

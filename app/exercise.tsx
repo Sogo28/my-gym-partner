@@ -131,7 +131,7 @@ export default function ExerciseDetailScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-5 px-5 pb-8" keyboardShouldPersistTaps="handled">
         {error && <BusinessNotice message={error} />}
 
         {/* Ce que l'exercice EST : ses mesures, ses muscles, sa nature. */}

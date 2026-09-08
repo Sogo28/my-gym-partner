@@ -223,7 +223,10 @@ export default function HistoryScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerClassName="grow gap-3 px-5 pb-6">
+      <ScrollView
+        contentContainerClassName="grow gap-3 px-5 pb-6"
+        keyboardShouldPersistTaps="handled"
+      >
         {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
         {summaries.length === 0 && (
           <EmptyState

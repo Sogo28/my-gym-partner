@@ -270,7 +270,10 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollViewContainer contentContainerClassName="gap-4 px-5 pb-8">
+      <ScrollViewContainer
+        contentContainerClassName="gap-4 px-5 pb-8"
+        keyboardShouldPersistTaps="handled"
+      >
         <TextInput
           className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"

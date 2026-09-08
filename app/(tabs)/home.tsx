@@ -245,7 +245,7 @@ export default function HomeScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-10">
+      <ScrollView contentContainerClassName="gap-5 px-5 pb-10" keyboardShouldPersistTaps="handled">
         {error && <BusinessNotice message={error} />}
 
         {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
@@ -398,6 +398,7 @@ export default function HomeScreen() {
               </Card>
             ) : (
             <ScrollView
+              keyboardShouldPersistTaps="handled"
               horizontal
               showsHorizontalScrollIndicator={false}
               // Une hauteur commune, pas un étirement : la rangée vit dans

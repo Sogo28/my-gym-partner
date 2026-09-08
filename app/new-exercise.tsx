@@ -178,7 +178,7 @@ export default function NewExerciseScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-6 px-5 pb-8">
+      <ScrollView contentContainerClassName="gap-6 px-5 pb-8" keyboardShouldPersistTaps="handled">
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Démonstrations

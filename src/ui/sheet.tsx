@@ -82,7 +82,11 @@ export function Sheet({
         {children}
 
         {/* La liste défile plutôt que de pousser la feuille hors de l'écran. */}
-        <ScrollView className="max-h-80 grow-0" contentContainerClassName="gap-2">
+        <ScrollView
+          className="max-h-80 grow-0"
+          contentContainerClassName="gap-2"
+          keyboardShouldPersistTaps="handled"
+        >
         {shown.length === 0 && searchPlaceholder && (
           <Text className="py-2 text-[13px] text-muted dark:text-muted-dark">
             Aucun résultat.
