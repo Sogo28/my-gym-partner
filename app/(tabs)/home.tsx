@@ -12,7 +12,7 @@ import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
-import { formatDateTime } from '../../src/ui/format';
+import { dayLabel, formatDateTime } from '../../src/ui/format';
 import { messageOf } from '../../src/ui/message';
 import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
@@ -174,8 +174,15 @@ export default function HomeScreen() {
 
   const today = startOfDay(new Date());
   const schedulable = plans.filter((plan) => !plan.isArchived);
-  const plannedToday = thisWeek.filter(
-    (entry) => startOfDay(entry.scheduledAt).getTime() === today.getTime(),
+
+  /**
+   * Le jour dont on parle : celui qu'on regarde dans le calendrier, à défaut
+   * aujourd'hui. Le bloc suit la sélection, sinon taper mardi montrerait les
+   * muscles de mardi au-dessus de la séance d'aujourd'hui.
+   */
+  const shownDay = day ?? today;
+  const plannedThatDay = thisWeek.filter(
+    (entry) => startOfDay(entry.scheduledAt).getTime() === shownDay.getTime(),
   );
   const strip = weekDays(new Date()).map((date) => ({
     date,
@@ -243,7 +250,7 @@ export default function HomeScreen() {
         <View className="gap-3">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             {day
-              ? `Travaillé le ${day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}`
+              ? `Travaillé ${dayLabel(day, new Date())}`
               : 'Travaillé cette semaine'}
           </Text>
 
@@ -283,15 +290,15 @@ export default function HomeScreen() {
         {!session && (
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            Aujourd hui
+            {dayLabel(shownDay, new Date())}
           </Text>
 
-          {plannedToday.length === 0 ? (
+          {plannedThatDay.length === 0 ? (
             <Card density="titled" className="gap-2">
               <Text className="text-[13px] text-muted dark:text-muted-dark">
                 {schedulable.length === 0
                   ? "Aucun entraînement à programmer pour l'instant. Un entraînement regroupe des exercices et leurs séries cibles."
-                  : 'Aucune séance prévue aujourd hui.'}
+                  : `Aucune séance prévue ${dayLabel(shownDay, new Date())}.`}
               </Text>
               {/* Sans entraînement, « Planifier » n'ouvrirait qu'une liste
                   vide : l'invitation mène là où il y a quelque chose à faire. */}
@@ -309,7 +316,7 @@ export default function HomeScreen() {
               />
             </Card>
           ) : (
-            plannedToday.map((entry) => (
+            plannedThatDay.map((entry) => (
               <Card key={entry.id} density="titled" className="gap-2">
                 <View className="flex-row items-start justify-between gap-3">
                   <Text
