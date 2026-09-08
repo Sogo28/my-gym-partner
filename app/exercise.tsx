@@ -174,7 +174,7 @@ export default function ExerciseDetailScreen() {
                   dont il est le produit. */}
               {volume && (
                 <Stat
-                  label="Volume série"
+                  label="Volume d une série"
                   value={`${Math.round(volume.value * 10) / 10}`}
                   unit="kg"
                 />
@@ -373,14 +373,16 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
   return (
     <Card className="flex-1 gap-0.5">
       <Text
-        className="font-mono-bold text-[22px] text-ink dark:text-ink-dark"
+        className="font-mono-bold text-[19px] text-ink dark:text-ink-dark"
         numberOfLines={1}
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {value}
-        <Text className="font-sans text-[12px] text-muted dark:text-muted-dark"> {unit}</Text>
+        <Text className="font-sans text-[11px] text-muted dark:text-muted-dark"> {unit}</Text>
       </Text>
-      <Text className="text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
+      {/* Deux lignes plutôt qu'une coupée : un libellé tronqué en dit moins
+          que le même écrit petit. */}
+      <Text className="text-[10px] leading-[13px] text-muted dark:text-muted-dark" numberOfLines={2}>
         {label}
       </Text>
     </Card>
