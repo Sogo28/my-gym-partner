@@ -24,7 +24,7 @@ import {
 } from '../../src/infra/exercise-repository';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { GoalSubject } from '../../src/domain/goal/goal';
-import { describeSource } from '../../src/ui/goal-labels';
+import { describeSourceShort } from '../../src/ui/goal-labels';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
@@ -387,7 +387,7 @@ export default function HomeScreen() {
                           >
                             {results.length > 1
                               ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
-                              : describeSource(first.condition)}
+                              : describeSourceShort(first.condition)}
                           </Text>
                         </View>
                       ) : (

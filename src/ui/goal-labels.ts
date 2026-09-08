@@ -68,3 +68,30 @@ export function describeCondition(
   const label = AGGREGATION_PHRASES[condition.aggregation];
   return `${label} ${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
 }
+
+/** Les mêmes mots, en abrégé, pour une vignette qui n'a pas la place. */
+const AGGREGATION_SHORT: Record<Aggregation, string> = {
+  average: 'moyenne',
+  max: 'meilleure',
+  min: 'plus faible',
+  total: 'cumul',
+  setCount: 'séries',
+};
+
+const WINDOW_SHORT: Record<EvaluationWindow, string> = {
+  LAST_SESSION: 'dernière séance',
+  ALL_TIME: 'tout l historique',
+  LATEST_READING: 'dernier relevé',
+};
+
+/**
+ * « moyenne dernière séance » : de quoi situer la valeur sans la phrase.
+ *
+ * La forme longue -- « moyenne des valeurs lors de la dernière séance » --
+ * est juste, mais tronquée elle ne dit plus rien : sur l'accueil, elle
+ * s'arrêtait à « der. ».
+ */
+export function describeSourceShort(condition: Condition): string {
+  if (condition.window === 'LATEST_READING') return WINDOW_SHORT.LATEST_READING;
+  return `${AGGREGATION_SHORT[condition.aggregation]} ${WINDOW_SHORT[condition.window]}`;
+}
