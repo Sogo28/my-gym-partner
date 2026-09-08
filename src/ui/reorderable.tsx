@@ -16,7 +16,7 @@ export type AutoScroll = {
 /** Les bandes, en haut et en bas de l'écran, où le défilement se déclenche. */
 const EDGE = 140;
 /** Ce qu'on fait défiler par battement, au plus. */
-const SPEED = 14;
+const SPEED = 22;
 
 /** Ce qu'il faut poser sur la poignée pour qu'elle prenne le geste. */
 export type DragHandle = { readonly handle: object; readonly dragging: boolean };
@@ -72,12 +72,23 @@ export function Reorderable<T>({
   const scrolled = useRef(0);
   /** Le battement qui fait défiler tant que le doigt reste près d'un bord. */
   const ticking = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * La position qu'on a DEMANDÉE, distincte de celle qu'on observe.
+   *
+   * Les événements de défilement arrivent après coup : demander « position
+   * observée + un pas » à chaque battement revenait à redemander sans cesse
+   * le même endroit, et la page n'avançait presque pas.
+   */
+  const requested = useRef(0);
+  /** D'où l'on partait, pour savoir de combien la page a bougé depuis. */
+  const startedAt = useRef(0);
 
   function begin(index: number) {
     from.current = index;
     travelled.current = 0;
     fingerY.current = 0;
     scrolled.current = 0;
+    startedAt.current = autoScroll?.offsetY() ?? 0;
     offset.setValue(0);
     setDragged(index);
     setPreview(index);
@@ -120,10 +131,21 @@ export function Reorderable<T>({
     }
     if (ticking.current) return;
 
+    requested.current = autoScroll.offsetY();
     ticking.current = setInterval(() => {
-      const before = autoScroll.offsetY();
-      autoScroll.scrollTo(before + direction * SPEED);
-      scrolled.current += autoScroll.offsetY() - before;
+      const reported = autoScroll.offsetY();
+
+      // La page n'a pas suivi -- bout de course, ou geste plus rapide qu'elle :
+      // on se recale sur ce qu'elle affiche vraiment plutôt que de tirer dans
+      // le vide.
+      if (Math.abs(requested.current - reported) > 80) requested.current = reported;
+
+      requested.current = Math.max(0, requested.current + direction * SPEED);
+      autoScroll.scrollTo(requested.current);
+
+      // La compensation, elle, suit le RÉEL : c'est ce que l'oeil voit passer
+      // sous la carte.
+      scrolled.current = reported - startedAt.current;
       apply();
     }, 16);
   }
