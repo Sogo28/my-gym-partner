@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
 
 /** Ce qu'il faut poser sur la poignée pour qu'elle prenne le geste. */
@@ -78,15 +78,24 @@ export function Reorderable<T>({
     from.current = null;
     travelled.current = 0;
 
-    // Le déplacement est un état React, la position de la carte une valeur
-    // animée appliquée tout de suite : remettre celle-ci à zéro avant que
-    // celui-là ne soit peint ferait revenir la carte à sa place d'origine
-    // le temps d'une image, juste avant qu'elle n'apparaisse à la nouvelle.
     setDragged(null);
     setPreview(null);
     onDraggingChange?.(false);
-    requestAnimationFrame(() => offset.setValue(0));
   }
+
+  /**
+   * La position de la carte ne revient à zéro qu'une fois le nouvel ordre
+   * RENDU.
+   *
+   * Le déplacement est un état React, peint au rendu suivant ; la position
+   * est une valeur animée, appliquée à la vue tout de suite. Remettre la
+   * seconde avant que le premier n'arrive faisait revenir la carte à sa place
+   * d'origine le temps d'une image, juste avant qu'elle n'apparaisse à la
+   * nouvelle. Un effet s'exécute après la mise à jour, pas avant.
+   */
+  useEffect(() => {
+    if (dragged === null) offset.setValue(0);
+  }, [dragged, offset]);
 
   return (
     <View>
