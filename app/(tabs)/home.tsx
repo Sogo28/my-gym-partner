@@ -1,0 +1,183 @@
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Goal } from '../../src/domain/goal/goal';
+import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
+import type { ScheduledWorkout } from '../../src/domain/scheduling/scheduled-workout';
+import type { WorkoutSession } from '../../src/domain/workout-session/workout-session';
+import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import { findActive } from '../../src/infra/workout-session-repository';
+import { BodyMap } from '../../src/ui/body-map';
+import { highlight } from '../../src/ui/body-slugs';
+import { Button } from '../../src/ui/button';
+import { Card } from '../../src/ui/card';
+import { formatDateTime } from '../../src/ui/format';
+import { messageOf } from '../../src/ui/message';
+import { BusinessNotice } from '../../src/ui/notice';
+import { SectionHeader } from '../../src/ui/screen-header';
+import { listGoals } from '../../src/use-cases/goal-actions';
+import { listSchedule } from '../../src/use-cases/scheduling-actions';
+import { startOfWeek, summarizeWeek, type WeekSummary } from '../../src/use-cases/week-summary';
+
+const EMPTY: WeekSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerciseCount: 0 };
+
+/**
+ * L'accueil : ce que tu fais maintenant, ce que la semaine a produit, ce qui
+ * vient, et où tu vas.
+ *
+ * Quatre blocs, dans cet ordre, et pas un de plus : au-delà, un accueil
+ * devient un tiroir -- et un tiroir se vide en le regardant, jamais en s'en
+ * servant. Aucune statistique non plus : à deux séances par semaine, les
+ * moyennes ne disent rien que le schéma ne dise mieux.
+ */
+export default function HomeScreen() {
+  const router = useRouter();
+  const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [week, setWeek] = useState<WeekSummary>(EMPTY);
+  const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
+  const [plans, setPlans] = useState<PlannedWorkout[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([findActive(), summarizeWeek(new Date()), listSchedule(), findAllPlans(), listGoals()])
+        .then(([active, summary, allSchedule, allPlans, allGoals]) => {
+          setSession(active);
+          setWeek(summary);
+          setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
+          setPlans(allPlans);
+          setGoals(allGoals.filter((goal) => goal.status === 'ACTIVE'));
+        })
+        .catch((e) => setError(messageOf(e)));
+    }, []),
+  );
+
+  const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
+
+  // La semaine en cours seulement : ce qui vient après appartient à la
+  // suivante, et l'accueil ne raconte qu'aujourd'hui.
+  const monday = startOfWeek(new Date());
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 7);
+  const thisWeek = schedule
+    .filter((entry) => entry.scheduledAt < sunday)
+    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+
+  const worked = highlight(week.primaryMuscleIds, week.secondaryMuscleIds);
+
+  return (
+    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+      <View className="px-5 pt-4">
+        <SectionHeader
+          title="Accueil"
+          subtitle={
+            week.exerciseCount === 0
+              ? 'aucun exercice travaillé cette semaine'
+              : `${week.exerciseCount} exercice${week.exerciseCount > 1 ? 's' : ''} travaillé${week.exerciseCount > 1 ? 's' : ''} cette semaine`
+          }
+        />
+      </View>
+
+      <ScrollView contentContainerClassName="gap-5 px-5 pb-8">
+        {error && <BusinessNotice message={error} />}
+
+        {/* Ce que tu fais maintenant. Une séance ouverte passe avant tout le
+            reste : sans ce bandeau, elle serait injoignable depuis ici. */}
+        {session ? (
+          <Card density="accent" className="gap-2">
+            <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
+              Séance en cours
+            </Text>
+            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+              commencée à {formatDateTime(session.startedAt)}
+            </Text>
+            <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
+          </Card>
+        ) : (
+          <Button label="Démarrer une séance" size="lg" onPress={() => router.push('/session')} />
+        )}
+
+        {/* Ce que la semaine a produit. */}
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            Cette semaine
+          </Text>
+          {week.exerciseCount === 0 ? (
+            <Card density="titled">
+              <Text className="text-[13px] text-muted dark:text-muted-dark">
+                Rien de travaillé depuis lundi. Le schéma se remplira à ta première série validée.
+              </Text>
+            </Card>
+          ) : (
+            <BodyMap parts={worked} scale={0.62} />
+          )}
+        </View>
+
+        {/* Ce qui vient. */}
+        {thisWeek.length > 0 && (
+          <View className="gap-2">
+            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+              Prévu cette semaine
+            </Text>
+            {thisWeek.map((entry) => (
+              <Card key={entry.id} className="flex-row items-center justify-between gap-3">
+                <Text
+                  className="shrink font-bold text-[15px] text-ink dark:text-ink-dark"
+                  numberOfLines={1}
+                >
+                  {planNameOf(entry.plannedWorkoutId)}
+                </Text>
+                <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                  {formatDateTime(entry.scheduledAt)}
+                </Text>
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {/* Où tu vas. Une ligne qui défile : les objectifs se consultent d'un
+            coup d'oeil, ils ne se lisent pas un par un depuis l'accueil. */}
+        {goals.length > 0 && (
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                Objectifs
+              </Text>
+              <Pressable onPress={() => router.push('/goals')} hitSlop={8}>
+                <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                  tout voir
+                </Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2 pr-4"
+            >
+              {goals.map((goal) => (
+                <Pressable key={goal.id} onPress={() => router.push('/goals')}>
+                  <Card className="w-[180px] gap-1">
+                    <Text
+                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                      numberOfLines={2}
+                    >
+                      {goal.name}
+                    </Text>
+                    <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
+                      {goal.isProgressive
+                        ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
+                        : 'objectif simple'}
+                    </Text>
+                  </Card>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}

@@ -31,6 +31,16 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontFamily: 'Archivo_700Bold', fontSize: 11 },
       }}
     >
+      {/* Temporaire : l'accueil s'éprouve à côté des onglets actuels avant
+          qu'on ne réduise la barre à trois. Démonter la navigation avant que
+          la destination n'existe casserait les deux. */}
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Accueil',
+          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={20} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="session"
         options={{
