@@ -129,9 +129,9 @@ export default function HomeScreen() {
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8">
         {error && <BusinessNotice message={error} />}
 
-        {/* Ce que tu fais maintenant. Une séance ouverte passe avant tout le
-            reste : sans ce bandeau, elle serait injoignable depuis ici. */}
-        {session ? (
+        {/* Une séance ouverte passe avant tout le reste : sans ce bandeau,
+            elle serait injoignable depuis ici. */}
+        {session && (
           <Card density="accent" className="gap-2">
             <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
               Séance en cours
@@ -141,8 +141,6 @@ export default function HomeScreen() {
             </Text>
             <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
           </Card>
-        ) : (
-          <Button label="Démarrer une séance" size="lg" onPress={() => router.push('/session')} />
         )}
 
         {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
@@ -159,6 +157,18 @@ export default function HomeScreen() {
           <BodyMap parts={worked} scale={0.62} />
 
           <WeekStrip days={strip} selected={day} onSelect={select} />
+
+          {/* Sous le calendrier : on regarde d'abord ce qui a été fait, on
+              décide ensuite. Une séance en cours, elle, garde sa place en
+              haut -- c'est une interruption, pas une décision à prendre. */}
+          {!session && (
+            <Button
+              label="Démarrer une séance"
+              size="lg"
+              className="mt-1"
+              onPress={() => router.push('/session')}
+            />
+          )}
         </View>
 
         {/* Ce qui vient. */}
