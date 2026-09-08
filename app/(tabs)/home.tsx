@@ -18,9 +18,18 @@ import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
 import { listGoals } from '../../src/use-cases/goal-actions';
 import { listSchedule } from '../../src/use-cases/scheduling-actions';
-import { startOfWeek, summarizeWeek, type WeekSummary } from '../../src/use-cases/week-summary';
+import {
+  startOfDay,
+  startOfWeek,
+  summarizeDay,
+  summarizeWeek,
+  weekDays,
+  workedDays,
+  type MuscleSummary,
+} from '../../src/use-cases/week-summary';
+import { WeekStrip } from '../../src/ui/week-strip';
 
-const EMPTY: WeekSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerciseCount: 0 };
+const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerciseCount: 0 };
 
 /**
  * L'accueil : ce que tu fais maintenant, ce que la semaine a produit, ce qui
@@ -34,7 +43,11 @@ const EMPTY: WeekSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerc
 export default function HomeScreen() {
   const router = useRouter();
   const [session, setSession] = useState<WorkoutSession | null>(null);
-  const [week, setWeek] = useState<WeekSummary>(EMPTY);
+  const [week, setWeek] = useState<MuscleSummary>(EMPTY);
+  const [done, setDone] = useState<Date[]>([]);
+  /** Le jour regardé seul, ou null pour la semaine entière. */
+  const [day, setDay] = useState<Date | null>(null);
+  const [dayWork, setDayWork] = useState<MuscleSummary>(EMPTY);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -42,10 +55,18 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([findActive(), summarizeWeek(new Date()), listSchedule(), findAllPlans(), listGoals()])
-        .then(([active, summary, allSchedule, allPlans, allGoals]) => {
+      Promise.all([
+        findActive(),
+        summarizeWeek(new Date()),
+        listSchedule(),
+        findAllPlans(),
+        listGoals(),
+        workedDays(new Date()),
+      ])
+        .then(([active, summary, allSchedule, allPlans, allGoals, days]) => {
           setSession(active);
           setWeek(summary);
+          setDone(days);
           setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
           setPlans(allPlans);
           setGoals(allGoals.filter((goal) => goal.status === 'ACTIVE'));
@@ -65,7 +86,32 @@ export default function HomeScreen() {
     .filter((entry) => entry.scheduledAt < sunday)
     .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
-  const worked = highlight(week.primaryMuscleIds, week.secondaryMuscleIds);
+  /**
+   * Le jour choisi remplace la semaine dans le schéma.
+   *
+   * Il est chargé à la demande : sept résumés calculés d'avance, pour un seul
+   * regardé, seraient sept lectures de la base pour rien.
+   */
+  function select(chosen: Date | null) {
+    setDay(chosen);
+    if (!chosen) return;
+    summarizeDay(chosen)
+      .then(setDayWork)
+      .catch((e) => setError(messageOf(e)));
+  }
+
+  const shown = day ? dayWork : week;
+  const worked = highlight(shown.primaryMuscleIds, shown.secondaryMuscleIds);
+
+  const today = startOfDay(new Date());
+  const strip = weekDays(new Date()).map((date) => ({
+    date,
+    worked: done.some((entry) => entry.getTime() === date.getTime()),
+    scheduled: thisWeek.some(
+      (entry) => startOfDay(entry.scheduledAt).getTime() === date.getTime(),
+    ),
+    today: date.getTime() === today.getTime(),
+  }));
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
@@ -99,20 +145,27 @@ export default function HomeScreen() {
           <Button label="Démarrer une séance" size="lg" onPress={() => router.push('/session')} />
         )}
 
-        {/* Ce que la semaine a produit. */}
-        <View className="gap-2">
+        {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
+        <View className="gap-3">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            Cette semaine
+            {day
+              ? `Travaillé le ${day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}`
+              : 'Travaillé cette semaine'}
           </Text>
-          {week.exerciseCount === 0 ? (
+
+          {shown.exerciseCount === 0 ? (
             <Card density="titled">
               <Text className="text-[13px] text-muted dark:text-muted-dark">
-                Rien de travaillé depuis lundi. Le schéma se remplira à ta première série validée.
+                {day
+                  ? 'Rien de validé ce jour-là.'
+                  : 'Rien de travaillé depuis lundi. Le schéma se remplira à ta première série validée.'}
               </Text>
             </Card>
           ) : (
             <BodyMap parts={worked} scale={0.62} />
           )}
+
+          <WeekStrip days={strip} selected={day} onSelect={select} />
         </View>
 
         {/* Ce qui vient. */}
