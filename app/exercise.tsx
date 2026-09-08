@@ -174,7 +174,7 @@ export default function ExerciseDetailScreen() {
                   dont il est le produit. */}
               {volume && (
                 <Stat
-                  label="Volume d une série"
+                  label="Volume série"
                   value={`${Math.round(volume.value * 10) / 10}`}
                   unit="kg"
                 />
