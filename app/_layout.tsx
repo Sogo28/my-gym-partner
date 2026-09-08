@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
 import '../global.css';
 
@@ -65,6 +66,9 @@ export default function RootLayout() {
     : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#F6F7F3', card: '#EDEFE8' } };
 
   return (
+    // Racine des gestes : le glisser-déposer de la liste réordonnable en
+    // dépend, et rien ne l'installe par défaut.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider value={theme}>
     <Stack
       screenOptions={{
@@ -88,5 +92,6 @@ export default function RootLayout() {
       <Stack.Screen name="settings" />
     </Stack>
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

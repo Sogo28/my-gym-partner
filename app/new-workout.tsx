@@ -13,7 +13,13 @@ import { findRecentExerciseIds } from '../src/infra/performance-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
 import { Collapsible } from '../src/ui/collapsible';
-import { Reorderable } from '../src/ui/reorderable';
+import {
+  NestedReorderableList,
+  ScrollViewContainer,
+  reorderItems,
+  useIsActive,
+  useReorderableDrag,
+} from 'react-native-reorderable-list';
 import { NumberField } from '../src/ui/number-field';
 import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
@@ -78,10 +84,6 @@ export default function NewWorkoutScreen() {
     [],
   );
   const [error, setError] = useState<string | null>(null);
-  /** La page cesse de défiler AU DOIGT pendant qu'on déplace une carte. */
-  const [scrolls, setScrolls] = useState(true);
-  const scroller = useRef<ScrollView>(null);
-  const scrolled = useRef(0);
 
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
@@ -234,17 +236,7 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollView
-        ref={scroller}
-        scrollEnabled={scrolls}
-        // La position est suivie pour que le déplacement d'une carte sache
-        // combien la page a défilé sous elle.
-        onScroll={(event) => {
-          scrolled.current = event.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-        contentContainerClassName="gap-4 px-5 pb-8"
-      >
+      <ScrollViewContainer contentContainerClassName="gap-4 px-5 pb-8">
         <TextInput
           className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"
@@ -254,84 +246,27 @@ export default function NewWorkoutScreen() {
         />
 
         {/* L'ordre des exercices EST une décision d'entraînement : on ne met
-            pas le gainage avant les tractions. Appui long, puis on glisse. */}
-        <Reorderable
-          items={draft}
-          spacing={16}
-          keyOf={(entry) => entry.key}
-          onDraggingChange={(dragging) => setScrolls(!dragging)}
-          autoScroll={{
-            offsetY: () => scrolled.current,
-            scrollTo: (y) => scroller.current?.scrollTo({ y: Math.max(0, y), animated: false }),
-          }}
-          onReorder={moveExercise}
-          renderItem={(entry, position, drag) => {
-            const planned = entry.planned;
-            const exercise = exerciseOf(planned.exerciseId);
-            return (
-              <Collapsible
-                title={
-                  <View className="flex-row items-center gap-2">
-                    {/* La poignée prend le geste dès le contact : posée sur
-                        la carte entière, il serait capté par le premier
-                        élément tapable qu'elle contient. */}
-                    <View
-                      {...drag.handle}
-                      className="h-9 w-8 items-center justify-center rounded-md"
-                    >
-                      <Ionicons
-                        name="reorder-two"
-                        size={20}
-                        color={drag.dragging ? '#BFF04A' : '#8B9086'}
-                      />
-                    </View>
-                    <Text
-                      className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
-                      numberOfLines={1}
-                    >
-                      {exercise?.name ?? planned.exerciseId}
-                    </Text>
-                  </View>
-                }
-                summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
-                defaultOpen
-              >
-                <Pressable onPress={() => removeExercise(position)} hitSlop={8} className="pb-1">
-                  <Text className="text-[12px] text-danger dark:text-danger-dark">
-                    Retirer cet exercice
-                  </Text>
-                </Pressable>
-                {planned.sets.map((set, index) => (
-                  <View key={index} className="flex-row items-center gap-2 pt-1">
-                    {exercise?.measurementIds.map((measurementId) => (
-                      <NumberField
-                        key={measurementId}
-                        compact
-                        unit={unitOf(measurementId)}
-                        value={set.targets[measurementId] ?? 0}
-                        step={STEPS[measurementId] ?? 1}
-                        onChange={(value) => changeTarget(position, index, measurementId, value)}
-                      />
-                    ))}
-                    <Pressable
-                      onPress={() => removeSet(position, index)}
-                      className="h-[40px] w-[40px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
-                    >
-                      <Ionicons name="remove" size={18} color="#B3261E" />
-                    </Pressable>
-                  </View>
-                ))}
-
-                <Button
-                  label="+ Ajouter une série"
-                  variant="secondary"
-                  size="sm"
-                  className="mt-2"
-                  onPress={() => addSet(position)}
-                />
-              </Collapsible>
-            );
-          }}
+            pas le gainage avant les tractions. La liste imbriquée gère le
+            glissement ET le défilement, que la page porte pour elle. */}
+        <NestedReorderableList
+          data={draft}
+          keyExtractor={(entry) => entry.key}
+          scrollEnabled={false}
+          onReorder={({ from, to }) => setDraft((current) => reorderItems(current, from, to))}
+          contentContainerStyle={{ gap: 16 }}
+          renderItem={({ item, index }) => (
+            <DraftCard
+              entry={item}
+              exercise={exerciseOf(item.planned.exerciseId)}
+              unitOf={unitOf}
+              onRemoveExercise={() => removeExercise(index)}
+              onRemoveSet={(setIndex) => removeSet(index, setIndex)}
+              onChangeTarget={(setIndex, measurementId, value) =>
+                changeTarget(index, setIndex, measurementId, value)
+              }
+              onAddSet={() => addSet(index)}
+            />
+          )}
         />
 
         {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
@@ -343,7 +278,7 @@ export default function NewWorkoutScreen() {
         </Pressable>
 
         {error && <BusinessNotice message={error} />}
-      </ScrollView>
+      </ScrollViewContainer>
 
       {/* Un même exercice peut revenir dans un entraînement -- un finisher en
           fin de séance --, donc rien n'est coché d'avance et chaque passage
@@ -380,5 +315,89 @@ export default function NewWorkoutScreen() {
         />
       </View>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Une carte du brouillon.
+ *
+ * Composant à part parce que la poignée réclame un crochet : c'est lui qui
+ * relie le geste à la liste, et un crochet ne s'appelle pas au milieu d'une
+ * fonction de rendu.
+ */
+function DraftCard({
+  entry,
+  exercise,
+  unitOf,
+  onRemoveExercise,
+  onRemoveSet,
+  onChangeTarget,
+  onAddSet,
+}: {
+  entry: Planned;
+  exercise: Exercise | undefined;
+  unitOf: (measurementId: string) => string;
+  onRemoveExercise: () => void;
+  onRemoveSet: (setIndex: number) => void;
+  onChangeTarget: (setIndex: number, measurementId: string, value: number) => void;
+  onAddSet: () => void;
+}) {
+  const drag = useReorderableDrag();
+  const dragging = useIsActive();
+  const planned = entry.planned;
+
+  return (
+    <Collapsible
+      title={
+        <View className="flex-row items-center gap-2">
+          {/* La poignée saisit dès le contact : posée sur la carte entière,
+              le geste serait capté par le premier élément tapable dedans. */}
+          <Pressable onPressIn={drag} className="h-9 w-8 items-center justify-center rounded-md">
+            <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
+          </Pressable>
+          <Text
+            className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+            numberOfLines={1}
+          >
+            {exercise?.name ?? planned.exerciseId}
+          </Text>
+        </View>
+      }
+      summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
+      defaultOpen
+    >
+      <Pressable onPress={onRemoveExercise} hitSlop={8} className="pb-1">
+        <Text className="text-[12px] text-danger dark:text-danger-dark">Retirer cet exercice</Text>
+      </Pressable>
+
+      {planned.sets.map((set, index) => (
+        <View key={index} className="flex-row items-center gap-2 pt-1">
+          {exercise?.measurementIds.map((measurementId) => (
+            <NumberField
+              key={measurementId}
+              compact
+              unit={unitOf(measurementId)}
+              value={set.targets[measurementId] ?? 0}
+              step={STEPS[measurementId] ?? 1}
+              onChange={(value) => onChangeTarget(index, measurementId, value)}
+            />
+          ))}
+          <Pressable
+            onPress={() => onRemoveSet(index)}
+            className="h-[40px] w-[40px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
+          >
+            <Ionicons name="remove" size={18} color="#B3261E" />
+          </Pressable>
+        </View>
+      ))}
+
+      <Button
+        label="+ Ajouter une série"
+        variant="secondary"
+        size="sm"
+        className="mt-2"
+        onPress={onAddSet}
+      />
+    </Collapsible>
   );
 }
