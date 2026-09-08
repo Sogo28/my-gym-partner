@@ -10,7 +10,7 @@ import type { Muscle } from '../src/domain/exercise/muscle';
 import type { PlannedExercise } from '../src/domain/planned-workout/planned-workout';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { findRecentExerciseIds } from '../src/infra/performance-repository';
-import { listActiveExercises } from '../src/use-cases/edit-catalogue';
+import { discardWorkout, listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { Button } from '../src/ui/button';
 import { Collapsible } from '../src/ui/collapsible';
 import {
@@ -25,6 +25,7 @@ import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { BackHeader } from '../src/ui/screen-header';
+import { Sheet } from '../src/ui/sheet';
 import {
   createPlannedWorkout,
   updatePlannedWorkout,
@@ -83,6 +84,8 @@ export default function NewWorkoutScreen() {
     (planned: PlannedExercise): Planned => ({ key: String(nextKey.current++), planned }),
     [],
   );
+  /** Le menu de l'écran, et la confirmation qu'il peut demander. */
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
   const [error, setError] = useState<string | null>(null);
 
   // Les exercices disponibles se rechargent à chaque affichage...
@@ -210,6 +213,17 @@ export default function NewWorkoutScreen() {
     );
   }
 
+  /** Archivé s'il a déjà produit des séances, supprimé sinon : la base tranche. */
+  async function discard() {
+    if (!existing) return;
+    try {
+      await discardWorkout(existing);
+      router.back();
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
   async function submit() {
     try {
       const exercises = draft.map((entry) => entry.planned);
@@ -233,6 +247,8 @@ export default function NewWorkoutScreen() {
             existing ? 'les séances passées ne changent pas' : 'valeurs cibles · aucune date'
           }
           onBack={() => router.back()}
+          // Rien à retirer tant que l'entraînement n'existe pas : pas de menu.
+          onMenu={existing ? () => setSheet('menu') : undefined}
         />
       </View>
 
@@ -305,6 +321,30 @@ export default function NewWorkoutScreen() {
           ])
         }
         onClose={() => setPicking(false)}
+      />
+
+      <Sheet
+        visible={sheet === 'menu'}
+        title={existing?.name ?? 'Entraînement'}
+        actions={[
+          {
+            label: 'Retirer du catalogue',
+            tone: 'danger' as const,
+            onPress: () => setSheet('confirm-discard'),
+          },
+        ]}
+        onClose={() => setSheet('none')}
+      />
+
+      {/* Retirer n'est pas toujours la même opération : la base tranche entre
+          archiver et supprimer. La confirmation annonce les deux, faute de
+          pouvoir dire laquelle avant d'avoir regardé. */}
+      <Sheet
+        visible={sheet === 'confirm-discard'}
+        title="Retirer cet entraînement ?"
+        description="S'il a déjà produit des séances, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
+        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        onClose={() => setSheet('none')}
       />
 
       <View className="p-5 pt-2">
