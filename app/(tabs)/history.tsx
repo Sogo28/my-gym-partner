@@ -22,7 +22,6 @@ import { NumberField } from '../../src/ui/number-field';
 import { Sheet } from '../../src/ui/sheet';
 import { EmptyState } from '../../src/ui/empty-state';
 import { SectionHeader } from '../../src/ui/screen-header';
-import { SetRow } from '../../src/ui/set-row';
 import { formatClock, formatDateTime } from '../../src/ui/format';
 import { formatSetValues } from '../../src/ui/set-values';
 import { correctPastSet } from '../../src/use-cases/correct-past-set';
@@ -255,12 +254,11 @@ export default function HistoryScreen() {
                             repos {formatClock(restBefore)}
                           </Text>
                         ) : null}
-                        <SetRow
-                          index={position + 1}
-                          status="completed"
-                          values={formatSetValues(set.values, unitOf)}
-                          // Une faute de saisie doit pouvoir se réparer, même
-                          // des semaines plus tard.
+                        {/* Du texte, pas un cadre : toutes ces séries sont
+                            validées, et l'encadré ne distinguait donc rien.
+                            La ligne reste tapable -- une faute de saisie doit
+                            pouvoir se réparer, même des semaines plus tard. */}
+                        <Pressable
                           onPress={
                             activity.performanceId
                               ? () =>
@@ -274,7 +272,15 @@ export default function HistoryScreen() {
                                   })
                               : undefined
                           }
-                        />
+                          className="py-0.5"
+                        >
+                          <Text
+                            className="font-mono text-[13px] text-ink dark:text-ink-dark"
+                            style={{ fontVariant: ['tabular-nums'] }}
+                          >
+                            {position + 1}.  {formatSetValues(set.values, unitOf)}
+                          </Text>
+                        </Pressable>
                       </View>
                     ))
                   )}

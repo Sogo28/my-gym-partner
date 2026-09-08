@@ -358,10 +358,10 @@ function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; o
       {lines.map((line, index) => (
         <Text
           key={index}
-          className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+          className="font-mono text-[13px] text-ink dark:text-ink-dark"
           style={{ fontVariant: ['tabular-nums'] }}
         >
-          {index + 1}. {line}
+          {index + 1}.  {line}
         </Text>
       ))}
     </Collapsible>
