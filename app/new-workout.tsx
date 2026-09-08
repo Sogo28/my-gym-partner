@@ -379,6 +379,11 @@ export default function NewWorkoutScreen() {
         <Button
           label={existing ? 'Enregistrer les modifications' : 'Créer l entraînement'}
           size="lg"
+          // Le domaine accepte un entraînement vide -- il n'a pas à juger d'une
+          // intention -- mais l'écran, lui, sait qu'on n'a pas fini : un
+          // entraînement sans nom ni exercice n'est pas quelque chose qu'on
+          // voulait créer.
+          disabled={name.trim() === '' || draft.length === 0}
           onPress={submit}
         />
       </View>
