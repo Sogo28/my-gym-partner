@@ -16,7 +16,13 @@ import { formatDateTime } from '../../src/ui/format';
 import { messageOf } from '../../src/ui/message';
 import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
-import { listGoals } from '../../src/use-cases/goal-actions';
+import { evaluateGoal, listGoals, type GoalEvaluation } from '../../src/use-cases/goal-actions';
+import { listMetrics } from '../../src/use-cases/body-actions';
+import { findAllMeasurements } from '../../src/infra/exercise-repository';
+import { describeSource } from '../../src/ui/goal-labels';
+import { StepGauge } from '../../src/ui/step-gauge';
+import type { Measurement } from '../../src/domain/exercise/measurement';
+import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
 import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 import { DatePickerSheet } from '../../src/ui/date-picker';
@@ -54,6 +60,9 @@ export default function HomeScreen() {
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   /** L'étape de la planification : choisir l'entraînement, puis sa date. */
   const [planning, setPlanning] = useState<'none' | 'workout' | 'date'>('none');
   const [chosen, setChosen] = useState<PlannedWorkout | null>(null);
@@ -68,20 +77,41 @@ export default function HomeScreen() {
         findAllPlans(),
         listGoals(),
         workedDays(new Date()),
+        findAllMeasurements(),
+        listMetrics(),
       ])
-        .then(([active, summary, allSchedule, allPlans, allGoals, days]) => {
+        .then(([active, summary, allSchedule, allPlans, allGoals, days, allMeasurements, allMetrics]) => {
           setSession(active);
           setWeek(summary);
           setDone(days);
           setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
           setPlans(allPlans);
-          setGoals(allGoals.filter((goal) => goal.status === 'ACTIVE'));
+          setMeasurements(allMeasurements);
+          setMetrics(allMetrics);
+
+          const running = allGoals.filter((goal) => goal.status === 'ACTIVE');
+          setGoals(running);
+          return Promise.all(running.map((goal) => evaluateGoal(goal))).then((results) => {
+            setEvaluations(new Map(running.map((goal, index) => [goal.id, results[index]])));
+          });
         })
         .catch((e) => setError(messageOf(e)));
     }, []),
   );
 
   const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
+
+  /**
+   * L'unité de ce qui est évalué : celle d'une mesure de performance, ou
+   * celle d'une mensuration -- une condition sur un tour de cuisse s'exprime
+   * en centimètres.
+   */
+  const unitOf = (id: string | null) =>
+    id === null
+      ? ''
+      : (measurements.find((m) => m.id === id)?.unit ??
+        metrics.find((m) => m.id === id)?.unit ??
+        '');
 
   // La semaine en cours seulement : ce qui vient après appartient à la
   // suivante, et l'accueil ne raconte qu'aujourd'hui.
@@ -275,23 +305,66 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerClassName="gap-2 pr-4"
             >
-              {goals.map((goal) => (
-                <Pressable key={goal.id} onPress={() => router.push('/goals')}>
-                  <Card className="w-[180px] gap-1">
-                    <Text
-                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
-                      numberOfLines={2}
-                    >
-                      {goal.name}
-                    </Text>
-                    <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
-                      {goal.isProgressive
-                        ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
-                        : 'objectif simple'}
-                    </Text>
-                  </Card>
-                </Pressable>
-              ))}
+              {goals.map((goal) => {
+                const evaluation = evaluations.get(goal.id);
+                const results = evaluation?.results ?? [];
+                // La première condition suffit à situer l'objectif ; le compte
+                // dit qu'il y en a d'autres, sans les empiler sur une vignette.
+                const first = results[0];
+                const met = results.filter((result) => result.satisfied).length;
+
+                return (
+                  <Pressable key={goal.id} onPress={() => router.push('/goals')}>
+                    <Card className="w-[190px] gap-2">
+                      <Text
+                        className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                        numberOfLines={2}
+                      >
+                        {goal.name}
+                      </Text>
+
+                      {goal.isProgressive && (
+                        <StepGauge
+                          total={goal.steps.length}
+                          done={goal.currentStepIndex}
+                          currentSatisfied={evaluation?.satisfied ?? false}
+                        />
+                      )}
+
+                      {first ? (
+                        <View className="gap-0.5">
+                          <Text
+                            className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+                            style={{ fontVariant: ['tabular-nums'] }}
+                          >
+                            {first.actual === null
+                              ? '—'
+                              : `${Math.round(first.actual * 10) / 10}`}
+                            <Text className="font-sans text-[12px] text-muted dark:text-muted-dark">
+                              {' / '}
+                              {first.condition.target} {unitOf(first.condition.measurementId)}
+                            </Text>
+                          </Text>
+                          <Text
+                            className="text-[10px] text-muted dark:text-muted-dark"
+                            numberOfLines={1}
+                          >
+                            {results.length > 1
+                              ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
+                              : describeSource(first.condition)}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text className="text-[11px] text-muted dark:text-muted-dark">
+                          {goal.isProgressive
+                            ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
+                            : 'à valider à la main'}
+                        </Text>
+                      )}
+                    </Card>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
         )}
