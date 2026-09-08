@@ -349,9 +349,14 @@ export default function HomeScreen() {
                             className="text-[10px] text-muted dark:text-muted-dark"
                             numberOfLines={1}
                           >
+                            {/* La valeur au-dessus est celle de l'étape en
+                                cours : sans le dire, elle a l'air de flotter
+                                à côté des carrés. */}
                             {results.length > 1
                               ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
-                              : describeSource(first.condition)}
+                              : goal.isProgressive
+                                ? `étape ${goal.currentStepIndex + 1} sur ${goal.steps.length}`
+                                : describeSource(first.condition)}
                           </Text>
                         </View>
                       ) : (
