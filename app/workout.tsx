@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -9,8 +9,11 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { Button } from '../src/ui/button';
+import { Ionicons } from '@expo/vector-icons';
 import { BodyMap } from '../src/ui/body-map';
-import { Collapsible } from '../src/ui/collapsible';
+import { Card } from '../src/ui/card';
+import { SetRow } from '../src/ui/set-row';
+import { formatTargets } from '../src/ui/set-values';
 import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
@@ -119,25 +122,44 @@ export default function WorkoutDetailScreen() {
         <BodyMap parts={worked} />
 
 
+        {/* Dépliés d'office : un entraînement se lit d'un coup d'oeil, et le
+            tap appartient alors sans ambiguïté à la fiche de l'exercice. */}
         {plan.exercises.map((planned, position) => (
-          <Collapsible
+          <Pressable
             key={`${planned.exerciseId}-${position}`}
-            title={`${position + 1}. ${nameOf(planned.exerciseId)}`}
-            summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
+            onPress={() =>
+              router.push({ pathname: '/exercise', params: { id: planned.exerciseId } })
+            }
           >
-            {planned.sets.length === 0 ? (
-              <Text className="text-muted dark:text-muted-dark">aucune série prévue</Text>
-            ) : (
-              planned.sets.map((set, index) => (
-                <Text key={index} className="font-mono text-[15px] text-planned">
-                  Série {index + 1} ·{' '}
-                  {Object.entries(set.targets)
-                    .map(([measurementId, value]) => `${value} ${unitOf(measurementId)}`)
-                    .join(' · ')}
+            <Card density="titled" className="gap-2">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text
+                  className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+                  numberOfLines={1}
+                >
+                  {position + 1}. {nameOf(planned.exerciseId)}
                 </Text>
-              ))
-            )}
-          </Collapsible>
+                <Ionicons name="chevron-forward" size={16} color="#8B9086" />
+              </View>
+
+              {planned.sets.length === 0 ? (
+                <Text className="text-[13px] text-muted dark:text-muted-dark">
+                  aucune série prévue
+                </Text>
+              ) : (
+                // Les mêmes lignes qu'en séance : une série prévue se dessine
+                // pareil, qu'on la lise avant ou qu'on la fasse.
+                planned.sets.map((set, index) => (
+                  <SetRow
+                    key={index}
+                    index={index + 1}
+                    status="planned"
+                    values={formatTargets(set.targets, unitOf)}
+                  />
+                ))
+              )}
+            </Card>
+          </Pressable>
         ))}
 
         {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
