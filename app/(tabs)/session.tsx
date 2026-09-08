@@ -157,6 +157,16 @@ export default function SessionScreen() {
       setError(null);
 
       reload().catch((e) => setError(messageOf(e)));
+
+      // Un exercice choisi et non démarré n'engage rien, et n'a donc pas à
+      // survivre au départ de l'écran : revenir sur les séances repart de
+      // zéro plutôt que de reprendre une intention qu'on avait laissée.
+      // Les valeurs réglées, elles, restent : la série en cours les porte
+      // encore, et changer d'exercice les remplace de toute façon.
+      return () => {
+        setPending(null);
+        setAdjustingStart(false);
+      };
     }, [reload]),
   );
 
@@ -335,12 +345,22 @@ export default function SessionScreen() {
     });
   }
 
-  /** Retenir l'exercice choisi pour une séance libre, et ce qu'il visera. */
+  /**
+   * Retenir l'exercice choisi pour une séance libre.
+   *
+   * On RECHARGE avant de basculer : adopter depuis le catalogue vient de
+   * créer l'exercice, et la liste locale ne le connaît pas encore. Sans cela
+   * on affichait un exercice sans mesures, donc une série sans valeurs.
+   *
+   * Rien n'est calculé ici : les cibles se déduisent de l'exercice au moment
+   * de l'afficher, et ne se figent qu'une fois réglées à la main.
+   */
   function choose(exerciseId: string) {
-    const exercise = exercises.find((candidate) => candidate.id === exerciseId);
-    setFreeTargets(defaultTargets(exercise?.measurementIds ?? []));
+    setFreeTargets(null);
     setAdjustingStart(false);
-    setPending(exerciseId);
+    reload()
+      .then(() => setPending(exerciseId))
+      .catch((e) => setError(messageOf(e)));
   }
 
   /**
