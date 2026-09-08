@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -27,6 +27,9 @@ import { findAll as findAllPlans } from '../src/infra/planned-workout-repository
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
+
+/** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
+type Planned = { key: string; planned: PlannedExercise };
 
 /**
  * Ce que vise une série qu'on vient de créer.
@@ -60,8 +63,20 @@ export default function NewWorkoutScreen() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
   const [name, setName] = useState('');
-  // Le brouillon vit dans l'écran : rien n'est écrit avant validation.
-  const [draft, setDraft] = useState<PlannedExercise[]>([]);
+  /**
+   * Le brouillon vit dans l'écran : rien n'est écrit avant validation.
+   *
+   * Chaque entrée porte une clé stable, qui ne vient NI de sa position -- elle
+   * change quand on réordonne, et React reconstruirait alors toutes les cartes
+   * en perdant leur repli -- NI de l'exercice, puisqu'un même exercice peut
+   * revenir deux fois dans un entraînement.
+   */
+  const [draft, setDraft] = useState<Planned[]>([]);
+  const nextKey = useRef(0);
+  const keyed = useCallback(
+    (planned: PlannedExercise): Planned => ({ key: String(nextKey.current++), planned }),
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   /** La page cesse de défiler pendant qu'on déplace une carte. */
   const [scrolls, setScrolls] = useState(true);
@@ -94,10 +109,10 @@ export default function NewWorkoutScreen() {
         if (!plan) return;
         setExisting(plan);
         setName(plan.name);
-        setDraft([...plan.exercises]);
+        setDraft(plan.exercises.map(keyed));
       })
       .catch((e) => setError(messageOf(e)));
-  }, [id]);
+  }, [id, keyed]);
 
   const catalogue = useMemo(
     () =>
@@ -117,16 +132,20 @@ export default function NewWorkoutScreen() {
    * où elles diffèrent, au lieu de saisir quatre fois la même chose.
    */
   function addSet(position: number) {
-    const exercise = exerciseOf(draft[position].exerciseId);
+    const exercise = exerciseOf(draft[position].planned.exerciseId);
     if (!exercise) return;
 
     setDraft((current) =>
-      current.map((planned, index) => {
-        if (index !== position) return planned;
-        const last = planned.sets[planned.sets.length - 1];
+      current.map((entry, index) => {
+        if (index !== position) return entry;
+        const sets = entry.planned.sets;
+        const last = sets[sets.length - 1];
         return {
-          ...planned,
-          sets: [...planned.sets, last ? { targets: { ...last.targets } } : defaultSet(exercise)],
+          ...entry,
+          planned: {
+            ...entry.planned,
+            sets: [...sets, last ? { targets: { ...last.targets } } : defaultSet(exercise)],
+          },
         };
       }),
     );
@@ -141,15 +160,18 @@ export default function NewWorkoutScreen() {
     value: number,
   ) {
     setDraft((current) =>
-      current.map((planned, index) =>
+      current.map((entry, index) =>
         index === position
           ? {
-              ...planned,
-              sets: planned.sets.map((set, i) =>
-                i === setIndex ? { targets: { ...set.targets, [measurementId]: value } } : set,
-              ),
+              ...entry,
+              planned: {
+                ...entry.planned,
+                sets: entry.planned.sets.map((set, i) =>
+                  i === setIndex ? { targets: { ...set.targets, [measurementId]: value } } : set,
+                ),
+              },
             }
-          : planned,
+          : entry,
       ),
     );
   }
@@ -170,20 +192,27 @@ export default function NewWorkoutScreen() {
 
   function removeSet(position: number, setIndex: number) {
     setDraft((current) =>
-      current.map((planned, index) =>
+      current.map((entry, index) =>
         index === position
-          ? { ...planned, sets: planned.sets.filter((_, i) => i !== setIndex) }
-          : planned,
+          ? {
+              ...entry,
+              planned: {
+                ...entry.planned,
+                sets: entry.planned.sets.filter((_, i) => i !== setIndex),
+              },
+            }
+          : entry,
       ),
     );
   }
 
   async function submit() {
     try {
+      const exercises = draft.map((entry) => entry.planned);
       if (existing) {
-        await updatePlannedWorkout({ workout: existing, name, exercises: draft });
+        await updatePlannedWorkout({ workout: existing, name, exercises });
       } else {
-        await createPlannedWorkout({ name, exercises: draft });
+        await createPlannedWorkout({ name, exercises });
       }
       router.back();
     } catch (e) {
@@ -217,14 +246,14 @@ export default function NewWorkoutScreen() {
         <Reorderable
           items={draft}
           spacing={16}
-          keyOf={(planned, position) => `${planned.exerciseId}-${position}`}
+          keyOf={(entry) => entry.key}
           onDraggingChange={(dragging) => setScrolls(!dragging)}
           onReorder={moveExercise}
-          renderItem={(planned, position, drag) => {
+          renderItem={(entry, position, drag) => {
+            const planned = entry.planned;
             const exercise = exerciseOf(planned.exerciseId);
             return (
               <Collapsible
-                key={`${planned.exerciseId}-${position}`}
                 title={
                   <View className="flex-row items-center gap-2">
                     {/* La poignée prend le geste dès le contact : posée sur
@@ -320,10 +349,7 @@ export default function NewWorkoutScreen() {
             ...current,
             ...ids.map((exerciseId) => {
               const exercise = available.find((candidate) => candidate.id === exerciseId);
-              return {
-                exerciseId,
-                sets: exercise ? [defaultSet(exercise)] : [],
-              };
+              return keyed({ exerciseId, sets: exercise ? [defaultSet(exercise)] : [] });
             }),
           ])
         }
