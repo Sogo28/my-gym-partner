@@ -22,6 +22,8 @@ import { NumberField } from '../../src/ui/number-field';
 import { Sheet } from '../../src/ui/sheet';
 import { EmptyState } from '../../src/ui/empty-state';
 import { SectionHeader } from '../../src/ui/screen-header';
+import { SearchField } from '../../src/ui/search';
+import { fold } from '../../src/text';
 import { formatClock, formatDateTime } from '../../src/ui/format';
 import { formatSetValues } from '../../src/ui/set-values';
 import { correctPastSet } from '../../src/use-cases/correct-past-set';
@@ -61,6 +63,8 @@ export default function HistoryScreen() {
   /** Combien de séances on montre ; le reste attend « afficher plus ». */
   const [shown, setShown] = useState(PAGE);
   const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     // Le résumé est calculé par le use case : l'écran ne fait plus que
@@ -149,7 +153,22 @@ export default function HistoryScreen() {
   const inPeriod = summaries.filter(
     ({ session }) => since === null || session.startedAt >= since,
   );
-  const visible = inPeriod.slice(0, shown);
+  /**
+   * La recherche lit le nom de l'entraînement ET celui de ses exercices : on
+   * se souvient plus souvent d'avoir fait des dips que du programme qui les
+   * contenait.
+   */
+  const matching = inPeriod.filter(({ session, activities }) => {
+    const needle = fold(query.trim());
+    if (needle === '') return true;
+    const plan = plans.find((candidate) => candidate.id === session.plannedWorkoutId);
+    return (
+      fold(plan?.name ?? 'Séance libre').includes(needle) ||
+      activities.some((activity) => fold(nameOf(activity.exerciseId)).includes(needle))
+    );
+  });
+
+  const visible = matching.slice(0, shown);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
@@ -157,6 +176,13 @@ export default function HistoryScreen() {
         <SectionHeader
           title="Historique"
           subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
+          onMenu={() => setMenu(true)}
+        />
+
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Chercher une séance ou un exercice"
         />
 
         <View className="flex-row gap-2 pb-1">
@@ -201,7 +227,7 @@ export default function HistoryScreen() {
           />
         )}
 
-        {summaries.length > 0 && inPeriod.length === 0 && (
+        {summaries.length > 0 && matching.length === 0 && (
           <EmptyState
             title="Rien sur cette période"
             description="Élargis la période pour retrouver tes séances plus anciennes."
@@ -289,39 +315,27 @@ export default function HistoryScreen() {
             </Collapsible>
           );
         })}
-        {inPeriod.length > visible.length && (
+        {matching.length > visible.length && (
           <Button
-            label={`Afficher ${Math.min(PAGE, inPeriod.length - visible.length)} séance${Math.min(PAGE, inPeriod.length - visible.length) > 1 ? 's' : ''} de plus`}
+            label={`Afficher ${Math.min(PAGE, matching.length - visible.length)} séance${Math.min(PAGE, matching.length - visible.length) > 1 ? 's' : ''} de plus`}
             variant="secondary"
             size="md"
             onPress={() => setShown((count) => count + PAGE)}
           />
         )}
 
-        <View className="mt-4 gap-2 border-t border-border pt-4 dark:border-border-dark">
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
-            Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu
-            ranges où tu veux.
-          </Text>
-          <View className="flex-row gap-2">
-            <Button
-              label={busy ? 'Préparation…' : 'Sauvegarder'}
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              disabled={busy}
-              onPress={backup}
-            />
-            <Button
-              label="Restaurer"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={choose}
-            />
-          </View>
-        </View>
       </ScrollView>
+
+      <Sheet
+        visible={menu}
+        title="Historique"
+        description="Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu ranges où tu veux."
+        actions={[
+          { label: busy ? 'Préparation…' : 'Sauvegarder', onPress: backup },
+          { label: 'Restaurer une sauvegarde', onPress: choose },
+        ]}
+        onClose={() => setMenu(false)}
+      />
 
       <Sheet
         visible={restoring !== null}

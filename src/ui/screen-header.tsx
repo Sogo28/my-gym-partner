@@ -11,7 +11,8 @@ export function SectionHeader({
   title,
   subtitle,
   action,
-}: SectionHeaderProps & { action?: HeaderAction }) {
+  onMenu,
+}: SectionHeaderProps & { action?: HeaderAction; onMenu?: () => void }) {
   return (
     <View className="flex-row items-start justify-between gap-3 pb-2">
       <View className="shrink gap-1">
@@ -27,6 +28,15 @@ export function SectionHeader({
           <Text className="font-bold text-[14px] text-primary-ink dark:text-primary-ink-dark">
             {action.label}
           </Text>
+        </Pressable>
+      )}
+      {onMenu && (
+        <Pressable
+          onPress={onMenu}
+          hitSlop={8}
+          className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
         </Pressable>
       )}
     </View>
