@@ -67,6 +67,8 @@ import {
 } from '../../src/use-cases/workout-session-actions';
 
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
+import { defaultTargets } from '../../src/ui/set-defaults';
+
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 export default function SessionScreen() {
@@ -223,12 +225,10 @@ export default function SessionScreen() {
     const targets = plannedExercise?.sets[sets.length - 1]?.targets;
     if (targets && Object.keys(targets).length > 0) return spreadOverSides(targets);
 
-    // Hors programme : on reprend la dernière série faite, sinon zéro.
+    // Hors programme : on reprend la dernière série faite, sinon les valeurs
+    // de départ -- un zéro demanderait de tout saisir avant de commencer.
     const previous = [...sets].reverse().find((set) => set.status === 'COMPLETED');
-    return (
-      previous?.values ??
-      spreadOverSides(Object.fromEntries((performance.measurementIds ?? []).map((id) => [id, 0])))
-    );
+    return previous?.values ?? spreadOverSides(defaultTargets(performance.measurementIds ?? []));
   }
 
   // La série en cours n'est plus recouverte par la saisie locale : celle-ci
@@ -300,16 +300,66 @@ export default function SessionScreen() {
   }
 
   /**
-   * Démarre un exercice hors programme. Comme pour l'exercice suivant, la
-   * première série reste un geste explicite.
+   * Démarre un exercice hors programme, et sa première série dans la foulée.
+   *
+   * Choisir un exercice, c'est déjà s'y mettre : demander ensuite « Démarrer »
+   * ajoutait un geste entre la décision et la barre. La série s'ouvre sur les
+   * valeurs de départ, qui restent ajustables.
    */
   function addExercise(exerciseId: string) {
     run(async () => {
       closeEditing();
       if (activity) await finishActivity();
       await startActivity(exerciseId);
+      await startPerformanceSet();
     });
   }
+
+  /**
+   * Une séance libre commence par le choix de l'exercice.
+   *
+   * Rien n'est créé avant : renoncer dans le sélecteur ne laisse donc aucune
+   * séance ouverte derrière soi, et la séance date bien de sa première série
+   * -- comme celle qui vient d'un entraînement.
+   */
+  function beginFree(exerciseId: string) {
+    setSheet('none');
+    run(async () => {
+      await startWorkoutSession();
+      await startActivity(exerciseId);
+      await startPerformanceSet();
+    });
+  }
+
+  /**
+   * Le sélecteur d'exercice, servi par les deux entrées qui y mènent : le
+   * début d'une séance libre, et l'ajout d'un exercice en cours de séance.
+   * Seule la suite diffère, donc seul l'appelant la fournit.
+   *
+   * Un seul exercice à la fois : la séance n'en travaille qu'un, et rien ne
+   * garde ceux qu'on aurait choisis pour plus tard. On ne propose que les
+   * exercices encore au catalogue.
+   */
+  const exercisePicker = (onPick: (exerciseId: string) => void) => (
+    <ExercisePicker
+      // Adopter depuis le catalogue crée un exercice : la liste locale doit
+      // en tenir compte tout de suite.
+      catalogue={catalogue}
+      onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
+      onOpenSettings={() => {
+        setSheet('none');
+        router.push('/settings');
+      }}
+      visible={sheet === 'pick-exercise'}
+      mode="single"
+      title="Choisir un exercice"
+      exercises={exercises.filter((exercise) => !exercise.isArchived)}
+      muscles={muscles}
+      recentIds={recentIds}
+      onConfirm={(ids) => onPick(ids[0])}
+      onClose={() => setSheet('none')}
+    />
+  );
 
   const menuActions: SheetAction[] = [
     { label: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
@@ -523,7 +573,7 @@ export default function SessionScreen() {
             label="Séance libre"
             variant="ghost"
             size="md"
-            onPress={() => run(() => startWorkoutSession())}
+            onPress={() => setSheet('pick-exercise')}
           />
         </View>
 
@@ -553,6 +603,8 @@ export default function SessionScreen() {
           }}
           onClose={() => setPlanning(null)}
         />
+
+        {exercisePicker(beginFree)}
       </SafeAreaView>
     );
   }
@@ -752,28 +804,7 @@ export default function SessionScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
-      {/* Un seul exercice à la fois : la séance n'en travaille qu'un, et rien
-          ne garde ceux qu'on aurait choisis pour plus tard. La liste complète
-          sert à nommer les exercices déjà faits ; on ne propose en revanche
-          que ceux encore au catalogue. */}
-      <ExercisePicker
-        // Adopter depuis le catalogue crée un exercice : la liste locale doit
-        // en tenir compte tout de suite.
-        catalogue={catalogue}
-        onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
-        onOpenSettings={() => {
-          setSheet('none');
-          router.push('/settings');
-        }}
-        visible={sheet === 'pick-exercise'}
-        mode="single"
-        title="Choisir un exercice"
-        exercises={exercises.filter((exercise) => !exercise.isArchived)}
-        muscles={muscles}
-        recentIds={recentIds}
-        onConfirm={(ids) => addExercise(ids[0])}
-        onClose={() => setSheet('none')}
-      />
+      {exercisePicker(addExercise)}
       <Sheet
         visible={sheet === 'confirm-cancel'}
         title="Annuler la séance ?"

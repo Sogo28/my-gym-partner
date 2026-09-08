@@ -34,26 +34,19 @@ import {
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 
+import { defaultTargets } from '../src/ui/set-defaults';
+
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
 type Planned = { key: string; planned: PlannedExercise };
 
 /**
- * Ce que vise une série qu'on vient de créer.
- *
  * Un exercice arrive toujours avec UNE série : un exercice sans série ne veut
- * rien dire dans un entraînement, et partir d'une valeur plausible se corrige
- * plus vite que de partir de rien.
+ * rien dire dans un entraînement.
  */
-const DEFAULTS: Record<string, number> = { reps: 8, weight: 0, duration: 20, distance: 100 };
-
 function defaultSet(exercise: Exercise): { targets: Record<string, number> } {
-  return {
-    targets: Object.fromEntries(
-      exercise.measurementIds.map((id) => [id, DEFAULTS[id] ?? 0]),
-    ),
-  };
+  return { targets: defaultTargets(exercise.measurementIds) };
 }
 
 /**
