@@ -60,6 +60,14 @@ type SetRowProps = {
   /** Rend la ligne tapable, pour ouvrir l'ajustement de cette série. */
   onPress?: () => void;
   selected?: boolean;
+  /**
+   * Version resserrée, pour une liste qu'on LIT plutôt qu'on exécute.
+   *
+   * En séance, une série se déchiffre d'un coup d'oeil entre deux efforts et
+   * mérite sa taille ; sur la fiche d'un entraînement, cinq lignes pleine
+   * hauteur écrasent tout ce qu'il y a autour.
+   */
+  compact?: boolean;
 };
 
 /**
@@ -67,7 +75,14 @@ type SetRowProps = {
  * l'étiquette -- jamais par la seule luminance du texte, qui tomberait sous
  * le seuil de contraste lisible en salle.
  */
-export function SetRow({ index, status, values, onPress, selected = false }: SetRowProps) {
+export function SetRow({
+  index,
+  status,
+  values,
+  onPress,
+  selected = false,
+  compact = false,
+}: SetRowProps) {
   const accents = ACCENTS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   // Ouvrir une série à l'ajustement, c'est y revenir : elle se montre comme
   // celle qu'on est en train de faire.
@@ -81,7 +96,8 @@ export function SetRow({ index, status, values, onPress, selected = false }: Set
     <Row
       onPress={onPress}
       className={cn(
-        'min-h-[60px] flex-row items-center gap-3 rounded-xl px-4',
+        'flex-row items-center gap-3 rounded-xl',
+        compact ? 'min-h-[42px] gap-2 px-3' : 'min-h-[60px] px-4',
         status === 'completed' && 'bg-surface dark:bg-surface-dark',
         status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
         status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
@@ -92,11 +108,12 @@ export function SetRow({ index, status, values, onPress, selected = false }: Set
       // d'apparaître, et ne revenir qu'au remontage de la liste.
       style={outlineOf(selected ? 'in-progress' : status, outline)}
     >
-      <Badge index={index} status={status} accent={accents[status]} />
+      <Badge index={index} status={status} accent={accents[status]} compact={compact} />
 
       <Text
         className={cn(
-          'flex-1 font-mono-bold text-[20px]',
+          'flex-1 font-mono-bold',
+          compact ? 'text-[15px]' : 'text-[20px]',
           status === 'completed' && 'text-ink dark:text-ink-dark',
           status === 'planned' && 'text-planned dark:text-planned-dark',
           status === 'abandoned' && 'text-muted line-through dark:text-muted-dark',
@@ -108,8 +125,10 @@ export function SetRow({ index, status, values, onPress, selected = false }: Set
         {values}
       </Text>
 
-      {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
-      {LABELS[status] && (
+      {/* shrink-0 : cette mention ne doit jamais rogner la valeur. Resserrée,
+          elle disparaît : toutes les lignes d'une fiche partagent le même
+          état, le répéter à chacune n'apprend rien. */}
+      {!compact && LABELS[status] && (
         <Text
           className="shrink-0 font-bold uppercase text-label"
           style={{ color: accents[status] }}
@@ -130,25 +149,29 @@ function Badge({
   index,
   status,
   accent,
+  compact,
 }: {
   index: number;
   status: SetRowStatus;
   accent: string;
+  compact: boolean;
 }) {
   return (
     <View
-      className="h-7 w-7 shrink-0 items-center justify-center rounded-full"
+      className={cn('shrink-0 items-center justify-center rounded-full', compact ? 'h-5 w-5' : 'h-7 w-7')}
       style={{
         borderWidth: 2,
         borderColor: accent,
         borderStyle: status === 'planned' ? 'dashed' : 'solid',
       }}
     >
-      {status === 'completed' && <Ionicons name="checkmark" size={15} color={accent} />}
-      {status === 'abandoned' && <Ionicons name="close" size={14} color={accent} />}
+      {status === 'completed' && (
+        <Ionicons name="checkmark" size={compact ? 12 : 15} color={accent} />
+      )}
+      {status === 'abandoned' && <Ionicons name="close" size={compact ? 11 : 14} color={accent} />}
       {status === 'in-progress' && (
         <Text
-          className="font-mono text-[12px]"
+          className={cn('font-mono', compact ? 'text-[10px]' : 'text-[12px]')}
           style={{ color: accent, fontVariant: ['tabular-nums'] }}
         >
           {index}

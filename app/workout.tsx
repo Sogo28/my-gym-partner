@@ -151,6 +151,7 @@ export default function WorkoutDetailScreen() {
                 // pareil, qu'on la lise avant ou qu'on la fasse.
                 planned.sets.map((set, index) => (
                   <SetRow
+                    compact
                     key={index}
                     index={index + 1}
                     status="planned"
