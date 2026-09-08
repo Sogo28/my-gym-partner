@@ -42,13 +42,16 @@ const LABELS: Record<SetRowStatus, string | null> = {
  * (trait pointillé) à "en cours" gardait son pointillé jusqu'au prochain
  * remontage.
  */
-function outlineOf(status: SetRowStatus, accent: string): ViewStyle {
+function outlineOf(status: SetRowStatus, accent: string, compact: boolean): ViewStyle {
   return {
     borderWidth: 2,
     borderColor: accent,
     borderLeftWidth: 2,
     borderLeftColor: accent,
-    borderStyle: status === 'planned' ? 'dashed' : 'solid',
+    // Le pointillé dit « pas encore faite », ce qui n'apprend rien sur une
+    // fiche où aucune ne l'est. En séance, il distingue le reste à faire de
+    // ce qui est derrière soi.
+    borderStyle: status === 'planned' && !compact ? 'dashed' : 'solid',
   };
 }
 
@@ -106,7 +109,7 @@ export function SetRow({
       // La bordure passe en style direct : appliquée par la feuille de styles,
       // elle pouvait manquer au premier tracé d'une ligne qui vient
       // d'apparaître, et ne revenir qu'au remontage de la liste.
-      style={outlineOf(selected ? 'in-progress' : status, outline)}
+      style={outlineOf(selected ? 'in-progress' : status, outline, compact)}
     >
       {/* Pas de pastille en version resserrée : sur une fiche, toutes les
           séries sont prévues, donc le cercle y est toujours vide -- il ne
