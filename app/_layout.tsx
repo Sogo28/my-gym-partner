@@ -87,6 +87,7 @@ export default function RootLayout() {
       <Stack.Screen name="workout" />
       <Stack.Screen name="new-workout" />
       <Stack.Screen name="new-exercise" />
+      <Stack.Screen name="goal" />
       <Stack.Screen name="new-goal" />
       <Stack.Screen name="body" />
       <Stack.Screen name="settings" />

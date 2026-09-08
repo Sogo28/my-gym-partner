@@ -12,6 +12,7 @@ import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
+import { GoalCard } from '../../src/ui/goal-card';
 import { dayLabel, formatDateTime } from '../../src/ui/format';
 import { messageOf } from '../../src/ui/message';
 import { BusinessNotice } from '../../src/ui/notice';
@@ -24,7 +25,6 @@ import {
 } from '../../src/infra/exercise-repository';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { GoalSubject } from '../../src/domain/goal/goal';
-import { describeSourceShort } from '../../src/ui/goal-labels';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
@@ -406,72 +406,17 @@ export default function HomeScreen() {
               className="grow-0"
               contentContainerClassName="gap-2 pb-1 pr-4"
             >
-              {goals.map((goal) => {
-                const evaluation = evaluations.get(goal.id);
-                const results = evaluation?.results ?? [];
-                // La première condition suffit à situer l'objectif ; le compte
-                // dit qu'il y en a d'autres, sans les empiler sur une vignette.
-                const first = results[0];
-                const met = results.filter((result) => result.satisfied).length;
-
-                return (
-                  <Pressable key={goal.id} onPress={() => router.push('/goals')}>
-                    <Card className="w-[190px] gap-2">
-                      {/* Deux lignes RÉSERVÉES, occupées ou non : c'est ce qui
-                          aligne les vignettes entre elles sans les étirer, un
-                          nom court ne devant pas raccourcir sa carte. */}
-                      <Text
-                        className="h-[38px] font-bold text-[15px] leading-[19px] text-ink dark:text-ink-dark"
-                        numberOfLines={2}
-                      >
-                        {goal.name}
-                      </Text>
-
-                      {/* Ce qui est visé, nommé -- l'étape en cours pour une
-                          progression, le sujet pour un objectif simple. Le
-                          numéro d'étape ne dirait pas quelle variante on
-                          travaille, et c'est elle qu'on cherche ici. */}
-                      <Text
-                        className="text-[12px] text-primary-ink dark:text-primary-ink-dark"
-                        numberOfLines={1}
-                      >
-                        {subjectName(goal.currentSubject)}
-                      </Text>
-
-                      {first ? (
-                        <View className="gap-0.5">
-                          <Text
-                            className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
-                            style={{ fontVariant: ['tabular-nums'] }}
-                          >
-                            {first.actual === null
-                              ? '—'
-                              : `${Math.round(first.actual * 10) / 10}`}
-                            <Text className="font-sans text-[12px] text-muted dark:text-muted-dark">
-                              {' / '}
-                              {first.condition.target} {unitOf(first.condition.measurementId)}
-                            </Text>
-                          </Text>
-                          <Text
-                            className="text-[10px] text-muted dark:text-muted-dark"
-                            numberOfLines={1}
-                          >
-                            {results.length > 1
-                              ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
-                              : describeSourceShort(first.condition)}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text className="text-[11px] text-muted dark:text-muted-dark">
-                          {goal.isProgressive
-                            ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
-                            : 'à valider à la main'}
-                        </Text>
-                      )}
-                    </Card>
-                  </Pressable>
-                );
-              })}
+              {goals.map((goal) => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  evaluation={evaluations.get(goal.id)}
+                  subjectName={(entry) => subjectName(entry.currentSubject)}
+                  unitOf={unitOf}
+                  width={190}
+                  onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
+                />
+              ))}
             </ScrollView>
             )}
         </View>
