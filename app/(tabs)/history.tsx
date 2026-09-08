@@ -185,7 +185,7 @@ export default function HistoryScreen() {
           placeholder="Chercher une séance ou un exercice"
         />
 
-        <View className="flex-row gap-2 pb-1">
+        <View className="flex-row gap-2 pb-3">
           {PERIODS.map(({ label, days }) => {
             const on = days === period;
             return (
