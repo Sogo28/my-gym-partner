@@ -18,7 +18,12 @@ import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
 import { evaluateGoal, listGoals, type GoalEvaluation } from '../../src/use-cases/goal-actions';
 import { listMetrics } from '../../src/use-cases/body-actions';
-import { findAllMeasurements } from '../../src/infra/exercise-repository';
+import {
+  findAll as findAllExercises,
+  findAllMeasurements,
+} from '../../src/infra/exercise-repository';
+import type { Exercise } from '../../src/domain/exercise/exercise';
+import type { GoalSubject } from '../../src/domain/goal/goal';
 import { describeSource } from '../../src/ui/goal-labels';
 import { StepGauge } from '../../src/ui/step-gauge';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -63,6 +68,7 @@ export default function HomeScreen() {
   const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   /** L'étape de la planification : choisir l'entraînement, puis sa date. */
   const [planning, setPlanning] = useState<'none' | 'workout' | 'date'>('none');
   const [chosen, setChosen] = useState<PlannedWorkout | null>(null);
@@ -79,8 +85,20 @@ export default function HomeScreen() {
         workedDays(new Date()),
         findAllMeasurements(),
         listMetrics(),
+        findAllExercises(),
       ])
-        .then(([active, summary, allSchedule, allPlans, allGoals, days, allMeasurements, allMetrics]) => {
+        .then(
+          ([
+            active,
+            summary,
+            allSchedule,
+            allPlans,
+            allGoals,
+            days,
+            allMeasurements,
+            allMetrics,
+            allExercises,
+          ]) => {
           setSession(active);
           setWeek(summary);
           setDone(days);
@@ -88,13 +106,15 @@ export default function HomeScreen() {
           setPlans(allPlans);
           setMeasurements(allMeasurements);
           setMetrics(allMetrics);
+          setExercises(allExercises);
 
           const running = allGoals.filter((goal) => goal.status === 'ACTIVE');
           setGoals(running);
-          return Promise.all(running.map((goal) => evaluateGoal(goal))).then((results) => {
-            setEvaluations(new Map(running.map((goal, index) => [goal.id, results[index]])));
-          });
-        })
+            return Promise.all(running.map((goal) => evaluateGoal(goal))).then((results) => {
+              setEvaluations(new Map(running.map((goal, index) => [goal.id, results[index]])));
+            });
+          },
+        )
         .catch((e) => setError(messageOf(e)));
     }, []),
   );
@@ -106,6 +126,13 @@ export default function HomeScreen() {
    * celle d'une mensuration -- une condition sur un tour de cuisse s'exprime
    * en centimètres.
    */
+  /** Ce que l'étape en cours vise : un exercice, ou une mensuration. */
+  const subjectName = (subject: GoalSubject) =>
+    subject.kind === 'exercise'
+      ? (exercises.find((exercise) => exercise.id === subject.exerciseId)?.name ??
+        subject.exerciseId)
+      : (metrics.find((metric) => metric.id === subject.metricId)?.name ?? subject.metricId);
+
   const unitOf = (id: string | null) =>
     id === null
       ? ''
@@ -323,12 +350,16 @@ export default function HomeScreen() {
                         {goal.name}
                       </Text>
 
+                      {/* L'étape en cours se nomme : son NUMÉRO ne dit pas
+                          quelle variante on travaille, et c'est elle qu'on
+                          cherche en regardant la vignette. */}
                       {goal.isProgressive && (
-                        <StepGauge
-                          total={goal.steps.length}
-                          done={goal.currentStepIndex}
-                          currentSatisfied={evaluation?.satisfied ?? false}
-                        />
+                        <Text
+                          className="text-[12px] text-primary-ink dark:text-primary-ink-dark"
+                          numberOfLines={1}
+                        >
+                          {subjectName(goal.currentSubject)}
+                        </Text>
                       )}
 
                       {first ? (
@@ -345,19 +376,25 @@ export default function HomeScreen() {
                               {first.condition.target} {unitOf(first.condition.measurementId)}
                             </Text>
                           </Text>
-                          <Text
-                            className="text-[10px] text-muted dark:text-muted-dark"
-                            numberOfLines={1}
-                          >
-                            {/* La valeur au-dessus est celle de l'étape en
-                                cours : sans le dire, elle a l'air de flotter
-                                à côté des carrés. */}
-                            {results.length > 1
-                              ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
-                              : goal.isProgressive
-                                ? `étape ${goal.currentStepIndex + 1} sur ${goal.steps.length}`
+                          {/* Les carrés prennent la place de la légende : ils
+                              disent la position dans l'échelle mieux qu'un
+                              « étape 2 sur 4 » ne le ferait. */}
+                          {goal.isProgressive ? (
+                            <StepGauge
+                              total={goal.steps.length}
+                              done={goal.currentStepIndex}
+                              currentSatisfied={evaluation?.satisfied ?? false}
+                            />
+                          ) : (
+                            <Text
+                              className="text-[10px] text-muted dark:text-muted-dark"
+                              numberOfLines={1}
+                            >
+                              {results.length > 1
+                                ? `${met} condition${met > 1 ? 's' : ''} sur ${results.length}`
                                 : describeSource(first.condition)}
-                          </Text>
+                            </Text>
+                          )}
                         </View>
                       ) : (
                         <Text className="text-[11px] text-muted dark:text-muted-dark">
