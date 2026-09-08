@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -71,6 +71,17 @@ const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, dista
 
 export default function SessionScreen() {
   const router = useRouter();
+  /**
+   * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
+   *
+   * Il ne crée RIEN : une séance commence à sa première série, pas au moment
+   * où on décide de s'y mettre. Sans cela, changer d'avis laissait derrière
+   * soi une séance ouverte qu'il fallait annuler à la main.
+   */
+  const { plan: planParam, scheduled: scheduledParam } = useLocalSearchParams<{
+    plan?: string;
+    scheduled?: string;
+  }>();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [performance, setPerformance] = useState<ExercisePerformance | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -309,6 +320,75 @@ export default function SessionScreen() {
     { label: 'Annuler la séance', tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
   ];
 
+  /**
+   * Commencer pour de bon : la séance est créée, puis sa première série
+   * démarrée dans le même geste.
+   */
+  function begin(plannedWorkoutId: string, scheduledId?: string) {
+    run(async () => {
+      await startWorkoutSession(plannedWorkoutId, scheduledId ?? null);
+      await startPerformanceSet();
+      // Le paramètre a fait son office : le garder ramènerait sur l'écran
+      // d'attente si la séance était annulée.
+      router.setParams({ plan: '', scheduled: '' });
+    });
+  }
+
+  const waiting = planParam ? plans.find((candidate) => candidate.id === planParam) : undefined;
+
+  if (!session && waiting) {
+    const sets = waiting.exercises.reduce((total, entry) => total + entry.sets.length, 0);
+
+    return (
+      <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+        <View className="px-5 pt-4">
+          <SectionHeader
+            title={waiting.name}
+            subtitle={`${waiting.exercises.length} exercice${waiting.exercises.length > 1 ? 's' : ''} · ${sets} série${sets > 1 ? 's' : ''} prévue${sets > 1 ? 's' : ''}`}
+          />
+        </View>
+
+        <ScrollView contentContainerClassName="grow gap-3 px-5 pb-4">
+          {error && <BusinessNotice message={error} />}
+
+          {waiting.exercises.map((planned, position) => (
+            <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-1">
+              <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
+                {position + 1}. {nameOf(planned.exerciseId)}
+              </Text>
+              {planned.sets.map((set, index) => (
+                <Text
+                  key={index}
+                  className="font-mono text-[13px] text-planned dark:text-planned-dark"
+                  style={{ fontVariant: ['tabular-nums'] }}
+                >
+                  {index + 1}.  {formatTargets(set.targets, unitOf)}
+                </Text>
+              ))}
+            </Card>
+          ))}
+        </ScrollView>
+
+        <View className="gap-2 px-5 pb-2">
+          <Button
+            label="Démarrer la première série"
+            size="xl"
+            onPress={() => begin(waiting.id, scheduledParam || undefined)}
+          />
+          <Button
+            label="Revenir"
+            variant="ghost"
+            size="md"
+            onPress={() => {
+              router.setParams({ plan: '', scheduled: '' });
+              router.back();
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!session) {
     const now = new Date();
     const isToday = (date: Date) => date.toDateString() === now.toDateString();
@@ -343,7 +423,10 @@ export default function SessionScreen() {
         <Button
           label="Démarrer"
           size="md"
-          onPress={() => run(() => startWorkoutSession(entry.plannedWorkoutId, entry.id))}
+          // Pas de séance créée ici non plus : on va à l'écran d'attente.
+          onPress={() =>
+            router.setParams({ plan: entry.plannedWorkoutId, scheduled: entry.id })
+          }
         />
       </Card>
     );

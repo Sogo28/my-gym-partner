@@ -28,7 +28,6 @@ import { describeSourceShort } from '../../src/ui/goal-labels';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
-import { startWorkoutSession } from '../../src/use-cases/workout-session-actions';
 import { DatePickerSheet } from '../../src/ui/date-picker';
 import { Sheet } from '../../src/ui/sheet';
 import {
@@ -101,7 +100,9 @@ export default function HomeScreen() {
           setSession(active);
           setWeek(summary);
           setDone(days);
-          setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
+          // Toutes, statuts compris : une séance FAITE aujourd'hui doit se
+          // dire, là où la filtrer ferait afficher « rien de prévu ».
+          setSchedule(allSchedule);
           setPlans(allPlans);
           setMeasurements(allMeasurements);
           setMetrics(allMetrics);
@@ -145,6 +146,7 @@ export default function HomeScreen() {
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 7);
   const thisWeek = schedule
+    .filter((entry) => entry.status !== 'CANCELLED')
     .filter((entry) => entry.scheduledAt < sunday)
     .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
@@ -174,19 +176,24 @@ export default function HomeScreen() {
     date,
     worked: done.some((entry) => entry.getTime() === date.getTime()),
     scheduled: thisWeek.some(
-      (entry) => startOfDay(entry.scheduledAt).getTime() === date.getTime(),
+      (entry) =>
+        entry.status === 'SCHEDULED' &&
+        startOfDay(entry.scheduledAt).getTime() === date.getTime(),
     ),
     today: date.getTime() === today.getTime(),
   }));
 
-  /** Démarrer la séance prévue : elle est marquée exécutée en se terminant. */
-  async function start(plannedWorkoutId: string, scheduledId: string) {
-    try {
-      await startWorkoutSession(plannedWorkoutId, scheduledId);
-      router.push('/session');
-    } catch (e) {
-      setError(messageOf(e));
-    }
+  /**
+   * Aller faire la séance prévue -- sans la créer.
+   *
+   * Une séance commence à sa première série : partir d'ici ne fait que
+   * l'ouvrir à l'écran, et changer d'avis ne laisse rien derrière soi.
+   */
+  function start(plannedWorkoutId: string, scheduledId: string) {
+    router.push({
+      pathname: '/session',
+      params: { plan: plannedWorkoutId, scheduled: scheduledId },
+    });
   }
 
   /**
@@ -227,20 +234,6 @@ export default function HomeScreen() {
       <ScrollView contentContainerClassName="gap-5 px-5 pb-10">
         {error && <BusinessNotice message={error} />}
 
-        {/* Une séance ouverte passe avant tout le reste : sans ce bandeau,
-            elle serait injoignable depuis ici. */}
-        {session && (
-          <Card density="accent" className="gap-2">
-            <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
-              Séance en cours
-            </Text>
-            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
-              commencée à {formatDateTime(session.startedAt)}
-            </Text>
-            <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
-          </Card>
-        )}
-
         {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
         <View className="gap-3">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
@@ -257,9 +250,19 @@ export default function HomeScreen() {
           <WeekStrip days={strip} selected={day} onSelect={select} />
 
           {/* Sous le calendrier : on regarde d'abord ce qui a été fait, on
-              décide ensuite. Une séance en cours, elle, garde sa place en
-              haut -- c'est une interruption, pas une décision à prendre. */}
-          {!session && (
+              décide ensuite. La séance en cours prend la même place -- c'est
+              la suite du même geste, pas une autre décision. */}
+          {session ? (
+            <Card density="accent" className="mt-1 gap-2">
+              <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
+                Séance en cours
+              </Text>
+              <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                commencée à {formatDateTime(session.startedAt)}
+              </Text>
+              <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
+            </Card>
+          ) : (
             <Button
               label="Démarrer une séance"
               size="lg"
@@ -270,7 +273,9 @@ export default function HomeScreen() {
         </View>
 
         {/* Ce qui est prévu AUJOURD'HUI, et rien de plus : le reste de la
-            semaine se lit déjà dans les carrés du calendrier. */}
+            semaine se lit déjà dans les carrés du calendrier. Pendant une
+            séance, le bloc disparaît : ce qu'il proposerait est en cours. */}
+        {!session && (
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Aujourd hui
@@ -312,15 +317,26 @@ export default function HomeScreen() {
                     {formatDateTime(entry.scheduledAt)}
                   </Text>
                 </View>
-                <Button
-                  label="Démarrer"
-                  size="md"
-                  onPress={() => start(entry.plannedWorkoutId, entry.id)}
-                />
+
+                {/* Faite : on ne repropose pas de la démarrer. Le dire vaut
+                    mieux que la faire disparaître -- un vide ressemblerait à
+                    un oubli de programmation. */}
+                {entry.status === 'EXECUTED' ? (
+                  <Text className="text-[13px] text-success dark:text-success-dark">
+                    Séance faite.
+                  </Text>
+                ) : (
+                  <Button
+                    label="Démarrer"
+                    size="md"
+                    onPress={() => start(entry.plannedWorkoutId, entry.id)}
+                  />
+                )}
               </Card>
             ))
           )}
         </View>
+        )}
 
         {/* Où tu vas. Une ligne qui défile : les objectifs se consultent d'un
             coup d'oeil, ils ne se lisent pas un par un depuis l'accueil. */}

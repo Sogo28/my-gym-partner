@@ -17,7 +17,6 @@ import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
-import { startWorkoutSession } from '../src/use-cases/workout-session-actions';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -54,15 +53,12 @@ export default function WorkoutDetailScreen() {
   const unitOf = (measurementId: string) =>
     measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
 
-  async function start() {
-    try {
-      await startWorkoutSession(id);
-      // replace et non push : une fois la séance lancée, revenir sur l'aperçu
-      // n'aurait pas de sens.
-      router.replace('/session');
-    } catch (e) {
-      setError(messageOf(e));
-    }
+  /**
+   * Ouvrir la séance à l'écran, sans la créer : elle commencera à sa première
+   * série. Consulter un entraînement puis se raviser ne doit rien laisser.
+   */
+  function start() {
+    router.push({ pathname: '/session', params: { plan: id } });
   }
 
   if (!plan) {
