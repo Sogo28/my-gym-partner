@@ -88,12 +88,13 @@ export function OptionSheet({
   title: string;
   options: readonly Option[];
   selected: readonly string[];
-  clearLabel: string;
+  /** Absent : rien à vider -- un choix unique en a toujours un. */
+  clearLabel?: string;
   confirmLabel: string;
   /** single : un seul choix, et la feuille se referme aussitôt. */
   mode?: 'multiple' | 'single';
   onToggle: (id: string) => void;
-  onClear: () => void;
+  onClear?: () => void;
   onClose: () => void;
 }) {
   return (
@@ -147,14 +148,16 @@ export function OptionSheet({
         </ScrollView>
 
         <View className="flex-row gap-3 pt-1">
-          <Pressable
-            onPress={onClear}
-            className="min-h-action flex-1 items-center justify-center rounded-lg border border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
-          >
-            <Text className="font-bold text-[15px] text-muted dark:text-muted-dark">
-              {clearLabel}
-            </Text>
-          </Pressable>
+          {clearLabel && (
+            <Pressable
+              onPress={onClear}
+              className="min-h-action flex-1 items-center justify-center rounded-lg border border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
+            >
+              <Text className="font-bold text-[15px] text-muted dark:text-muted-dark">
+                {clearLabel}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={onClose}
             className="min-h-action flex-1 items-center justify-center rounded-lg bg-primary"

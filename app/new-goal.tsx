@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
   describeDemand,
-  describeSource,
   describeSourceShort,
   targetUnit,
   WINDOW_LABELS,
@@ -16,7 +15,13 @@ import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import type { BodyMetric } from '../src/domain/body/body-metric';
-import type { Clause, Condition, GoalSubject, ProgressionStep } from '../src/domain/goal/goal';
+import type {
+  Aggregation,
+  Clause,
+  Condition,
+  GoalSubject,
+  ProgressionStep,
+} from '../src/domain/goal/goal';
 import { windowsFor } from '../src/domain/goal/goal';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { findRecentExerciseIds } from '../src/infra/performance-repository';
@@ -25,6 +30,7 @@ import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
+import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -34,6 +40,12 @@ import { createGoal } from '../src/use-cases/goal-actions';
 
 /** Une entrée de l'écran : ce qui est visé, et ses conditions. */
 type Entry = { subject: GoalSubject; conditions: Condition[] };
+
+/** Les mêmes libellés que les puces, dans le vocabulaire d'une feuille. */
+const AGGREGATION_OPTIONS = AGGREGATION_LABELS.map(({ value, label }) => ({
+  id: value,
+  name: label,
+}));
 
 /**
  * La condition de départ dépend du sujet : une mensuration s'observe au
@@ -98,6 +110,8 @@ export default function NewGoalScreen() {
   const [open, setOpen] = useState<number | null>(null);
   /** Les réglages fins de l'étape ouverte : période, agrégation, ET. */
   const [refining, setRefining] = useState(false);
+  /** La condition dont on choisit le calcul, feuille ouverte. */
+  const [choosing, setChoosing] = useState<{ entry: number; condition: number } | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
@@ -306,6 +320,9 @@ export default function NewGoalScreen() {
     }
   }
 
+  /** La condition que la feuille de calcul manipule, s'il y en a une. */
+  const chosen = choosing ? entries[choosing.entry]?.conditions[choosing.condition] : undefined;
+
   return (
     <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
       <View className="px-5 pt-4">
@@ -427,6 +444,7 @@ export default function NewGoalScreen() {
                         {(condition.qualifying ?? []).map((clause) => (
                           <NumberField
                             key={clause.measurementId}
+                            compact
                             unit={unitOf(clause.measurementId)}
                             value={clause.target}
                             onChange={(target) =>
@@ -439,10 +457,11 @@ export default function NewGoalScreen() {
                   )}
 
                   <View className="flex-row items-end gap-3">
-                    <Text className="mb-4 text-[15px] text-muted dark:text-muted-dark">
+                    <Text className="mb-2 text-[15px] text-muted dark:text-muted-dark">
                       au moins
                     </Text>
                     <NumberField
+                      compact
                       unit={targetUnit(condition, unitOf)}
                       value={condition.target}
                       onChange={(target) => update(index, conditionIndex, { target })}
@@ -454,24 +473,13 @@ export default function NewGoalScreen() {
                       plupart des objectifs, donc elles attendent qu'on les
                       demande. */}
                   {refining && !isReading && !paired && (
-                    <View className="flex-row flex-wrap gap-2">
-                      {AGGREGATION_LABELS.map(({ value, label }) => (
-                        <Chip
-                          key={value}
-                          label={label}
-                          selected={condition.aggregation === value}
-                          onPress={() =>
-                            update(index, conditionIndex, {
-                              aggregation: value,
-                              measurementId:
-                                value === 'setCount'
-                                  ? null
-                                  : (condition.measurementId ?? available[0] ?? null),
-                            })
-                          }
-                        />
-                      ))}
-                    </View>
+                    <OptionChip
+                      options={AGGREGATION_OPTIONS}
+                      selected={[condition.aggregation]}
+                      emptyLabel="Moyenne"
+                      plural="calculs"
+                      onPress={() => setChoosing({ entry: index, condition: conditionIndex })}
+                    />
                   )}
 
                   {/* Les périodes que ce sujet sait alimenter : une
@@ -491,18 +499,16 @@ export default function NewGoalScreen() {
                     </View>
                   )}
 
-                  <View className="flex-row items-center justify-between gap-3">
-                    <Text className="shrink font-mono text-[12px] text-planned">
-                      {describeSource(condition)}
-                    </Text>
-                    {entry.conditions.length > 1 && (
-                      <Pressable onPress={() => removeCondition(index, conditionIndex)}>
-                        <Text className="text-[12px] text-danger dark:text-danger-dark">
-                          retirer
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
+                  {entry.conditions.length > 1 && (
+                    <Pressable
+                      className="self-end"
+                      onPress={() => removeCondition(index, conditionIndex)}
+                    >
+                      <Text className="text-[12px] text-danger dark:text-danger-dark">
+                        retirer cette condition
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               ))}
 
@@ -580,6 +586,31 @@ export default function NewGoalScreen() {
           for (const exerciseId of ids) addEntry({ kind: 'exercise', exerciseId });
         }}
         onClose={() => setPicking('none')}
+      />
+
+      {/* Une seule feuille pour toutes les conditions : c'est la condition
+          ouverte qui dit ce qu'elle montre. */}
+      <OptionSheet
+        visible={choosing !== null}
+        title="Ce qui est calculé"
+        mode="single"
+        options={AGGREGATION_OPTIONS}
+        selected={chosen ? [chosen.aggregation] : []}
+        confirmLabel="Fermer"
+        onToggle={(id) => {
+          if (!choosing) return;
+          const aggregation = id as Aggregation;
+          update(choosing.entry, choosing.condition, {
+            aggregation,
+            // Un décompte de séries ne lit aucune mesure ; les autres en
+            // exigent une, et reprennent celle de l'exercice.
+            measurementId:
+              aggregation === 'setCount'
+                ? null
+                : (chosen?.measurementId ?? measurementsOf(entries[choosing.entry].subject)[0] ?? null),
+          });
+        }}
+        onClose={() => setChoosing(null)}
       />
 
       <Sheet
