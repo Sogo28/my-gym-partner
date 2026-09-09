@@ -124,6 +124,22 @@ performances (décision gelée n°15).
 
 **`ALL_TIME`** — tout l'historique de l'exercice, séances confondues.
 
+### 6.1 L'application tranche globalement
+
+Le modèle laisse chaque Condition porter sa période, et il la garde : c'est
+lui qui décrit ce qu'on **peut** exprimer.
+
+Mais l'application, elle, n'en demande qu'une (décidé le 2026-09-09). Le
+mélange de périodes dans une même exigence n'a jamais servi à l'usage : la
+question qu'on se pose est « est-ce que je le tiens **aujourd'hui** », et elle
+se pose de la même façon pour tous les objectifs. Un réglage la fixe donc pour
+tous, et **tout de suite** — le basculer réévalue l'existant, faute de quoi il
+aurait l'air cassé.
+
+La condition **stockée** n'est pas touchée : c'est l'évaluation du moment
+qu'on ramène à la période choisie. Une mensuration garde la sienne, n'ayant
+pas de séances à lire.
+
 Pas de moyenne glissante sur N séances en V1.
 
     Session précédente : 7s, 9s, 8s → moyenne 8s  → NON SATISFAIT
@@ -201,6 +217,9 @@ modification **ne réécrit jamais les performances historiques** :
 17. La progression suivante n'est jamais appliquée automatiquement.
 18. L'utilisateur peut accepter ou refuser la suggestion.
 19. La représentation technique des Conditions reste ouverte.
+13bis. Le modèle attache une fenêtre à chaque Condition ; l'application la
+    fixe globalement et l'applique à toutes les évaluations, y compris celles
+    des objectifs déjà créés. Une mensuration conserve LATEST_READING.
 19bis. Une Condition de décompte peut décrire les séries qu'elle compte par
     des Clauses. Une série qualifie quand elle satisfait toutes les clauses,
     lues sur elle seule. Une même mesure n'est pas exigée deux fois. Seul un

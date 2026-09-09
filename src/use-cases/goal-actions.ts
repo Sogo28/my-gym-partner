@@ -4,7 +4,14 @@ import {
   windowsUsedBy,
   type RequirementEvaluation,
 } from '../domain/goal/evaluation';
-import { Goal, type GoalTarget } from '../domain/goal/goal';
+import {
+  Goal,
+  windowsFor,
+  type GoalSubject,
+  type GoalTarget,
+  type Requirement,
+} from '../domain/goal/goal';
+import { evaluationWindow } from './preferences';
 import { loadSamplesForWindows } from '../infra/evaluation-source';
 import { findAll, save } from '../infra/goal-repository';
 
@@ -28,11 +35,35 @@ export type GoalEvaluation = RequirementEvaluation;
  */
 export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation | null> {
   // Une étape sans requirement n'est pas évaluable : elle se valide à la main.
-  const requirements = goal.currentRequirements;
-  if (requirements.length === 0) return null;
+  if (goal.currentRequirements.length === 0) return null;
 
+  const requirements = await onPreferredWindow(goal.currentRequirements, goal.currentSubject);
   const samples = await loadSamplesForWindows(goal.currentSubject, windowsUsedBy(requirements));
   return evaluateRequirements(requirements, samples);
+}
+
+/**
+ * Les mêmes exigences, ramenées à la période que l'utilisateur a choisie.
+ *
+ * Le modèle laisse chaque condition porter la sienne ; l'application, elle,
+ * n'en veut qu'une pour tous ses objectifs (voir `preferences`). La condition
+ * STOCKÉE n'est pas touchée : c'est l'évaluation du moment qu'on ramène, et
+ * basculer le réglage suffit donc à tout réévaluer.
+ *
+ * Une mensuration garde la sienne : elle n'a pas de séances, seulement des
+ * relevés -- lui imposer « dernière séance » n'aurait aucun sens.
+ */
+async function onPreferredWindow(
+  requirements: readonly Requirement[],
+  subject: GoalSubject,
+): Promise<readonly Requirement[]> {
+  const allowed = windowsFor(subject);
+  const preferred = await evaluationWindow();
+  if (!allowed.includes(preferred)) return requirements;
+
+  return requirements.map((requirement) => ({
+    conditions: requirement.conditions.map((condition) => ({ ...condition, window: preferred })),
+  }));
 }
 
 /** Un objectif dont l'étape en cours vient d'être satisfaite. */

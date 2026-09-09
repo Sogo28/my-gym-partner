@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -678,6 +678,21 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
         target REAL NOT NULL,
         PRIMARY KEY (goal_id, step_position, requirement_index,
                      condition_index, measurement_id)
+      );
+    `);
+  }
+
+  // Migration 25 : les préférences de l'application.
+  //
+  // Une table clé/valeur et non une colonne par réglage : un réglage naît et
+  // meurt avec une décision d'interface, et chacun ne vaudrait pas une
+  // migration. Elle voyage avec les sauvegardes, qui exportent toutes les
+  // tables -- une préférence fait partie de ce qu'on retrouve en restaurant.
+  if (version < 25) {
+    await db.execAsync(`
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       );
     `);
   }

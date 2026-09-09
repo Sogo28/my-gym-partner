@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { anExercise, useCleanDatabase } from '../../test/support';
 import type { Condition } from '../domain/goal/goal';
 import { recordReading } from './body-actions';
+import { setEvaluationWindow } from './preferences';
 import { archiveGoal, createGoal, evaluateGoal, goalsReachedBy, listGoals } from './goal-actions';
 import {
   completePerformanceSet,
@@ -113,25 +114,30 @@ describe('LAST_SESSION', () => {
   });
 });
 
-describe('ALL_TIME', () => {
-  it('compte toutes les séances', async () => {
+describe('la période choisie décide pour tout', () => {
+  /**
+   * Le modèle laisse chaque condition porter sa période (couvert par
+   * `evaluation.test.ts`). L'application, elle, n'en veut qu'une : celle du
+   * réglage, appliquée à TOUS les objectifs, et tout de suite.
+   */
+  it('évalue sur tout l historique quand c est ce qui est choisi', async () => {
     const exercise = await anExercise();
     await aSessionOf(exercise.id, [7, 9, 8]);
     await aSessionOf(exercise.id, [10, 11, 9]);
+    await setEvaluationWindow('ALL_TIME');
 
     const evaluation = await evaluateGoal(
       await goalOn(exercise.id, [
-        hold({ window: 'ALL_TIME', aggregation: 'setCount', measurementId: null, target: 6 }),
+        hold({ window: 'LAST_SESSION', aggregation: 'setCount', measurementId: null, target: 6 }),
       ]),
     );
 
+    // La condition dit « dernière séance » ; le réglage dit autrement.
     expect(evaluation!.results[0].actual).toBe(6);
     expect(evaluation!.satisfied).toBe(true);
   });
-});
 
-describe('Deux fenêtres dans la même exigence', () => {
-  it('sert à chaque condition la période qu elle déclare', async () => {
+  it('ramène toutes les conditions à la même période', async () => {
     const exercise = await anExercise();
     await aSessionOf(exercise.id, [4, 5, 4]);
     await aSessionOf(exercise.id, [10, 11, 9]);
@@ -143,11 +149,41 @@ describe('Deux fenêtres dans la même exigence', () => {
       ]),
     );
 
-    // La forme du jour ne voit que la dernière séance…
+    // Par défaut la dernière séance : le décompte ne voit donc plus que 3
+    // séries, là où la condition en réclamait 6 sur tout l'historique.
     expect(evaluation!.results[0].actual).toBe(10);
-    // …le volume accumulé voit les deux.
-    expect(evaluation!.results[1].actual).toBe(6);
-    expect(evaluation!.satisfied).toBe(true);
+    expect(evaluation!.results[1].actual).toBe(3);
+    expect(evaluation!.satisfied).toBe(false);
+  });
+
+  it('laisse une mensuration sur son relevé', async () => {
+    await setEvaluationWindow('ALL_TIME');
+    await recordReading({ metricId: 'tourdecuisse', value: 42 });
+
+    const goal = await createGoal({
+      name: 'Cuisses',
+      target: {
+        kind: 'simple',
+        subject: { kind: 'body', metricId: 'tourdecuisse' },
+        requirements: [
+          {
+            conditions: [
+              {
+                measurementId: 'tourdecuisse',
+                window: 'LATEST_READING',
+                aggregation: 'max',
+                operator: '>=',
+                target: 40,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    // Une mensuration n'a pas de séances : lui imposer une période de séance
+    // n'aurait rien à lire.
+    expect((await evaluateGoal(goal))!.results[0].actual).toBe(42);
   });
 });
 

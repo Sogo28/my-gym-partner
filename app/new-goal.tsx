@@ -4,7 +4,6 @@ import {
   describeDemand,
   describeSourceShort,
   targetUnit,
-  WINDOW_LABELS,
 } from '../src/ui/goal-labels';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
@@ -22,7 +21,6 @@ import type {
   GoalSubject,
   ProgressionStep,
 } from '../src/domain/goal/goal';
-import { windowsFor } from '../src/domain/goal/goal';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { findRecentExerciseIds } from '../src/infra/performance-repository';
 import { listActiveExercises } from '../src/use-cases/edit-catalogue';
@@ -369,7 +367,6 @@ export default function NewGoalScreen() {
 
         {entries.map((entry, index) => {
           const available = measurementsOf(entry.subject);
-          const windows = windowsFor(entry.subject);
           // Un relevé est une valeur unique : il n'y a ni période ni
           // agrégation à choisir, seulement une cible à atteindre.
           const isReading = entry.subject.kind === 'body';
@@ -480,23 +477,6 @@ export default function NewGoalScreen() {
                       plural="calculs"
                       onPress={() => setChoosing({ entry: index, condition: conditionIndex })}
                     />
-                  )}
-
-                  {/* Les périodes que ce sujet sait alimenter : une
-                      mensuration n'en a qu'une, donc rien à choisir. */}
-                  {refining && windows.length > 1 && (
-                    <View className="flex-row flex-wrap gap-2">
-                      {WINDOW_LABELS.filter((entry) => windows.includes(entry.value)).map(
-                        ({ value, label }) => (
-                          <Chip
-                            key={value}
-                            label={label}
-                            selected={condition.window === value}
-                            onPress={() => update(index, conditionIndex, { window: value })}
-                          />
-                        ),
-                      )}
-                    </View>
                   )}
 
                   {entry.conditions.length > 1 && (
