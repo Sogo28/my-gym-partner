@@ -52,7 +52,7 @@ export function OptionChip({
     >
       <Text
         className={cn(
-          'shrink font-medium text-[14px]',
+          'shrink font-medium text-body',
           active
             ? 'text-primary-ink dark:text-primary-ink-dark'
             : 'text-muted dark:text-muted-dark',
@@ -133,7 +133,7 @@ export function OptionSheet({
               >
                 <Text
                   className={cn(
-                    'font-medium text-[15px]',
+                    'font-medium text-lead',
                     on
                       ? 'text-primary-ink dark:text-primary-ink-dark'
                       : 'text-ink dark:text-ink-dark',
@@ -153,7 +153,7 @@ export function OptionSheet({
               onPress={onClear}
               className="min-h-action flex-1 items-center justify-center rounded-lg border border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
             >
-              <Text className="font-bold text-[15px] text-muted dark:text-muted-dark">
+              <Text className="font-bold text-lead text-muted dark:text-muted-dark">
                 {clearLabel}
               </Text>
             </Pressable>
@@ -162,7 +162,7 @@ export function OptionSheet({
             onPress={onClose}
             className="min-h-action flex-1 items-center justify-center rounded-lg bg-primary"
           >
-            <Text className="font-bold text-[15px] text-ink">{confirmLabel}</Text>
+            <Text className="font-bold text-lead text-ink">{confirmLabel}</Text>
           </Pressable>
         </View>
       </View>

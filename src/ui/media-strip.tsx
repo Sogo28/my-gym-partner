@@ -101,7 +101,7 @@ function VideoThumb({
         // Sur une vidéo, le tap appartient au lecteur : le réglage de
         // l'extrait passe par une mention, pas par la vignette entière.
         <Pressable onPress={onPress} className="absolute bottom-2 left-2 rounded-full bg-black/60 px-3 py-1">
-          <Text className="text-[11px] text-[#F2F4EF]">
+          <Text className="text-caption text-[#F2F4EF]">
             {media.trim ? 'extrait' : sourceOf(media)}
           </Text>
         </Pressable>

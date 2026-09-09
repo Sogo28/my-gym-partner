@@ -84,7 +84,7 @@ export default function SettingsScreen() {
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
             Évaluation des objectifs
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Sur quoi tes objectifs se jugent. Le choix vaut pour TOUS, y compris ceux que tu as
             déjà : le basculer les réévalue tout de suite.
           </Text>
@@ -103,8 +103,8 @@ export default function SettingsScreen() {
                 <Text
                   className={
                     window === value
-                      ? 'font-medium text-[14px] text-primary-ink dark:text-primary-ink-dark'
-                      : 'font-medium text-[14px] text-muted dark:text-muted-dark'
+                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
+                      : 'font-medium text-body text-muted dark:text-muted-dark'
                   }
                 >
                   {WINDOW_LABELS.find((entry) => entry.value === value)?.label}
@@ -118,12 +118,12 @@ export default function SettingsScreen() {
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
             Catalogue d exercices
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             601 exercices avec leurs muscles, pour remplir un nouvel exercice sans tout saisir. Le
             fichier est copié sur ce téléphone : une fois téléchargé, il fonctionne sans réseau.
           </Text>
 
-          <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+          <Text className="font-mono text-small text-muted dark:text-muted-dark">
             {state.downloaded ? `téléchargé · ${formatSize(state.size)}` : 'pas encore téléchargé'}
           </Text>
 
@@ -144,13 +144,13 @@ export default function SettingsScreen() {
 
           {/* L'attribution que sa licence exige, là où le catalogue sert. */}
           <Pressable onPress={() => Linking.openURL(ATTRIBUTION_URL).catch(() => {})}>
-            <Text className="pt-1 text-[12px] text-primary-ink dark:text-primary-ink-dark">
+            <Text className="pt-1 text-small text-primary-ink dark:text-primary-ink-dark">
               {ATTRIBUTION}
             </Text>
           </Pressable>
         </Card>
 
-        <Text className="px-1 text-[12px] text-muted dark:text-muted-dark">
+        <Text className="px-1 text-small text-muted dark:text-muted-dark">
           Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d un bouton, et
           l alourdir n aurait servi personne.
         </Text>
@@ -159,12 +159,12 @@ export default function SettingsScreen() {
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
             Repartir de zéro
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Efface tes exercices, entraînements, séances, objectifs et relevés. Les mesures, les
             muscles et les mensurations de départ restent : ce sont le vocabulaire de
             l application, pas tes données.
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Fais une sauvegarde d abord si tu veux pouvoir revenir en arrière : rien d autre ne le
             permettra.
           </Text>

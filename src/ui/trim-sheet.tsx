@@ -73,7 +73,7 @@ function Sheet({
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
           Choisir l extrait
         </Text>
-        <Text className="text-[13px] text-muted dark:text-muted-dark">
+        <Text className="text-small text-muted dark:text-muted-dark">
           Avance la vidéo jusqu au moment voulu, puis marque le début et la fin. Le fichier n est
           pas modifié.
         </Text>
@@ -88,7 +88,7 @@ function Sheet({
         </View>
 
         {invalid && (
-          <Text className="text-[12px] text-danger dark:text-danger-dark">
+          <Text className="text-small text-danger dark:text-danger-dark">
             La fin doit venir après le début.
           </Text>
         )}
@@ -136,8 +136,8 @@ function Mark({
       onPress={onPress}
       className="min-h-touch flex-1 items-center justify-center rounded-lg border border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
     >
-      <Text className="font-bold text-[14px] text-ink dark:text-ink-dark">{label}</Text>
-      <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
+      <Text className="font-bold text-body text-ink dark:text-ink-dark">{label}</Text>
+      <Text className="font-mono text-caption text-muted dark:text-muted-dark">
         {value === null ? '—' : `${Math.round(value * 10) / 10} s`}
       </Text>
     </Pressable>

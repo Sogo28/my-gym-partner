@@ -207,7 +207,7 @@ export default function ExerciseDetailScreen() {
                           >
                             <Text
                               className={cn(
-                                'font-mono text-[11px]',
+                                'font-mono text-caption',
                                 on
                                   ? 'text-primary-ink dark:text-primary-ink-dark'
                                   : 'text-muted dark:text-muted-dark',
@@ -224,7 +224,7 @@ export default function ExerciseDetailScreen() {
               {points.length > 1 ? (
                 <BarChart points={points} unit={unitOf(charted)} />
               ) : (
-                <Text className="py-4 text-center text-[13px] text-muted dark:text-muted-dark">
+                <Text className="py-4 text-center text-small text-muted dark:text-muted-dark">
                   {points.length === 0
                     ? `Aucune série enregistrée en ${unitOf(charted)}.`
                     : 'Une seule séance : rien à comparer pour l instant.'}
@@ -238,12 +238,12 @@ export default function ExerciseDetailScreen() {
                   {goals.map((goal) => (
                     <Card key={goal.id} className="flex-row items-center justify-between gap-3">
                       <Text
-                        className="shrink font-bold text-[15px] text-ink dark:text-ink-dark"
+                        className="shrink font-bold text-lead text-ink dark:text-ink-dark"
                         numberOfLines={1}
                       >
                         {goal.name}
                       </Text>
-                      <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                      <Text className="font-mono text-small text-muted dark:text-muted-dark">
                         {goal.status === 'ACTIVE' ? 'en cours' : 'archivé'}
                       </Text>
                     </Card>
@@ -279,7 +279,7 @@ export default function ExerciseDetailScreen() {
                   ))}
                   {previous.length > shown && (
                     <Pressable onPress={() => setShown((count) => count + PAGE)} className="py-2">
-                      <Text className="text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                      <Text className="text-center text-small text-primary-ink dark:text-primary-ink-dark">
                         Afficher {Math.min(PAGE, previous.length - shown)} séance
                         {Math.min(PAGE, previous.length - shown) > 1 ? 's' : ''} de plus
                       </Text>
@@ -348,7 +348,7 @@ function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; o
     <Collapsible
       defaultOpen={open}
       title={
-        <Text className="font-mono text-[13px] text-muted dark:text-muted-dark">
+        <Text className="font-mono text-small text-muted dark:text-muted-dark">
           {formatDateTime(at)}
         </Text>
       }
@@ -357,7 +357,7 @@ function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; o
       {lines.map((line, index) => (
         <Text
           key={index}
-          className="font-mono text-[13px] text-ink dark:text-ink-dark"
+          className="font-mono text-small text-ink dark:text-ink-dark"
           style={{ fontVariant: ['tabular-nums'] }}
         >
           {index + 1}.  {line}
@@ -372,14 +372,14 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
   return (
     <Card className="flex-1 gap-0.5">
       <Text
-        className="font-mono-bold text-[19px] text-ink dark:text-ink-dark"
+        className="font-mono-bold text-heading text-ink dark:text-ink-dark"
         numberOfLines={1}
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {value}
-        <Text className="font-sans text-[11px] text-muted dark:text-muted-dark"> {unit}</Text>
+        <Text className="font-sans text-caption text-muted dark:text-muted-dark"> {unit}</Text>
       </Text>
-      <Text className="text-[10px] text-muted dark:text-muted-dark" numberOfLines={1}>
+      <Text className="text-micro text-muted dark:text-muted-dark" numberOfLines={1}>
         {label}
       </Text>
     </Card>

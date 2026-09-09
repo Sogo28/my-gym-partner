@@ -43,7 +43,7 @@ export function WeekStrip({
           disabled={!onSelect}
           onPress={() => onSelect?.(isSelected(day.date) ? null : day.date)}
         >
-          <Text className="text-[10px] text-muted dark:text-muted-dark">{LETTERS[index]}</Text>
+          <Text className="text-micro text-muted dark:text-muted-dark">{LETTERS[index]}</Text>
 
           <View
             className={cn(
@@ -64,7 +64,7 @@ export function WeekStrip({
           >
             <Text
               className={cn(
-                'font-mono text-[13px]',
+                'font-mono text-small',
                 day.worked ? 'text-ink' : 'text-muted dark:text-muted-dark',
                 // Aujourd'hui se lit en gras : c'est le repère depuis lequel
                 // on lit tous les autres.

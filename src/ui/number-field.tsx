@@ -59,13 +59,13 @@ export function NumberField({
         <Text
           className={cn(
             'font-mono-bold text-ink dark:text-ink-dark',
-            compact ? 'text-[15px]' : 'text-[20px]',
+            compact ? 'text-lead' : 'text-heading',
           )}
           style={{ fontVariant: ['tabular-nums'] }}
           numberOfLines={1}
         >
           {value}
-          <Text className="font-sans text-[13px] text-muted dark:text-muted-dark"> {unit}</Text>
+          <Text className="font-sans text-small text-muted dark:text-muted-dark"> {unit}</Text>
         </Text>
 
         <Pressable

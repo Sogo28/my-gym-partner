@@ -198,7 +198,7 @@ export default function NewExerciseScreen() {
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">Nom</Text>
           <TextInput
-            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
             placeholder="Weighted pull-ups"
             placeholderTextColor="#A8AD9E"
             value={name}
@@ -210,7 +210,7 @@ export default function NewExerciseScreen() {
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Mesures
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Comment la performance de cet exercice se mesure. Plusieurs choix possibles.
           </Text>
           <OptionChip
@@ -226,7 +226,7 @@ export default function NewExerciseScreen() {
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Muscle principal
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Facultatif. Ce que l'exercice vise en premier.
           </Text>
           <OptionChip
@@ -242,7 +242,7 @@ export default function NewExerciseScreen() {
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Muscles secondaires
           </Text>
-          <Text className="text-[13px] text-muted dark:text-muted-dark">
+          <Text className="text-small text-muted dark:text-muted-dark">
             Ceux qui travaillent en soutien. Sert à retrouver l'exercice, jamais à juger une
             performance.
           </Text>
@@ -257,10 +257,10 @@ export default function NewExerciseScreen() {
 
         <View className="flex-row items-center justify-between gap-4">
           <View className="shrink">
-            <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
+            <Text className="font-bold text-strong text-ink dark:text-ink-dark">
               Exercice unilatéral
             </Text>
-            <Text className="text-[13px] text-muted dark:text-muted-dark">
+            <Text className="text-small text-muted dark:text-muted-dark">
               Saisie côté gauche / côté droit.
             </Text>
           </View>

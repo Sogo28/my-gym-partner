@@ -119,12 +119,12 @@ export default function WorkoutsScreen() {
                   <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
                     {item.name}
                   </Text>
-                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
                     {item.exercises.length} ex · {setCount} série{setCount > 1 ? 's' : ''}
                   </Text>
                   {item.exercises.length > 0 && (
                     <Text
-                      className="mt-1 text-[13px] text-muted dark:text-muted-dark"
+                      className="mt-1 text-small text-muted dark:text-muted-dark"
                       numberOfLines={2}
                     >
                       {item.exercises.map((e) => nameOf(e.exerciseId)).join(' · ')}

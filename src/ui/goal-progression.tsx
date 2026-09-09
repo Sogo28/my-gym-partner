@@ -56,10 +56,10 @@ export function GoalProgression({
                   className={cn(
                     'shrink',
                     state === 'past'
-                      ? 'text-[15px] text-muted line-through dark:text-muted-dark'
+                      ? 'text-lead text-muted line-through dark:text-muted-dark'
                       : state === 'current'
                         ? 'font-extrabold text-heading text-ink dark:text-ink-dark'
-                        : 'text-[15px] text-ink dark:text-ink-dark',
+                        : 'text-lead text-ink dark:text-ink-dark',
                   )}
                   numberOfLines={1}
                 >
@@ -72,7 +72,7 @@ export function GoalProgression({
               {state === 'current' && (
                 <View className="gap-3 pt-2">
                   {evaluation === null ? (
-                    <Text className="text-[13px] text-muted dark:text-muted-dark">
+                    <Text className="text-small text-muted dark:text-muted-dark">
                       Cette étape n a pas de condition : à valider toi-même.
                     </Text>
                   ) : (
@@ -85,7 +85,7 @@ export function GoalProgression({
               )}
 
               {state === 'todo' && (
-                <Text className="pt-0.5 font-mono text-[12px] text-planned dark:text-planned-dark">
+                <Text className="pt-0.5 font-mono text-small text-planned dark:text-planned-dark">
                   {describeDemand(step.requirements, unitOf) || 'à valider à la main'}
                 </Text>
               )}
@@ -177,12 +177,12 @@ export function ConditionProgress({
   return (
     <View className="gap-1">
       <View className="flex-row items-end justify-between gap-3">
-        <Text className="shrink text-[13px] text-muted dark:text-muted-dark">
+        <Text className="shrink text-small text-muted dark:text-muted-dark">
           {describeCondition(result.condition, unitOf)}
         </Text>
         <Text
           className={cn(
-            'font-mono-bold text-[15px]',
+            'font-mono-bold text-lead',
             result.satisfied
               ? 'text-success dark:text-success-dark'
               : 'text-ink dark:text-ink-dark',
@@ -195,7 +195,7 @@ export function ConditionProgress({
 
       <Gauge ratio={ratioOf(result)} satisfied={result.satisfied} />
 
-      <Text className="font-mono text-[11px] text-planned dark:text-planned-dark">
+      <Text className="font-mono text-caption text-planned dark:text-planned-dark">
         {WINDOW_PHRASES[result.condition.window]}
         {result.hasData ? '' : ' · aucune donnée'}
       </Text>

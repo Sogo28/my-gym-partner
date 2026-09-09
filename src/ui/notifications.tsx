@@ -194,7 +194,7 @@ function ToastView({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         }}
       >
         <Ionicons name={ICONS[toast.tone]} size={20} color={ICON_COLORS[toast.tone]} />
-        <Text className="shrink font-medium text-[14px] text-ink dark:text-ink-dark">
+        <Text className="shrink font-medium text-body text-ink dark:text-ink-dark">
           {toast.message}
         </Text>
       </Pressable>
@@ -216,7 +216,7 @@ function Dialog({ request, onClose }: { request: DialogRequest | null; onClose: 
             {request?.title}
           </Text>
           {request?.description && (
-            <Text className="text-[14px] text-muted dark:text-muted-dark">
+            <Text className="text-body text-muted dark:text-muted-dark">
               {request.description}
             </Text>
           )}
@@ -242,7 +242,7 @@ function Dialog({ request, onClose }: { request: DialogRequest | null; onClose: 
               >
                 <Text
                   className={cn(
-                    'font-bold text-[16px]',
+                    'font-bold text-strong',
                     action.tone === 'primary'
                       ? 'text-ink'
                       : action.tone === 'danger'

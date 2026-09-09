@@ -61,14 +61,14 @@ export function Collapsible({
       >
         <View className="shrink">
           {typeof title === 'string' ? (
-            <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">{title}</Text>
+            <Text className="font-bold text-strong text-ink dark:text-ink-dark">{title}</Text>
           ) : (
             title
           )}
         </View>
         <View className="flex-row items-center gap-2">
           {typeof summary === 'string' ? (
-            <Text className="font-mono text-[13px] text-muted dark:text-muted-dark">{summary}</Text>
+            <Text className="font-mono text-small text-muted dark:text-muted-dark">{summary}</Text>
           ) : (
             summary
           )}

@@ -31,7 +31,7 @@ export function SetChip({
     >
       <Text
         className={cn(
-          'font-mono text-[11px]',
+          'font-mono text-caption',
           status === 'completed'
             ? 'text-success dark:text-success-dark'
             : 'text-muted dark:text-muted-dark',
@@ -41,7 +41,7 @@ export function SetChip({
       </Text>
       <Text
         className={cn(
-          'font-mono-bold text-[14px]',
+          'font-mono-bold text-body',
           status === 'completed' ? 'text-ink dark:text-ink-dark' : 'text-muted dark:text-muted-dark',
           status === 'abandoned' && 'line-through',
         )}

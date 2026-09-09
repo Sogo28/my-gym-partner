@@ -203,8 +203,8 @@ export default function HistoryScreen() {
                 <Text
                   className={
                     on
-                      ? 'font-bold text-[13px] text-ink'
-                      : 'text-[13px] text-muted dark:text-muted-dark'
+                      ? 'font-bold text-small text-ink'
+                      : 'text-small text-muted dark:text-muted-dark'
                   }
                 >
                   {label}
@@ -245,10 +245,10 @@ export default function HistoryScreen() {
               defaultOpen={position === 0}
               title={
                 <View className="shrink">
-                  <Text className="font-extrabold text-[18px] text-ink dark:text-ink-dark">
+                  <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
                     {plan ? plan.name : 'Séance libre'}
                   </Text>
-                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
                     {formatDateTime(date)}
                   </Text>
                 </View>
@@ -268,14 +268,14 @@ export default function HistoryScreen() {
                   </Text>
 
                   {activity.completedSets.length === 0 ? (
-                    <Text className="text-[13px] text-muted dark:text-muted-dark">
+                    <Text className="text-small text-muted dark:text-muted-dark">
                       aucune série complétée
                     </Text>
                   ) : (
                     activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
                       <View key={setIndex} className="gap-1.5">
                         {restBefore ? (
-                          <Text className="pl-4 font-mono text-[12px] text-muted dark:text-muted-dark">
+                          <Text className="pl-4 font-mono text-small text-muted dark:text-muted-dark">
                             repos {formatClock(restBefore)}
                           </Text>
                         ) : null}
@@ -300,7 +300,7 @@ export default function HistoryScreen() {
                           className="py-0.5"
                         >
                           <Text
-                            className="font-mono text-[13px] text-ink dark:text-ink-dark"
+                            className="font-mono text-small text-ink dark:text-ink-dark"
                             style={{ fontVariant: ['tabular-nums'] }}
                           >
                             {position + 1}.  {formatSetValues(set.values, unitOf)}
@@ -410,8 +410,8 @@ function StatusPill({ status }: { status: string }) {
       <Text
         className={
           done
-            ? 'font-bold text-[11px] text-success dark:text-success-dark'
-            : 'font-bold text-[11px] text-danger dark:text-danger-dark'
+            ? 'font-bold text-caption text-success dark:text-success-dark'
+            : 'font-bold text-caption text-danger dark:text-danger-dark'
         }
       >
         {STATUS_LABEL[status] ?? status}
@@ -424,12 +424,12 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
       <Text
-        className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+        className="font-mono-bold text-lead text-ink dark:text-ink-dark"
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {value}
       </Text>
-      <Text className="text-[11px] text-muted dark:text-muted-dark">{label}</Text>
+      <Text className="text-caption text-muted dark:text-muted-dark">{label}</Text>
     </View>
   );
 }

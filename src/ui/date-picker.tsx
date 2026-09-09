@@ -106,7 +106,7 @@ export function DatePickerSheet({
             <Ionicons name="chevron-back" size={20} color={muted} />
           </Pressable>
 
-          <Text className="font-bold text-[17px] text-ink dark:text-ink-dark">
+          <Text className="font-bold text-strong text-ink dark:text-ink-dark">
             {MONTHS[month]} {year}
           </Text>
 
@@ -125,7 +125,7 @@ export function DatePickerSheet({
               <Text
                 key={index}
                 style={{ width: `${100 / 7}%` }}
-                className="pb-1 text-center font-mono text-[11px] text-muted dark:text-muted-dark"
+                className="pb-1 text-center font-mono text-caption text-muted dark:text-muted-dark"
               >
                 {day}
               </Text>
@@ -154,7 +154,7 @@ export function DatePickerSheet({
                   >
                     <Text
                       className={cn(
-                        'font-mono text-[15px]',
+                        'font-mono text-lead',
                         isSelected && 'font-mono-bold text-ink',
                         !isSelected && 'text-ink dark:text-ink-dark',
                       )}
@@ -176,7 +176,7 @@ export function DatePickerSheet({
             onChange={(by) => shiftTime('hours', by)}
             color={muted}
           />
-          <Text className="font-mono-bold text-[26px] text-ink dark:text-ink-dark">:</Text>
+          <Text className="font-mono-bold text-title text-ink dark:text-ink-dark">:</Text>
           <TimeUnit
             value={selected.getMinutes()}
             // Une minute par tap : le pas de quinze supposait qu'on ne
@@ -242,7 +242,7 @@ function TimeUnit({
       </Pressable>
 
       <Text
-        className="font-mono-bold text-[26px] text-ink dark:text-ink-dark"
+        className="font-mono-bold text-title text-ink dark:text-ink-dark"
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {String(value).padStart(2, '0')}

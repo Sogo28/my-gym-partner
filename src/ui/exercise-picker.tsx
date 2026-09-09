@@ -273,7 +273,7 @@ export function ExercisePicker({
           {matching.map((exercise) => row(exercise, exercise.id))}
 
           {matching.length === 0 && suggestions.length === 0 && (
-            <Text className="py-6 text-center text-[14px] text-muted dark:text-muted-dark">
+            <Text className="py-6 text-center text-body text-muted dark:text-muted-dark">
               Aucun exercice ne correspond.
             </Text>
           )}
@@ -295,10 +295,10 @@ export function ExercisePicker({
               exercices existe, ne doit pas ressembler à une app vide. */}
           {catalogue && !catalogue.available && query.trim() !== '' && (
             <Pressable onPress={onOpenSettings} className="py-4">
-              <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+              <Text className="text-center text-small text-muted dark:text-muted-dark">
                 Le catalogue de 601 exercices n est pas téléchargé.
               </Text>
-              <Text className="pt-1 text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+              <Text className="pt-1 text-center text-small text-primary-ink dark:text-primary-ink-dark">
                 L installer depuis les réglages
               </Text>
             </Pressable>
@@ -396,7 +396,7 @@ function Row({
         )}
       >
         <View className="flex-1 gap-1">
-          <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
+          <Text className="font-bold text-strong text-ink dark:text-ink-dark" numberOfLines={1}>
             {exercise.name}
           </Text>
           {(primaryMuscle !== null || secondaryMuscles.length > 0) && (

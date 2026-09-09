@@ -264,7 +264,7 @@ export default function HomeScreen() {
               <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
                 Séance en cours
               </Text>
-              <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+              <Text className="font-mono text-small text-muted dark:text-muted-dark">
                 commencée à {formatDateTime(session.startedAt)}
               </Text>
               <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
@@ -290,7 +290,7 @@ export default function HomeScreen() {
 
           {plannedThatDay.length === 0 ? (
             <Card density="titled" className="gap-2">
-              <Text className="text-[13px] text-muted dark:text-muted-dark">
+              <Text className="text-small text-muted dark:text-muted-dark">
                 {past
                   ? `Aucune séance faite ${dayLabel(shownDay, new Date())}.`
                   : schedulable.length === 0
@@ -321,12 +321,12 @@ export default function HomeScreen() {
               <Card key={entry.id} density="titled" className="gap-2">
                 <View className="flex-row items-start justify-between gap-3">
                   <Text
-                    className="shrink font-extrabold text-[17px] text-ink dark:text-ink-dark"
+                    className="shrink font-extrabold text-strong text-ink dark:text-ink-dark"
                     numberOfLines={1}
                   >
                     {planNameOf(entry.plannedWorkoutId)}
                   </Text>
-                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
                     {formatDateTime(entry.scheduledAt)}
                   </Text>
                 </View>
@@ -335,14 +335,14 @@ export default function HomeScreen() {
                     mieux que la faire disparaître -- un vide ressemblerait à
                     un oubli de programmation. */}
                 {entry.status === 'EXECUTED' ? (
-                  <Text className="text-[13px] text-success dark:text-success-dark">
+                  <Text className="text-small text-success dark:text-success-dark">
                     Séance faite.
                   </Text>
                 ) : past ? (
                   // Prévue et non faite, et le jour est passé : le dire, sans
                   // proposer de la démarrer -- elle ne le serait plus ce
                   // jour-là de toute façon.
-                  <Text className="text-[13px] text-muted dark:text-muted-dark">
+                  <Text className="text-small text-muted dark:text-muted-dark">
                     Séance non faite.
                   </Text>
                 ) : (
@@ -367,7 +367,7 @@ export default function HomeScreen() {
               </Text>
               {goals.length > 0 && (
                 <Pressable onPress={() => router.push('/goals')} hitSlop={8}>
-                  <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                  <Text className="text-small text-primary-ink dark:text-primary-ink-dark">
                     tout voir
                   </Text>
                 </Pressable>
@@ -378,7 +378,7 @@ export default function HomeScreen() {
                 objectif existe et personne ne va le chercher. */}
             {goals.length === 0 ? (
               <Card density="titled" className="gap-2">
-                <Text className="text-[13px] text-muted dark:text-muted-dark">
+                <Text className="text-small text-muted dark:text-muted-dark">
                   Aucun objectif. Un objectif suit une progression : chaque étape est ce qu il
                   faut atteindre pour passer à la suivante.
                 </Text>

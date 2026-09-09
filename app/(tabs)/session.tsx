@@ -560,13 +560,13 @@ export default function SessionScreen() {
 
           {waiting.exercises.map((planned, position) => (
             <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-1">
-              <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
+              <Text className="font-bold text-strong text-ink dark:text-ink-dark" numberOfLines={1}>
                 {position + 1}. {nameOf(planned.exerciseId)}
               </Text>
               {planned.sets.map((set, index) => (
                 <Text
                   key={index}
-                  className="font-mono text-[13px] text-planned dark:text-planned-dark"
+                  className="font-mono text-small text-planned dark:text-planned-dark"
                   style={{ fontVariant: ['tabular-nums'] }}
                 >
                   {index + 1}.  {formatTargets(set.targets, unitOf)}
@@ -600,21 +600,21 @@ export default function SessionScreen() {
       <Card key={entry.id} density="titled" className="gap-2">
         <View className="flex-row items-start justify-between gap-3">
           <View className="shrink">
-            <Text className="font-extrabold text-[17px] text-ink dark:text-ink-dark">
+            <Text className="font-extrabold text-strong text-ink dark:text-ink-dark">
               {planNameOf(entry.plannedWorkoutId)}
             </Text>
-            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+            <Text className="font-mono text-small text-muted dark:text-muted-dark">
               {note ?? formatDateTime(entry.scheduledAt)}
             </Text>
           </View>
           <View className="flex-row gap-3 pt-1">
             <Pressable onPress={() => setMoving(entry)} hitSlop={8}>
-              <Text className="text-[13px] text-primary-ink dark:text-primary-ink-dark">
+              <Text className="text-small text-primary-ink dark:text-primary-ink-dark">
                 déplacer
               </Text>
             </Pressable>
             <Pressable onPress={() => run(() => cancelScheduledWorkout(entry))} hitSlop={8}>
-              <Text className="text-[13px] text-danger dark:text-danger-dark">annuler</Text>
+              <Text className="text-small text-danger dark:text-danger-dark">annuler</Text>
             </Pressable>
           </View>
         </View>
@@ -785,7 +785,7 @@ export default function SessionScreen() {
             <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
               Séries {completedCount}/{totalSets || '—'}
             </Text>
-            <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+            <Text className="font-mono text-small text-muted dark:text-muted-dark">
               {showDetail ? 'réduire ⌃' : 'détail ⌄'}
             </Text>
           </Pressable>

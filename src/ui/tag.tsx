@@ -24,7 +24,7 @@ export function Tag({ label, variant = 'neutral' }: { label: string; variant?: T
     >
       <Text
         className={cn(
-          'font-mono text-[11px]',
+          'font-mono text-caption',
           variant === 'neutral'
             ? 'text-muted dark:text-muted-dark'
             : 'text-primary-ink dark:text-primary-ink-dark',

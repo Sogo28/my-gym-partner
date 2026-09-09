@@ -46,13 +46,33 @@ module.exports = {
         'mono-bold': ['JetBrainsMono_800ExtraBold'],
       },
 
+      /**
+       * L'échelle typographique. Aucun écran ne fixe une taille lui-même :
+       * il choisit un RÔLE, et le rôle décide.
+       *
+       * Chaque pas porte son interligne, et c'est là que la compacité se
+       * gagne : sans interligne déclaré, React Native applique celui de la
+       * police -- environ une fois et demie la taille, ce qui aère un texte
+       * de paragraphe et gaspille une ligne sur deux dans une carte.
+       *
+       * Les tailles, elles, bougent peu : on lit cet écran entre deux séries,
+       * parfois de loin, et rogner les glyphes coûterait la lisibilité que la
+       * compacité est censée servir.
+       */
       fontSize: {
-        label: ['12px', { lineHeight: '16px', letterSpacing: '1.2px' }],
-        body: ['16px', { lineHeight: '24px' }],
-        heading: ['20px', { lineHeight: '26px' }],
-        title: ['26px', { lineHeight: '30px' }],
-        value: ['22px', { lineHeight: '26px' }],
-        display: ['44px', { lineHeight: '43px' }],
+        micro: ['10px', { lineHeight: '13px' }],
+        caption: ['11px', { lineHeight: '14px' }],
+        // Les intitulés en capitales : plus petits que le texte, mais espacés
+        // pour rester lisibles.
+        label: ['11px', { lineHeight: '14px', letterSpacing: '1.1px' }],
+        small: ['12px', { lineHeight: '16px' }],
+        body: ['14px', { lineHeight: '19px' }],
+        lead: ['15px', { lineHeight: '20px' }],
+        strong: ['16px', { lineHeight: '21px' }],
+        heading: ['18px', { lineHeight: '23px' }],
+        value: ['20px', { lineHeight: '24px' }],
+        title: ['22px', { lineHeight: '26px' }],
+        display: ['40px', { lineHeight: '40px' }],
         timer: ['52px', { lineHeight: '52px' }],
       },
 

@@ -193,7 +193,7 @@ export default function SessionSummaryScreen() {
                   }
                 >
                   <Text
-                    className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                    className="font-bold text-lead text-ink dark:text-ink-dark"
                     numberOfLines={1}
                   >
                     {nameOf(activity.exerciseId)}
@@ -201,14 +201,14 @@ export default function SessionSummaryScreen() {
                 </Pressable>
 
                 {activity.completedSets.length === 0 ? (
-                  <Text className="text-[13px] text-muted dark:text-muted-dark">
+                  <Text className="text-small text-muted dark:text-muted-dark">
                     Aucune série validée.
                   </Text>
                 ) : (
                   activity.completedSets.map(({ set }, position) => (
                     <Text
                       key={position}
-                      className="font-mono text-[13px] text-muted dark:text-muted-dark"
+                      className="font-mono text-small text-muted dark:text-muted-dark"
                       style={{ fontVariant: ['tabular-nums'] }}
                     >
                       {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
@@ -219,7 +219,7 @@ export default function SessionSummaryScreen() {
                 {/* Le prévu ne se rappelle que s'il n'a pas été tenu : le
                     dire quand tout est fait n'apprendrait rien. */}
                 {prevu !== undefined && activity.completedSets.length < prevu && (
-                  <Text className="pt-0.5 font-mono text-[12px] text-planned dark:text-planned-dark">
+                  <Text className="pt-0.5 font-mono text-small text-planned dark:text-planned-dark">
                     {activity.completedSets.length} sur {prevu} série{prevu > 1 ? 's' : ''} prévue
                     {prevu > 1 ? 's' : ''}
                   </Text>
@@ -242,12 +242,12 @@ function Figure({ value, label }: { value: string; label: string }) {
   return (
     <Card className="flex-1 items-center gap-0.5">
       <Text
-        className="font-mono-bold text-[18px] text-ink dark:text-ink-dark"
+        className="font-mono-bold text-heading text-ink dark:text-ink-dark"
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {value}
       </Text>
-      <Text className="text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
+      <Text className="text-caption text-muted dark:text-muted-dark" numberOfLines={1}>
         {label}
       </Text>
     </Card>

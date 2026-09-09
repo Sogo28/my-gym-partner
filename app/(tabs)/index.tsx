@@ -140,7 +140,7 @@ export default function ExercisesScreen() {
           <>
             {archivedCount > 0 && (
               <Pressable onPress={() => setShowArchived((value) => !value)} className="py-3">
-                <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+                <Text className="text-center text-small text-muted dark:text-muted-dark">
                   {showArchived ? 'Masquer' : 'Afficher'} {archivedCount} exercice
                   {archivedCount > 1 ? 's' : ''} archivé{archivedCount > 1 ? 's' : ''}
                 </Text>
@@ -180,10 +180,10 @@ export default function ExercisesScreen() {
 
             {!catalogue.available && query.trim() !== '' && (
               <Pressable onPress={() => router.push('/settings')} className="py-4">
-                <Text className="text-center text-[13px] text-muted dark:text-muted-dark">
+                <Text className="text-center text-small text-muted dark:text-muted-dark">
                   Le catalogue de 601 exercices n est pas téléchargé.
                 </Text>
-                <Text className="pt-1 text-center text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                <Text className="pt-1 text-center text-small text-primary-ink dark:text-primary-ink-dark">
                   L installer depuis les réglages
                 </Text>
               </Pressable>
@@ -194,7 +194,7 @@ export default function ExercisesScreen() {
           <Link href={{ pathname: '/exercise', params: { id: item.id } }} asChild>
             <Pressable>
               <Card className={item.isArchived ? 'opacity-50' : undefined}>
-                <Text className="font-bold text-[17px] text-ink dark:text-ink-dark">
+                <Text className="font-bold text-strong text-ink dark:text-ink-dark">
                   {item.name}
                 </Text>
                 <View className="mt-1 flex-row flex-wrap gap-1.5">

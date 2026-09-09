@@ -96,7 +96,7 @@ export function SetRow({ index, status, values, onPress, selected = false }: Set
 
       <Text
         className={cn(
-          'flex-1 font-mono-bold text-[20px]',
+          'flex-1 font-mono-bold text-heading',
           status === 'completed' && 'text-ink dark:text-ink-dark',
           status === 'planned' && 'text-planned dark:text-planned-dark',
           status === 'abandoned' && 'text-muted line-through dark:text-muted-dark',
@@ -148,7 +148,7 @@ function Badge({
       {status === 'abandoned' && <Ionicons name="close" size={14} color={accent} />}
       {status === 'in-progress' && (
         <Text
-          className="font-mono text-[12px]"
+          className="font-mono text-small"
           style={{ color: accent, fontVariant: ['tabular-nums'] }}
         >
           {index}

@@ -71,7 +71,7 @@ export function Sheet({
       <View className="gap-2 rounded-t-3xl border-t border-border bg-background p-5 pb-8 dark:border-border-dark dark:bg-background-dark">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">{title}</Text>
         {description && (
-          <Text className="mb-1 text-[13px] text-muted dark:text-muted-dark">{description}</Text>
+          <Text className="mb-1 text-small text-muted dark:text-muted-dark">{description}</Text>
         )}
 
         {searchPlaceholder && (
@@ -89,7 +89,7 @@ export function Sheet({
           keyboardShouldPersistTaps="handled"
         >
         {shown.length === 0 && searchPlaceholder && (
-          <Text className="py-2 text-[13px] text-muted dark:text-muted-dark">
+          <Text className="py-2 text-small text-muted dark:text-muted-dark">
             Aucun résultat.
           </Text>
         )}
@@ -109,7 +109,7 @@ export function Sheet({
           >
             <Text
               className={cn(
-                'font-bold text-[16px]',
+                'font-bold text-strong',
                 action.tone === 'danger'
                   ? 'text-danger dark:text-danger-dark'
                   : 'text-ink dark:text-ink-dark',

@@ -130,7 +130,7 @@ export default function WorkoutDetailScreen() {
             <Card density="titled" className="gap-2">
               <View className="flex-row items-center justify-between gap-3">
                 <Text
-                  className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+                  className="shrink font-bold text-strong text-ink dark:text-ink-dark"
                   numberOfLines={1}
                 >
                   {position + 1}. {nameOf(planned.exerciseId)}
@@ -139,7 +139,7 @@ export default function WorkoutDetailScreen() {
               </View>
 
               {planned.sets.length === 0 ? (
-                <Text className="text-[13px] text-muted dark:text-muted-dark">
+                <Text className="text-small text-muted dark:text-muted-dark">
                   aucune série prévue
                 </Text>
               ) : (
@@ -151,7 +151,7 @@ export default function WorkoutDetailScreen() {
                   {planned.sets.map((set, index) => (
                     <Text
                       key={index}
-                      className="font-mono text-[13px] text-planned dark:text-planned-dark"
+                      className="font-mono text-small text-planned dark:text-planned-dark"
                       style={{ fontVariant: ['tabular-nums'] }}
                     >
                       {index + 1}.  {formatTargets(set.targets, unitOf)}

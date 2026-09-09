@@ -149,7 +149,7 @@ export default function BodyScreen() {
                 </Text>
                 <View className="items-end">
                   <Text
-                    className="font-mono-bold text-[20px] text-ink dark:text-ink-dark"
+                    className="font-mono-bold text-heading text-ink dark:text-ink-dark"
                     style={{ fontVariant: ['tabular-nums'] }}
                   >
                     {current.reading.value} {metric.unit}
@@ -158,8 +158,8 @@ export default function BodyScreen() {
                     <Text
                       className={
                         current.change >= 0
-                          ? 'font-mono text-[12px] text-success dark:text-success-dark'
-                          : 'font-mono text-[12px] text-muted dark:text-muted-dark'
+                          ? 'font-mono text-small text-success dark:text-success-dark'
+                          : 'font-mono text-small text-muted dark:text-muted-dark'
                       }
                     >
                       {current.change >= 0 ? '+' : ''}
@@ -172,11 +172,11 @@ export default function BodyScreen() {
               {/* Les relevés précédents, du plus récent au plus ancien. */}
               {history.slice(1, 4).map((reading) => (
                 <View key={reading.id} className="flex-row items-center justify-between">
-                  <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
                     {formatDateTime(reading.takenAt)}
                   </Text>
                   <View className="flex-row items-center gap-3">
-                    <Text className="font-mono text-[13px] text-muted dark:text-muted-dark">
+                    <Text className="font-mono text-small text-muted dark:text-muted-dark">
                       {reading.value} {metric.unit}
                     </Text>
                     <Pressable
@@ -187,7 +187,7 @@ export default function BodyScreen() {
                       }
                       hitSlop={8}
                     >
-                      <Text className="text-[12px] text-danger dark:text-danger-dark">×</Text>
+                      <Text className="text-small text-danger dark:text-danger-dark">×</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -226,7 +226,7 @@ export default function BodyScreen() {
                   onPress={() => open(metric)}
                   className="h-11 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark"
                 >
-                  <Text className="text-[13px] text-muted dark:text-muted-dark">{metric.name}</Text>
+                  <Text className="text-small text-muted dark:text-muted-dark">{metric.name}</Text>
                 </Pressable>
               ))}
             </View>
@@ -248,7 +248,7 @@ export default function BodyScreen() {
         {creating && (
           <View className="gap-3 pb-2">
             <TextInput
-              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+              className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
               placeholder="Tour de fesses"
               placeholderTextColor="#A8AD9E"
               value={creating.name}
@@ -269,8 +269,8 @@ export default function BodyScreen() {
                   <Text
                     className={
                       creating.unit === unit
-                        ? 'font-bold text-[13px] text-ink'
-                        : 'text-[13px] text-muted dark:text-muted-dark'
+                        ? 'font-bold text-small text-ink'
+                        : 'text-small text-muted dark:text-muted-dark'
                     }
                   >
                     {unit}
@@ -281,7 +281,7 @@ export default function BodyScreen() {
 
             {/* Les muscles concernés : c'est par eux qu'on retrouvera les
                 exercices qui soutiennent la progression. */}
-            <Text className="text-[13px] text-muted dark:text-muted-dark">
+            <Text className="text-small text-muted dark:text-muted-dark">
               Muscles concernés — facultatif, mais c'est ce qui reliera cette mensuration à tes
               exercices.
             </Text>
@@ -310,8 +310,8 @@ export default function BodyScreen() {
                     <Text
                       className={
                         on
-                          ? 'font-bold text-[12px] text-primary-ink dark:text-primary-ink-dark'
-                          : 'text-[12px] text-muted dark:text-muted-dark'
+                          ? 'font-bold text-small text-primary-ink dark:text-primary-ink-dark'
+                          : 'text-small text-muted dark:text-muted-dark'
                       }
                     >
                       {muscle.name}

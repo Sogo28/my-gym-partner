@@ -35,13 +35,13 @@ export function BarChart({ points, unit }: { points: readonly ChartPoint[]; unit
       </View>
 
       <View className="flex-row items-center justify-between">
-        <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
+        <Text className="font-mono text-caption text-muted dark:text-muted-dark">
           {shortDate(points[0].at)}
         </Text>
-        <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
+        <Text className="font-mono text-caption text-muted dark:text-muted-dark">
           max {max} {unit}
         </Text>
-        <Text className="font-mono text-[11px] text-muted dark:text-muted-dark">
+        <Text className="font-mono text-caption text-muted dark:text-muted-dark">
           {shortDate(points[points.length - 1].at)}
         </Text>
       </View>

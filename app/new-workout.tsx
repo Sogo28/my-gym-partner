@@ -269,7 +269,7 @@ export default function NewWorkoutScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <TextInput
-          className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+          className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Nom de l'entraînement"
           placeholderTextColor="#A8AD9E"
           value={name}
@@ -302,7 +302,7 @@ export default function NewWorkoutScreen() {
         {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
             d'autres sur cette page, pas ce qu'elle demande. */}
         <Pressable onPress={() => setPicking(true)} className="py-2">
-          <Text className="text-center text-[15px] text-primary-ink dark:text-primary-ink-dark">
+          <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
             + Ajouter des exercices
           </Text>
         </Pressable>
@@ -421,7 +421,7 @@ function DraftCard({
             <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
           </Pressable>
           <Text
-            className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+            className="shrink font-bold text-strong text-ink dark:text-ink-dark"
             numberOfLines={1}
           >
             {exercise?.name ?? planned.exerciseId}

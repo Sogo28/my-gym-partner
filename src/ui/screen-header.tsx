@@ -20,12 +20,12 @@ export function SectionHeader({
           {title}
         </Text>
         {subtitle && (
-          <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{subtitle}</Text>
+          <Text className="font-mono text-small text-muted dark:text-muted-dark">{subtitle}</Text>
         )}
       </View>
       {action && (
         <Pressable onPress={action.onPress} hitSlop={8} className="shrink-0 pt-1">
-          <Text className="font-bold text-[14px] text-primary-ink dark:text-primary-ink-dark">
+          <Text className="font-bold text-body text-primary-ink dark:text-primary-ink-dark">
             {action.label}
           </Text>
         </Pressable>
@@ -63,7 +63,7 @@ export function BackHeader({
           {title}
         </Text>
         {subtitle && (
-          <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{subtitle}</Text>
+          <Text className="font-mono text-small text-muted dark:text-muted-dark">{subtitle}</Text>
         )}
       </View>
       {onMenu && (
@@ -93,12 +93,12 @@ export function SessionHeader({
     <View className="flex-row items-center justify-between gap-3 pb-2">
       <View className="shrink gap-0.5">
         <Text
-          className="font-bold uppercase text-[13px] tracking-widest text-primary-ink dark:text-primary-ink-dark"
+          className="font-bold uppercase text-small tracking-widest text-primary-ink dark:text-primary-ink-dark"
           numberOfLines={1}
         >
           {workoutName}
         </Text>
-        <Text className="font-mono text-[12px] text-muted dark:text-muted-dark">{position}</Text>
+        <Text className="font-mono text-small text-muted dark:text-muted-dark">{position}</Text>
       </View>
       <Pressable
         onPress={onMenu}

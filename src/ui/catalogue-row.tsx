@@ -22,14 +22,14 @@ export function CatalogueRow({
     <Pressable onPress={onPress} className="pb-2">
       <Card className="flex-row items-center gap-3">
         <View className="flex-1 gap-1">
-          <Text className="font-bold text-[16px] text-ink dark:text-ink-dark" numberOfLines={1}>
+          <Text className="font-bold text-strong text-ink dark:text-ink-dark" numberOfLines={1}>
             {name}
           </Text>
-          <Text className="font-mono text-[11px] text-muted dark:text-muted-dark" numberOfLines={1}>
+          <Text className="font-mono text-caption text-muted dark:text-muted-dark" numberOfLines={1}>
             {detail}
           </Text>
         </View>
-        <Text className="shrink-0 text-[13px] text-primary-ink dark:text-primary-ink-dark">
+        <Text className="shrink-0 text-small text-primary-ink dark:text-primary-ink-dark">
           {busy ? '…' : 'ajouter'}
         </Text>
       </Card>

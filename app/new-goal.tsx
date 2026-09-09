@@ -309,7 +309,7 @@ export default function NewGoalScreen() {
 
       <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
         <TextInput
-          className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-[17px] text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+          className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Front Lever"
           placeholderTextColor="#A8AD9E"
           value={name}
@@ -354,14 +354,14 @@ export default function NewGoalScreen() {
             <Card key={index} density="titled" className="gap-1">
               <View className="flex-row items-center justify-between pb-1">
                 <Text
-                  className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+                  className="shrink font-bold text-strong text-ink dark:text-ink-dark"
                   numberOfLines={1}
                 >
                   {progressive ? `${index + 1}. ` : ''}
                   {subjectName(entry.subject)}
                 </Text>
                 <Pressable onPress={() => removeEntry(index)} hitSlop={8}>
-                  <Text className="text-[13px] text-danger dark:text-danger-dark">retirer</Text>
+                  <Text className="text-small text-danger dark:text-danger-dark">retirer</Text>
                 </Pressable>
               </View>
 
@@ -377,12 +377,12 @@ export default function NewGoalScreen() {
                     onPress={() => setEditing({ entry: index, condition: conditionIndex })}
                     className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
                   >
-                    <Text className="shrink text-[14px] text-muted dark:text-muted-dark">
+                    <Text className="shrink text-body text-muted dark:text-muted-dark">
                       {conditionIndex > 0 ? 'et ' : ''}
                       {what}
                     </Text>
                     <Text
-                      className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+                      className="font-mono-bold text-lead text-ink dark:text-ink-dark"
                       style={{ fontVariant: ['tabular-nums'] }}
                     >
                       {target}
@@ -393,7 +393,7 @@ export default function NewGoalScreen() {
 
               {!isReading && (
                 <Pressable onPress={() => addCondition(index)} className="py-2">
-                  <Text className="text-[14px] text-primary-ink dark:text-primary-ink-dark">
+                  <Text className="text-body text-primary-ink dark:text-primary-ink-dark">
                     + Ajouter une condition
                   </Text>
                 </Pressable>
@@ -414,7 +414,7 @@ export default function NewGoalScreen() {
             cette page, pas ce qu'elle demande. */}
         {progressive ? (
           <Pressable onPress={() => setPicking('exercise')} className="py-2">
-            <Text className="text-center text-[15px] text-primary-ink dark:text-primary-ink-dark">
+            <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
               + Ajouter un exercice
             </Text>
           </Pressable>
@@ -546,7 +546,7 @@ export default function NewGoalScreen() {
               )}
 
             <View className="flex-row items-end gap-3">
-              <Text className="mb-2 text-[15px] text-muted dark:text-muted-dark">au moins</Text>
+              <Text className="mb-2 text-lead text-muted dark:text-muted-dark">au moins</Text>
               <NumberField
                 compact
                 unit={targetUnit(editedCondition, unitOf)}
@@ -565,7 +565,7 @@ export default function NewGoalScreen() {
                 }}
                 className="min-h-touch items-center justify-center rounded-lg border border-[#EAB9B5] bg-[#FDF1F0] dark:border-[#5C332B] dark:bg-[#2A1A16]"
               >
-                <Text className="font-bold text-[15px] text-danger dark:text-danger-dark">
+                <Text className="font-bold text-lead text-danger dark:text-danger-dark">
                   Retirer cette condition
                 </Text>
               </Pressable>
@@ -612,7 +612,7 @@ function Choice({
       <Text className={selected ? 'font-bold text-ink' : 'font-bold text-muted dark:text-muted-dark'}>
         {label}
       </Text>
-      <Text className={selected ? 'text-[12px] text-ink' : 'text-[12px] text-muted dark:text-muted-dark'}>
+      <Text className={selected ? 'text-small text-ink' : 'text-small text-muted dark:text-muted-dark'}>
         {hint}
       </Text>
     </Pressable>
@@ -639,7 +639,7 @@ function Chip({
     >
       <Text
         className={
-          selected ? 'font-bold text-[13px] text-ink' : 'text-[13px] text-muted dark:text-muted-dark'
+          selected ? 'font-bold text-small text-ink' : 'text-small text-muted dark:text-muted-dark'
         }
       >
         {label}

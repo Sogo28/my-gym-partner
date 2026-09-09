@@ -173,7 +173,7 @@ export default function GoalScreen() {
             </Text>
 
             {evaluation === null ? (
-              <Text className="text-[13px] text-muted dark:text-muted-dark">
+              <Text className="text-small text-muted dark:text-muted-dark">
                 Cet objectif n a pas de condition : à valider toi-même.
               </Text>
             ) : (

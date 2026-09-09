@@ -14,7 +14,7 @@ export function SearchField({
   return (
     <View className="h-12 flex-row items-center rounded-lg border border-border bg-surface pl-4 dark:border-border-dark dark:bg-surface-dark">
       <TextInput
-        className="flex-1 text-[16px] text-ink dark:text-ink-dark"
+        className="flex-1 text-strong text-ink dark:text-ink-dark"
         placeholder={placeholder}
         placeholderTextColor="#A8AD9E"
         value={value}
