@@ -61,7 +61,7 @@ export function Collapsible({
       >
         <View className="shrink">
           {typeof title === 'string' ? (
-            <Text className="font-bold text-strong text-ink dark:text-ink-dark">{title}</Text>
+            <Text className="font-bold text-lead text-ink dark:text-ink-dark">{title}</Text>
           ) : (
             title
           )}

@@ -354,7 +354,7 @@ export default function NewGoalScreen() {
             <Card key={index} density="titled" className="gap-1">
               <View className="flex-row items-center justify-between pb-1">
                 <Text
-                  className="shrink font-bold text-strong text-ink dark:text-ink-dark"
+                  className="shrink font-bold text-lead text-ink dark:text-ink-dark"
                   numberOfLines={1}
                 >
                   {progressive ? `${index + 1}. ` : ''}

@@ -321,7 +321,7 @@ export default function HomeScreen() {
               <Card key={entry.id} density="titled" className="gap-2">
                 <View className="flex-row items-start justify-between gap-3">
                   <Text
-                    className="shrink font-extrabold text-strong text-ink dark:text-ink-dark"
+                    className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
                     numberOfLines={1}
                   >
                     {planNameOf(entry.plannedWorkoutId)}

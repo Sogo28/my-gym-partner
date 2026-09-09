@@ -560,7 +560,7 @@ export default function SessionScreen() {
 
           {waiting.exercises.map((planned, position) => (
             <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-1">
-              <Text className="font-bold text-strong text-ink dark:text-ink-dark" numberOfLines={1}>
+              <Text className="font-bold text-lead text-ink dark:text-ink-dark" numberOfLines={1}>
                 {position + 1}. {nameOf(planned.exerciseId)}
               </Text>
               {planned.sets.map((set, index) => (
@@ -600,7 +600,7 @@ export default function SessionScreen() {
       <Card key={entry.id} density="titled" className="gap-2">
         <View className="flex-row items-start justify-between gap-3">
           <View className="shrink">
-            <Text className="font-extrabold text-strong text-ink dark:text-ink-dark">
+            <Text className="font-extrabold text-lead text-ink dark:text-ink-dark">
               {planNameOf(entry.plannedWorkoutId)}
             </Text>
             <Text className="font-mono text-small text-muted dark:text-muted-dark">
