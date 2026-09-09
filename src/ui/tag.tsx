@@ -15,7 +15,9 @@ export function Tag({ label, variant = 'neutral' }: { label: string; variant?: T
   return (
     <View
       className={cn(
-        'rounded-full px-2.5 py-1',
+        // Serrée : une annotation ne doit pas peser autant que ce qu'elle
+        // annote. À py-1, la pastille dépassait en hauteur la ligne du titre.
+        'rounded-full px-2 py-0.5',
         variant === 'neutral' && 'bg-surface-alt dark:bg-surface-alt-dark',
         variant === 'accent' && 'bg-primary-soft dark:bg-primary-soft-dark',
         variant === 'accent-outline' &&

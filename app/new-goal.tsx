@@ -377,7 +377,7 @@ export default function NewGoalScreen() {
                     onPress={() => setEditing({ entry: index, condition: conditionIndex })}
                     className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
                   >
-                    <Text className="shrink text-body text-muted dark:text-muted-dark">
+                    <Text className="shrink text-small text-muted dark:text-muted-dark">
                       {conditionIndex > 0 ? 'et ' : ''}
                       {what}
                     </Text>

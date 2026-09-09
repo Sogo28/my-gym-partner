@@ -57,7 +57,7 @@ export function GoalCard({
         {first ? (
           <View className="gap-0.5">
             <Text
-              className="font-mono-bold text-lead text-ink dark:text-ink-dark"
+              className="font-mono-bold text-value text-ink dark:text-ink-dark"
               style={{ fontVariant: ['tabular-nums'] }}
             >
               {first.actual === null ? '—' : `${Math.round(first.actual * 10) / 10}`}
