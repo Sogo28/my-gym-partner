@@ -199,10 +199,6 @@ export default function NewGoalScreen() {
 
   async function submit() {
     try {
-      if (entries.length === 0) {
-        throw new Error('Ajoute au moins un exercice ou une mensuration à cet objectif.');
-      }
-
       if (progressive) {
         const steps: ProgressionStep[] = entries.map((entry) => ({
           subject: entry.subject,
@@ -413,7 +409,15 @@ export default function NewGoalScreen() {
       </ScrollView>
 
       <View className="p-5 pt-2">
-        <Button label="Créer l'objectif" size="lg" onPress={submit} />
+        <Button
+          label="Créer l'objectif"
+          size="lg"
+          // Le domaine refuse déjà un objectif sans nom, mais un refus arrive
+          // APRÈS le geste : l'écran, lui, sait avant. Un objectif sans nom ni
+          // rien à viser n'est pas quelque chose qu'on crée à moitié.
+          disabled={name.trim() === '' || entries.length === 0}
+          onPress={submit}
+        />
       </View>
 
       {/* Une progression se choisit d'un bloc : les étapes suivent l'ordre
