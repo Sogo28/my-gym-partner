@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
-import { listSessionSummaries } from './session-summary';
+import { findSessionSummary, listSessionSummaries } from './session-summary';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -120,5 +120,37 @@ describe('Résumé de séance', () => {
     expect(summaries[0].session.startedAt.getTime()).toBeGreaterThanOrEqual(
       summaries[1].session.startedAt.getTime(),
     );
+  });
+});
+
+/**
+ * Le résumé d'une seule séance.
+ *
+ * Ciblé, mais il doit dire EXACTEMENT ce que l'historique dit d'elle : deux
+ * chemins de lecture qui divergeraient feraient deux vérités.
+ */
+describe('Résumé d une séance précise', () => {
+  it('dit la même chose que l historique', async () => {
+    const exercise = await anExercise();
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration: 10 } });
+    await startPerformanceSet();
+    await abandonPerformanceSet();
+    await finishWorkoutSession();
+
+    const [fromHistory] = await listSessionSummaries();
+    const found = await findSessionSummary(fromHistory.session.id);
+
+    expect(found?.completedSetCount).toBe(fromHistory.completedSetCount);
+    expect(found?.duration).toBe(fromHistory.duration);
+    expect(found?.activities[0].completedSets.map((entry) => entry.index)).toEqual(
+      fromHistory.activities[0].completedSets.map((entry) => entry.index),
+    );
+  });
+
+  it('ne trouve rien pour une séance qui n existe pas', async () => {
+    expect(await findSessionSummary('inconnue')).toBeNull();
   });
 });

@@ -87,6 +87,16 @@ export async function findActive(): Promise<WorkoutSession | null> {
   return row ? hydrate(db, row) : null;
 }
 
+/** Une séance précise, terminée ou non. */
+export async function findById(id: string): Promise<WorkoutSession | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<SessionRow>(
+    'SELECT * FROM workout_sessions WHERE id = ?;',
+    id,
+  );
+  return row ? hydrate(db, row) : null;
+}
+
 /** L'historique, les plus récentes d'abord. */
 export async function findAll(): Promise<WorkoutSession[]> {
   const db = await getDatabase();

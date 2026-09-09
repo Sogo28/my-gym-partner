@@ -6,7 +6,10 @@ import {
 } from '../domain/workout-session/session-metrics';
 import type { WorkoutSession } from '../domain/workout-session/workout-session';
 import { findByIds } from '../infra/performance-repository';
-import { findAll as findAllSessions } from '../infra/workout-session-repository';
+import {
+  findAll as findAllSessions,
+  findById as findSessionById,
+} from '../infra/workout-session-repository';
 
 export type CompletedSetSummary = {
   readonly set: PerformanceSet;
@@ -59,37 +62,59 @@ export async function listSessionSummaries(): Promise<SessionSummary[]> {
 
   const performances = await findByIds(performanceIds);
 
-  return sessions.map((session) => {
-    const activities = session.activities.map((activity): ActivitySummary => {
-      const performance = activity.performanceId
-        ? performances.get(activity.performanceId)
-        : undefined;
-      const completed = performance?.completedSets ?? [];
-      // Repos et séries n'ont aucun lien direct : on les rapproche par les
-      // instants (voir session-metrics).
-      const rests = restBeforeEachSet(completed, session.rests);
+  return sessions.map((session) => summarize(session, performances));
+}
 
-      return {
-        exerciseId: activity.exerciseId,
-        performanceId: activity.performanceId,
-        measurementIds: performance?.measurementIds ?? [],
-        completedSets: completed.map((set, position) => ({
-          set,
-          index: performance?.sets.indexOf(set) ?? position,
-          restBefore: rests[position],
-        })),
-      };
-    });
+/**
+ * Le résumé d'UNE séance : celui qu'on regarde en la terminant.
+ *
+ * Ciblé plutôt que filtré sur l'historique entier -- une séance ne devrait
+ * pas coûter la lecture de toutes les autres.
+ */
+export async function findSessionSummary(sessionId: string): Promise<SessionSummary | null> {
+  const session = await findSessionById(sessionId);
+  if (!session) return null;
+
+  const performanceIds = session.activities
+    .map((activity) => activity.performanceId)
+    .filter((id): id is string => id !== null);
+
+  return summarize(session, await findByIds(performanceIds));
+}
+
+function summarize(
+  session: WorkoutSession,
+  performances: Awaited<ReturnType<typeof findByIds>>,
+): SessionSummary {
+  const activities = session.activities.map((activity): ActivitySummary => {
+    const performance = activity.performanceId
+      ? performances.get(activity.performanceId)
+      : undefined;
+    const completed = performance?.completedSets ?? [];
+    // Repos et séries n'ont aucun lien direct : on les rapproche par les
+    // instants (voir session-metrics).
+    const rests = restBeforeEachSet(completed, session.rests);
 
     return {
-      session,
-      duration: sessionDuration(session),
-      restTotal: totalRest(session),
-      completedSetCount: activities.reduce(
-        (total, activity) => total + activity.completedSets.length,
-        0,
-      ),
-      activities,
+      exerciseId: activity.exerciseId,
+      performanceId: activity.performanceId,
+      measurementIds: performance?.measurementIds ?? [],
+      completedSets: completed.map((set, position) => ({
+        set,
+        index: performance?.sets.indexOf(set) ?? position,
+        restBefore: rests[position],
+      })),
     };
   });
+
+  return {
+    session,
+    duration: sessionDuration(session),
+    restTotal: totalRest(session),
+    completedSetCount: activities.reduce(
+      (total, activity) => total + activity.completedSets.length,
+      0,
+    ),
+    activities,
+  };
 }
