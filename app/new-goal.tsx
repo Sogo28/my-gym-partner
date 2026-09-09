@@ -7,7 +7,7 @@ import {
 } from '../src/ui/goal-labels';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -78,8 +78,14 @@ export default function NewGoalScreen() {
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   /** Ce que le sélecteur propose : des exercices, ou des mensurations. */
   const [picking, setPicking] = useState<'none' | 'exercise' | 'body'>('none');
-  /** L'exercice qu'on vient de créer, coché d'avance à la réouverture. */
-  const [preselected, setPreselected] = useState<string[]>([]);
+  /**
+   * L'exercice qu'on vient de créer, en attente d'être ajouté.
+   *
+   * Il ne peut pas l'être tout de suite : on revient du formulaire avant que
+   * la liste rechargée ne le connaisse, et une étape se construit à partir
+   * des MESURES de son exercice. Il patiente donc ici le temps du chargement.
+   */
+  const [justCreated, setJustCreated] = useState<string | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
@@ -104,8 +110,29 @@ export default function NewGoalScreen() {
           setRecentIds(recent);
         })
         .catch((e) => notify(messageOf(e)));
+
+      // Créer un exercice depuis le sélecteur, c'était le choisir : revenir
+      // ne doit pas laisser ce geste inachevé.
+      const created = takeCreated();
+      if (created) setJustCreated(created);
     }, []),
   );
+
+  /**
+   * L'ajout attend que la liste ait rattrapé son retard.
+   *
+   * Séparé de l'effet de focus, qui est figé à sa création : ici les valeurs
+   * sont celles du rendu courant -- notamment le fait que l'objectif soit
+   * progressif ou non, qui décide si l'exercice s'ajoute ou remplace.
+   */
+  useEffect(() => {
+    if (justCreated === null) return;
+    const exercise = exercises.find((candidate) => candidate.id === justCreated);
+    if (!exercise) return;
+
+    setJustCreated(null);
+    addExerciseEntry(exercise);
+  }, [justCreated, exercises]);
 
   const catalogue = useMemo(
     () =>
@@ -131,6 +158,19 @@ export default function NewGoalScreen() {
       ? (exerciseOf(subject.exerciseId)?.measurementIds ?? [])
       : // Une mensuration ne se mesure qu'elle-même : « tour de cuisse en cm ».
         [subject.metricId];
+
+  /**
+   * Ajouter un exercice à partir de l'exercice LUI-MÊME, sans le rechercher
+   * dans la liste en état : celui qui vient d'être créé n'y est pas encore.
+   */
+  function addExerciseEntry(exercise: Exercise) {
+    const subject: GoalSubject = { kind: 'exercise', exerciseId: exercise.id };
+    const entry: Entry = {
+      subject,
+      conditions: [defaultCondition(subject, exercise.measurementIds)],
+    };
+    setEntries((current) => (progressive ? [...current, entry] : [entry]));
+  }
 
   function addEntry(subject: GoalSubject) {
     const available = measurementsOf(subject);
@@ -433,7 +473,6 @@ export default function NewGoalScreen() {
           router.push('/settings');
         }}
         visible={picking === 'exercise'}
-        selectedIds={preselected}
         mode={progressive ? 'multiple' : 'single'}
         title={progressive ? 'Ajouter des étapes' : "Choisir l'exercice"}
         exercises={exercises}
