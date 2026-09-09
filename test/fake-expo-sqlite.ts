@@ -74,6 +74,17 @@ const handle = {
 
 export type SQLiteDatabase = typeof handle;
 
+/** La prochaine ouverture échouera : de quoi éprouver la reprise. */
+let failNextOpen = false;
+
+export function __failNextOpen(): void {
+  failNextOpen = true;
+}
+
 export async function openDatabaseAsync(): Promise<SQLiteDatabase> {
+  if (failNextOpen) {
+    failNextOpen = false;
+    throw new Error('Cannot use shared object that was already released');
+  }
   return handle;
 }

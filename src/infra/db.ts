@@ -12,7 +12,14 @@ export const SCHEMA_VERSION = 24;
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  dbPromise ??= openAndMigrate();
+  // Une ouverture qui ÉCHOUE ne se met pas en cache. La garder condamnerait
+  // toute la session à rejouer la même erreur, alors que sa cause peut être
+  // passée -- une connexion libérée sous nos pieds, par exemple : la
+  // prochaine demande rouvre au lieu de servir un échec périmé.
+  dbPromise ??= openAndMigrate().catch((error: unknown) => {
+    dbPromise = null;
+    throw error;
+  });
   return dbPromise;
 }
 
