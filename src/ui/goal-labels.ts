@@ -1,4 +1,10 @@
-import type { Aggregation, Clause, Condition, EvaluationWindow } from '../domain/goal/goal';
+import type {
+  Aggregation,
+  Clause,
+  Condition,
+  EvaluationWindow,
+  Requirement,
+} from '../domain/goal/goal';
 
 /**
  * Le vocabulaire des objectifs, en français.
@@ -135,4 +141,31 @@ const WINDOW_SHORT: Record<EvaluationWindow, string> = {
 export function describeSourceShort(condition: Condition): string {
   if (condition.window === 'LATEST_READING') return WINDOW_SHORT.LATEST_READING;
   return `${AGGREGATION_SHORT[condition.aggregation]} ${WINDOW_SHORT[condition.window]}`;
+}
+
+/**
+ * Ce qu'une étape DEMANDE, en une ligne : « 10 s · 3 séries ».
+ *
+ * Pour une étape qu'on n'a pas encore atteinte, la question n'est pas comment
+ * elle s'évalue mais ce qu'il faudra tenir. La période et l'agrégation sont
+ * donc tues : elles répondent à une question qu'on ne se pose pas encore.
+ */
+export function describeDemand(
+  requirements: readonly Requirement[],
+  unitOf: (measurementId: string) => string,
+): string {
+  return requirements
+    .flatMap((requirement) => requirement.conditions)
+    .map((condition) => demandOf(condition, unitOf))
+    .join(' · ');
+}
+
+function demandOf(condition: Condition, unitOf: (measurementId: string) => string): string {
+  if (condition.aggregation === 'setCount') {
+    const clauses = qualifying(condition);
+    return clauses.length > 0
+      ? `${condition.target} × ${describeClauses(clauses, unitOf)}`
+      : `${condition.target} séries`;
+  }
+  return `${condition.target} ${unitOf(condition.measurementId ?? '')}`;
 }

@@ -9,7 +9,7 @@ import type { Goal, GoalSubject } from '../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
-import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
+import { ConditionProgress, GoalProgression } from '../src/ui/goal-progression';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { BusinessNotice } from '../src/ui/notice';
@@ -96,6 +96,38 @@ export default function GoalScreen() {
 
   const steps = goal.steps;
 
+  /**
+   * Ce que l'étape en cours propose : franchir, ou constater.
+   *
+   * Composé ici et non dans le rail : décider appartient à l'écran, le rail
+   * ne fait que montrer où l'on en est.
+   */
+  const currentAction = () => {
+    if (!evaluation?.satisfied) return null;
+
+    if (goal.isOnLastStep) {
+      return <BusinessNotice message="Objectif atteint" detail="C était la dernière étape." />;
+    }
+
+    return (
+      <View className="gap-2">
+        <BusinessNotice
+          message="Étape atteinte"
+          detail={`Tu peux passer à ${subjectName(steps[goal.currentStepIndex + 1].subject)}.`}
+        />
+        <Button
+          label="Passer à l étape suivante"
+          size="md"
+          onPress={() =>
+            advanceProgression(goal)
+              .then(reload)
+              .catch((e) => notify(messageOf(e)))
+          }
+        />
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
@@ -116,70 +148,42 @@ export default function GoalScreen() {
 
       <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
 
-        {/* Ce qui est visé maintenant, et ce que ça demande. */}
-        <Card density="titled" className="gap-2">
-          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            {goal.isProgressive ? 'Étape en cours' : 'Ce qui est visé'}
-          </Text>
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            {subjectName(goal.currentSubject)}
-          </Text>
-
-          {/* Chaque condition : ce qu'elle demande, sur quelle période, et ce
-              que cette période a réellement donné. */}
-          {evaluation?.results.map((result, index) => (
-            <View key={index} className="gap-0.5 pt-1">
-              <View className="flex-row items-center justify-between gap-3">
-                <Text className="shrink text-[13px] text-muted dark:text-muted-dark">
-                  {describeCondition(result.condition, unitOf)}
-                </Text>
-                <Text
-                  className={
-                    result.satisfied
-                      ? 'font-mono-bold text-[15px] text-success dark:text-success-dark'
-                      : 'font-mono-bold text-[15px] text-muted dark:text-muted-dark'
-                  }
-                  style={{ fontVariant: ['tabular-nums'] }}
-                >
-                  {result.actual === null ? '—' : Math.round(result.actual * 10) / 10}
-                </Text>
-              </View>
-              <Text className="font-mono text-[11px] text-planned dark:text-planned-dark">
-                {WINDOW_PHRASES[result.condition.window]}
-                {result.hasData ? '' : ' · aucune donnée'}
-              </Text>
-            </View>
-          ))}
-
-          {/* La suggestion (§24) : proposée, jamais appliquée d'office. */}
-          {evaluation === null && (
-            <Text className="text-[13px] text-muted dark:text-muted-dark">
-              Cette étape n a pas de condition : à valider toi-même.
+        {/* Une progression se lit comme un chemin : le rail porte l'étape
+            en cours ET celles qui l'entourent, au lieu de les séparer. */}
+        {goal.isProgressive ? (
+          <GoalProgression
+            steps={steps}
+            currentIndex={goal.currentStepIndex}
+            evaluation={evaluation}
+            subjectName={subjectName}
+            unitOf={unitOf}
+            onOpen={(subject) =>
+              subject.kind === 'exercise' &&
+              router.push({ pathname: '/exercise', params: { id: subject.exerciseId } })
+            }
+            action={currentAction()}
+          />
+        ) : (
+          <Card density="titled" className="gap-3">
+            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+              Ce qui est visé
             </Text>
-          )}
+            <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+              {subjectName(goal.currentSubject)}
+            </Text>
 
-          {evaluation?.satisfied && !goal.isOnLastStep && (
-            <View className="mt-1 gap-2">
-              <BusinessNotice
-                message="Étape atteinte"
-                detail={`Tu peux passer à ${subjectName(steps[goal.currentStepIndex + 1].subject)}.`}
-              />
-              <Button
-                label="Passer à l étape suivante"
-                size="md"
-                onPress={() =>
-                  advanceProgression(goal)
-                    .then(reload)
-                    .catch((e) => notify(messageOf(e)))
-                }
-              />
-            </View>
-          )}
-
-          {evaluation?.satisfied && goal.isOnLastStep && (
-            <BusinessNotice message="Objectif atteint" detail="C était la dernière étape." />
-          )}
-        </Card>
+            {evaluation === null ? (
+              <Text className="text-[13px] text-muted dark:text-muted-dark">
+                Cet objectif n a pas de condition : à valider toi-même.
+              </Text>
+            ) : (
+              evaluation.results.map((result, index) => (
+                <ConditionProgress key={index} result={result} unitOf={unitOf} />
+              ))
+            )}
+            {currentAction()}
+          </Card>
+        )}
 
         {/* Les exercices qui soutiennent une mensuration sans jamais la
             décider : seul le mètre ruban compte. */}
@@ -190,37 +194,6 @@ export default function GoalScreen() {
           />
         )}
 
-        {/* L'échelle entière : d'où l'on vient, où l'on va. */}
-        {goal.isProgressive && (
-          <View className="gap-2">
-            <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-              Progression
-            </Text>
-            {steps.map((step, index) => (
-              <Card
-                key={index}
-                className={
-                  index === goal.currentStepIndex
-                    ? 'flex-row items-center justify-between gap-3 border-primary-ink dark:border-primary-ink-dark'
-                    : 'flex-row items-center justify-between gap-3'
-                }
-              >
-                <Text
-                  className={
-                    index < goal.currentStepIndex
-                      ? 'shrink text-[15px] text-muted line-through dark:text-muted-dark'
-                      : 'shrink text-[15px] text-ink dark:text-ink-dark'
-                  }
-                  numberOfLines={1}
-                >
-                  {index + 1}. {subjectName(step.subject)}
-                </Text>
-                {index < goal.currentStepIndex && <Tag label="franchie" />}
-                {index === goal.currentStepIndex && <Tag label="en cours" variant="accent" />}
-              </Card>
-            ))}
-          </View>
-        )}
       </ScrollView>
 
       <Sheet
