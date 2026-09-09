@@ -1,8 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
-  describeDemand,
-  describeSourceShort,
+  conditionParts,
   targetUnit,
 } from '../src/ui/goal-labels';
 import { useNotifications } from '../src/ui/notifications';
@@ -15,7 +14,6 @@ import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import type { BodyMetric } from '../src/domain/body/body-metric';
 import type {
-  Aggregation,
   Clause,
   Condition,
   GoalSubject,
@@ -28,7 +26,6 @@ import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
-import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -38,12 +35,6 @@ import { createGoal } from '../src/use-cases/goal-actions';
 
 /** Une entrée de l'écran : ce qui est visé, et ses conditions. */
 type Entry = { subject: GoalSubject; conditions: Condition[] };
-
-/** Les mêmes libellés que les puces, dans le vocabulaire d'une feuille. */
-const AGGREGATION_OPTIONS = AGGREGATION_LABELS.map(({ value, label }) => ({
-  id: value,
-  name: label,
-}));
 
 /**
  * La condition de départ dépend du sujet : une mensuration s'observe au
@@ -99,17 +90,13 @@ export default function NewGoalScreen() {
    */
   const [justCreated, setJustCreated] = useState<string | null>(null);
   /**
-   * L'étape qu'on est en train de régler, ou aucune.
+   * La condition qu'on règle, ou aucune.
    *
-   * Une seule à la fois : les autres se replient sur ce qu'elles demandent.
-   * Déplier cinq étapes à la fois donnait une page de réglages où l'objectif
-   * lui-même devenait invisible.
+   * Les réglages vivent dans une feuille et non dans la page : une condition
+   * se LIT bien plus souvent qu'elle ne se change, et la page doit donc
+   * montrer l'objectif qu'on construit, pas la mécanique qui le décrit.
    */
-  const [open, setOpen] = useState<number | null>(null);
-  /** Les réglages fins de l'étape ouverte : période, agrégation, ET. */
-  const [refining, setRefining] = useState(false);
-  /** La condition dont on choisit le calcul, feuille ouverte. */
-  const [choosing, setChoosing] = useState<{ entry: number; condition: number } | null>(null);
+  const [editing, setEditing] = useState<{ entry: number; condition: number } | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
@@ -219,22 +206,10 @@ export default function NewGoalScreen() {
 
     // Un objectif simple ne vise qu'une chose : le nouveau remplace l'ancien.
     setEntries((current) => (progressive ? [...current, ...built] : built.slice(-1)));
-    setOpen(progressive ? entries.length + built.length - 1 : 0);
-    setRefining(false);
   }
 
-  /** Retirer une étape : ce qui était ouvert se décale, ou se referme. */
   function removeEntry(index: number) {
     setEntries((current) => current.filter((_, i) => i !== index));
-    setOpen((current) =>
-      current === null || current === index ? null : current > index ? current - 1 : current,
-    );
-  }
-
-  /** Ouvrir une étape en referme l'autre, et repart de ses réglages simples. */
-  function toggle(index: number) {
-    setRefining(false);
-    setOpen((current) => (current === index ? null : index));
   }
 
   function update(index: number, conditionIndex: number, changes: Partial<Condition>) {
@@ -318,8 +293,9 @@ export default function NewGoalScreen() {
     }
   }
 
-  /** La condition que la feuille de calcul manipule, s'il y en a une. */
-  const chosen = choosing ? entries[choosing.entry]?.conditions[choosing.condition] : undefined;
+  /** Ce que la feuille de réglage manipule, s'il y a lieu. */
+  const edited = editing ? entries[editing.entry] : undefined;
+  const editedCondition = editing ? edited?.conditions[editing.condition] : undefined;
 
   return (
     <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
@@ -347,7 +323,15 @@ export default function NewGoalScreen() {
             label="Progressif"
             hint="plusieurs étapes"
             selected={progressive}
-            onPress={() => setProgressive(true)}
+            onPress={() => {
+              setProgressive(true);
+              // Une mensuration retenue en mode simple n'est pas une marche :
+              // la garder ferait une progression que l'écran ne sait pas
+              // décrire.
+              setEntries((current) =>
+                current.filter((entry) => entry.subject.kind === 'exercise'),
+              );
+            }}
           />
           <Choice
             label="Simple"
@@ -359,177 +343,99 @@ export default function NewGoalScreen() {
               // de la première n'ont plus lieu d'être, et celle qui reste est
               // évidemment celle qu'on règle.
               setEntries((current) => current.slice(0, 1));
-              setOpen((current) => (current === null ? null : 0));
-              setRefining(false);
             }}
           />
         </View>
 
         {entries.map((entry, index) => {
-          const available = measurementsOf(entry.subject);
-          // Un relevé est une valeur unique : il n'y a ni période ni
-          // agrégation à choisir, seulement une cible à atteindre.
           const isReading = entry.subject.kind === 'body';
-          // Plusieurs mesures ne se règlent pas séparément : elles décrivent
-          // ensemble la série qui compte.
-          const paired = !isReading && available.length > 1;
-          const first = entry.conditions[0];
-
-          // Repliée, l'étape dit ce qu'elle demande et ce que ça signifie :
-          // de quoi la relire sans la rouvrir.
-          if (open !== index) {
-            return (
-              <Pressable key={index} onPress={() => toggle(index)}>
-                <Card className="flex-row items-center justify-between gap-3">
-                  <View className="shrink gap-0.5">
-                    <Text
-                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
-                      numberOfLines={1}
-                    >
-                      {progressive ? `${index + 1}. ` : ''}
-                      {subjectName(entry.subject)}
-                    </Text>
-                    <Text className="text-[11px] text-muted dark:text-muted-dark">
-                      {describeSourceShort(first)}
-                    </Text>
-                  </View>
-                  <Text
-                    className="font-mono-bold text-[13px] text-primary-ink dark:text-primary-ink-dark"
-                    style={{ fontVariant: ['tabular-nums'] }}
-                  >
-                    {describeDemand([{ conditions: entry.conditions }], unitOf)}
-                  </Text>
-                </Card>
-              </Pressable>
-            );
-          }
 
           return (
-            <Card key={index} density="titled" className="gap-3">
-              <View className="flex-row items-center justify-between">
-                <Pressable className="shrink" onPress={() => toggle(index)}>
-                  <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
-                    {progressive ? `${index + 1}. ` : ''}
-                    {subjectName(entry.subject)}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => removeEntry(index)}>
+            <Card key={index} density="titled" className="gap-1">
+              <View className="flex-row items-center justify-between pb-1">
+                <Text
+                  className="shrink font-bold text-[16px] text-ink dark:text-ink-dark"
+                  numberOfLines={1}
+                >
+                  {progressive ? `${index + 1}. ` : ''}
+                  {subjectName(entry.subject)}
+                </Text>
+                <Pressable onPress={() => removeEntry(index)} hitSlop={8}>
                   <Text className="text-[13px] text-danger dark:text-danger-dark">retirer</Text>
                 </Pressable>
               </View>
 
-              {entry.conditions.map((condition, conditionIndex) => (
-                <View
-                  key={conditionIndex}
-                  className="gap-3 rounded-lg bg-surface-alt p-3 dark:bg-surface-alt-dark"
-                >
-                  {conditionIndex > 0 && (
-                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                      et
+              {/* Une condition se LIT ; on ne la règle qu'en la touchant. La
+                  phrase à gauche, le chiffre à droite : c'est le chiffre
+                  qu'on cherche du regard en relisant une étape. */}
+              {entry.conditions.map((condition, conditionIndex) => {
+                const { what, target } = conditionParts(condition, unitOf);
+
+                return (
+                  <Pressable
+                    key={conditionIndex}
+                    onPress={() => setEditing({ entry: index, condition: conditionIndex })}
+                    className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
+                  >
+                    <Text className="shrink text-[14px] text-muted dark:text-muted-dark">
+                      {conditionIndex > 0 ? 'et ' : ''}
+                      {what}
                     </Text>
-                  )}
-
-                  {/* La série décrite d'un bloc : une cible par mesure, lues
-                      TOUJOURS sur la même série. Elle reste en vue, car c'est
-                      elle que l'on vient régler. */}
-                  {paired && (
-                    <View className="gap-2">
-                      <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                        Une série qui compte
-                      </Text>
-                      <View className="flex-row flex-wrap gap-3">
-                        {(condition.qualifying ?? []).map((clause) => (
-                          <NumberField
-                            key={clause.measurementId}
-                            compact
-                            unit={unitOf(clause.measurementId)}
-                            value={clause.target}
-                            onChange={(target) =>
-                              updateClause(index, conditionIndex, clause.measurementId, target)
-                            }
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  <View className="flex-row items-end gap-3">
-                    <Text className="mb-2 text-[15px] text-muted dark:text-muted-dark">
-                      au moins
-                    </Text>
-                    <NumberField
-                      compact
-                      unit={targetUnit(condition, unitOf)}
-                      value={condition.target}
-                      onChange={(target) => update(index, conditionIndex, { target })}
-                    />
-                  </View>
-
-                  {/* Comment la mesure est réduite, et sur quelle période :
-                      les valeurs de départ disent déjà ce que veut dire la
-                      plupart des objectifs, donc elles attendent qu'on les
-                      demande. */}
-                  {refining && !isReading && !paired && (
-                    <OptionChip
-                      options={AGGREGATION_OPTIONS}
-                      selected={[condition.aggregation]}
-                      emptyLabel="Moyenne"
-                      plural="calculs"
-                      onPress={() => setChoosing({ entry: index, condition: conditionIndex })}
-                    />
-                  )}
-
-                  {entry.conditions.length > 1 && (
-                    <Pressable
-                      className="self-end"
-                      onPress={() => removeCondition(index, conditionIndex)}
+                    <Text
+                      className="font-mono-bold text-[15px] text-ink dark:text-ink-dark"
+                      style={{ fontVariant: ['tabular-nums'] }}
                     >
-                      <Text className="text-[12px] text-danger dark:text-danger-dark">
-                        retirer cette condition
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              ))}
+                      {target}
+                    </Text>
+                  </Pressable>
+                );
+              })}
 
-              {/* Tout reste atteignable : c'est l'ordre d'apparition qui
-                  change, pas ce qu'on peut exprimer. */}
-              <Pressable onPress={() => setRefining((on) => !on)}>
-                <Text className="font-bold text-[13px] text-primary-ink dark:text-primary-ink-dark">
-                  {refining ? 'Replier les réglages ⌃' : 'Affiner ⌄'}
-                </Text>
-              </Pressable>
-
-              {refining && (
-                <Button
-                  label="+ Ajouter une condition"
-                  variant="ghost"
-                  size="md"
-                  onPress={() => addCondition(index)}
-                />
+              {!isReading && (
+                <Pressable onPress={() => addCondition(index)} className="py-2">
+                  <Text className="text-[14px] text-primary-ink dark:text-primary-ink-dark">
+                    + Ajouter une condition
+                  </Text>
+                </Pressable>
               )}
             </Card>
           );
         })}
 
 
-        {/* Deux sources possibles : ce qu'on exécute, ou ce qu'on mesure. */}
-        <View className="flex-row gap-2">
-          <Button
-            label={progressive ? '+ Exercice' : 'Un exercice'}
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onPress={() => setPicking('exercise')}
-          />
-          <Button
-            label={progressive ? '+ Mensuration' : 'Une mensuration'}
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onPress={() => setPicking('body')}
-          />
-        </View>
+
+        {/* Une progression est une suite d'EXERCICES : on grimpe du tuck au
+            full, alors qu'un tour de cuisse n'a pas de marches. Le modèle
+            l'autorise -- il décrit ce qui est exprimable -- mais l'écran ne
+            le propose pas, faute d'un cas où cela voudrait dire quelque
+            chose.
+
+            Un texte, pas un bouton : ajouter est un geste parmi d'autres sur
+            cette page, pas ce qu'elle demande. */}
+        {progressive ? (
+          <Pressable onPress={() => setPicking('exercise')} className="py-2">
+            <Text className="text-center text-[15px] text-primary-ink dark:text-primary-ink-dark">
+              + Ajouter un exercice
+            </Text>
+          </Pressable>
+        ) : (
+          <View className="flex-row gap-2">
+            <Button
+              label="Un exercice"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={() => setPicking('exercise')}
+            />
+            <Button
+              label="Une mensuration"
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onPress={() => setPicking('body')}
+            />
+          </View>
+        )}
       </ScrollView>
 
       <View className="p-5 pt-2">
@@ -568,30 +474,100 @@ export default function NewGoalScreen() {
         onClose={() => setPicking('none')}
       />
 
-      {/* Une seule feuille pour toutes les conditions : c'est la condition
-          ouverte qui dit ce qu'elle montre. */}
-      <OptionSheet
-        visible={choosing !== null}
-        title="Ce qui est calculé"
-        mode="single"
-        options={AGGREGATION_OPTIONS}
-        selected={chosen ? [chosen.aggregation] : []}
-        confirmLabel="Fermer"
-        onToggle={(id) => {
-          if (!choosing) return;
-          const aggregation = id as Aggregation;
-          update(choosing.entry, choosing.condition, {
-            aggregation,
-            // Un décompte de séries ne lit aucune mesure ; les autres en
-            // exigent une, et reprennent celle de l'exercice.
-            measurementId:
-              aggregation === 'setCount'
-                ? null
-                : (chosen?.measurementId ?? measurementsOf(entries[choosing.entry].subject)[0] ?? null),
-          });
-        }}
-        onClose={() => setChoosing(null)}
-      />
+      {/* Une seule feuille pour toutes les conditions : celle qu'on règle
+          dit ce qu'elle montre. Le titre nomme l'étape, sans quoi on ne
+          saurait plus laquelle on est venu changer. */}
+      <Sheet
+        visible={editing !== null}
+        title={edited ? subjectName(edited.subject) : ''}
+        onClose={() => setEditing(null)}
+      >
+        {editing && editedCondition && (
+          <View className="gap-4">
+            {/* La série décrite d'un bloc : une cible par mesure, lues
+                TOUJOURS sur la même série. */}
+            {(editedCondition.qualifying ?? []).length > 0 && (
+              <View className="gap-2">
+                <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                  Une série qui compte
+                </Text>
+                <View className="flex-row flex-wrap gap-3">
+                  {(editedCondition.qualifying ?? []).map((clause) => (
+                    <NumberField
+                      key={clause.measurementId}
+                      compact
+                      unit={unitOf(clause.measurementId)}
+                      value={clause.target}
+                      onChange={(target) =>
+                        updateClause(editing.entry, editing.condition, clause.measurementId, target)
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Ce qui est calculé. Un relevé n'a rien à réduire, et une série
+                décrite non plus : elle se compte, un point c'est tout. */}
+            {edited?.subject.kind === 'exercise' &&
+              (editedCondition.qualifying ?? []).length === 0 && (
+                <View className="gap-2">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    Ce qui est calculé
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {AGGREGATION_LABELS.map(({ value, label }) => (
+                      <Chip
+                        key={value}
+                        label={label}
+                        selected={editedCondition.aggregation === value}
+                        onPress={() =>
+                          update(editing.entry, editing.condition, {
+                            aggregation: value,
+                            // Un décompte ne lit aucune mesure ; les autres en
+                            // exigent une, et reprennent celle de l'exercice.
+                            measurementId:
+                              value === 'setCount'
+                                ? null
+                                : (editedCondition.measurementId ??
+                                  measurementsOf(edited.subject)[0] ??
+                                  null),
+                          })
+                        }
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+
+            <View className="flex-row items-end gap-3">
+              <Text className="mb-2 text-[15px] text-muted dark:text-muted-dark">au moins</Text>
+              <NumberField
+                compact
+                unit={targetUnit(editedCondition, unitOf)}
+                value={editedCondition.target}
+                onChange={(target) => update(editing.entry, editing.condition, { target })}
+              />
+            </View>
+
+            {/* Une exigence sans condition ne s'évaluerait plus : la dernière
+                ne se retire pas, c'est l'étape entière qui part alors. */}
+            {edited && edited.conditions.length > 1 && (
+              <Pressable
+                onPress={() => {
+                  removeCondition(editing.entry, editing.condition);
+                  setEditing(null);
+                }}
+                className="min-h-touch items-center justify-center rounded-lg border border-[#EAB9B5] bg-[#FDF1F0] dark:border-[#5C332B] dark:bg-[#2A1A16]"
+              >
+                <Text className="font-bold text-[15px] text-danger dark:text-danger-dark">
+                  Retirer cette condition
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         visible={picking === 'body'}

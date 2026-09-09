@@ -99,21 +99,41 @@ export function describeCondition(
   condition: Condition,
   unitOf: (measurementId: string) => string,
 ): string {
+  const { what, target } = conditionParts(condition, unitOf);
+  return `${what} ${target}`.trim();
+}
+
+/**
+ * La condition en DEUX morceaux : ce qu'on observe, et ce qu'il faut atteindre.
+ *
+ * Séparés parce qu'ils ne se lisent pas pareil : le premier est une phrase, le
+ * second un chiffre. Les afficher d'une seule voix effaçait la hiérarchie --
+ * on cherche le chiffre du regard, pas la phrase.
+ */
+export function conditionParts(
+  condition: Condition,
+  unitOf: (measurementId: string) => string,
+): { what: string; target: string } {
+  const value = (unit: string) => `${condition.operator} ${condition.target} ${unit}`.trim();
+
   // Un relevé est une valeur unique : moyenne, meilleure ou cumul y donnent
   // tous le même nombre. Nommer l'agrégation ne ferait qu'embrouiller.
   if (condition.window === 'LATEST_READING') {
-    return `${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
+    return { what: 'dernier relevé', target: value(unitOf(condition.measurementId!)) };
   }
 
   if (condition.aggregation === 'setCount') {
     const clauses = qualifying(condition);
-    const counted =
-      clauses.length > 0 ? `séries de ${describeClauses(clauses, unitOf)}` : 'séries complétées';
-    return `${counted} ${condition.operator} ${condition.target}`;
+    return {
+      what: clauses.length > 0 ? `séries de ${describeClauses(clauses, unitOf)}` : 'séries complétées',
+      target: value(''),
+    };
   }
 
-  const label = AGGREGATION_PHRASES[condition.aggregation];
-  return `${label} ${condition.operator} ${condition.target} ${unitOf(condition.measurementId!)}`;
+  return {
+    what: AGGREGATION_PHRASES[condition.aggregation],
+    target: value(unitOf(condition.measurementId!)),
+  };
 }
 
 /** Les mêmes mots, en abrégé, pour une vignette qui n'a pas la place. */
