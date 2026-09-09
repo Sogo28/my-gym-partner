@@ -419,22 +419,27 @@ export default function NewGoalScreen() {
             </Text>
           </Pressable>
         ) : (
-          <View className="flex-row gap-2">
-            <Button
-              label="Un exercice"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={() => setPicking('exercise')}
-            />
-            <Button
-              label="Une mensuration"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={() => setPicking('body')}
-            />
-          </View>
+          // Un objectif simple ne vise qu'UNE chose : une fois choisie, les
+          // deux boutons ne proposaient plus d'ajouter mais de remplacer, ce
+          // qu'ils ne disaient pas. On en change en retirant ce qu'on a.
+          entries.length === 0 && (
+            <View className="flex-row gap-2">
+              <Button
+                label="Un exercice"
+                variant="secondary"
+                size="md"
+                className="flex-1"
+                onPress={() => setPicking('exercise')}
+              />
+              <Button
+                label="Une mensuration"
+                variant="secondary"
+                size="md"
+                className="flex-1"
+                onPress={() => setPicking('body')}
+              />
+            </View>
+          )
         )}
       </ScrollView>
 
