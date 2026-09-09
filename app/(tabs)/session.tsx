@@ -1,5 +1,10 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNotifications } from '../../src/ui/notifications';
+import {
+  advanceProgression,
+  goalsReachedBy,
+  type ReachedGoal,
+} from '../../src/use-cases/goal-actions';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -72,7 +77,7 @@ import { defaultTargets } from '../../src/ui/set-defaults';
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 export default function SessionScreen() {
-  const { notify } = useNotifications();
+  const { notify, ask } = useNotifications();
   const router = useRouter();
   /**
    * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
@@ -356,6 +361,66 @@ export default function SessionScreen() {
   }
 
   /**
+   * Terminer la séance, puis annoncer ce qu'elle vient de mettre à portée.
+   *
+   * L'annonce vient APRÈS la clôture : les séries prévues et non faites y
+   * sont abandonnées, et une étape ne doit pas se juger sur un état que la
+   * séance n'a pas fini de quitter.
+   */
+  function finish() {
+    // Les exercices travaillés se lisent AVANT de terminer : après, il n'y a
+    // plus de séance active à interroger.
+    const worked = [...new Set((session?.activities ?? []).map((entry) => entry.exerciseId))];
+    run(async () => {
+      await finishWorkoutSession();
+      const reached = await goalsReachedBy(worked);
+      if (reached.length > 0) announce(reached);
+    });
+  }
+
+  /**
+   * Ce qu'une étape atteinte propose : la franchir, ou aller la regarder.
+   *
+   * Jamais franchie d'office (n°17) : la séance dit que c'est mûr, pas que
+   * c'est décidé. Un seul objectif est présenté à la fois -- deux dialogues
+   * l'un sur l'autre ne se lisent pas ; les autres se retrouvent dans la
+   * liste, qui ne les a pas oubliés.
+   */
+  function announce(reached: ReachedGoal[]) {
+    const [{ goal }, ...others] = reached;
+    const rest =
+      others.length > 0
+        ? ` ${others.length} autre objectif${others.length > 1 ? 's' : ''} t attend${others.length > 1 ? 'ent' : ''} aussi.`
+        : '';
+
+    ask({
+      title: goal.isOnLastStep ? 'Objectif atteint' : 'Étape atteinte',
+      description: goal.isOnLastStep
+        ? `« ${goal.name} » : c était la dernière étape.${rest}`
+        : `« ${goal.name} » remplit ses conditions.${rest}`,
+      actions: [
+        ...(goal.isOnLastStep
+          ? []
+          : [
+              {
+                label: 'Passer à l étape suivante',
+                tone: 'primary' as const,
+                onPress: () =>
+                  advanceProgression(goal)
+                    .then(() => notify('Étape franchie.', 'success'))
+                    .catch((e) => notify(messageOf(e))),
+              },
+            ]),
+        {
+          label: 'Voir l objectif',
+          onPress: () => router.push({ pathname: '/goal', params: { id: goal.id } }),
+        },
+        { label: 'Plus tard' },
+      ],
+    });
+  }
+
+  /**
    * Commencer une séance libre pour de bon : la séance, l'exercice et sa
    * première série naissent du même geste, celui du bouton.
    */
@@ -400,7 +465,7 @@ export default function SessionScreen() {
   );
 
   const menuActions: SheetAction[] = [
-    { label: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
+    { label: 'Terminer la séance', onPress: finish },
     ...(performance?.currentSet
       ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
       : []),
@@ -915,7 +980,7 @@ export default function SessionScreen() {
             label="Terminer la séance"
             variant="secondary"
             size="lg"
-            onPress={() => run(finishWorkoutSession)}
+            onPress={finish}
           />
         </View>
       )}
@@ -930,7 +995,7 @@ export default function SessionScreen() {
         title="Programme terminé"
         description="Tous les exercices prévus sont faits. Tu peux t'arrêter là ou continuer librement."
         actions={[
-          { label: 'Terminer la séance', onPress: () => run(finishWorkoutSession) },
+          { label: 'Terminer la séance', onPress: finish },
           { label: 'Ajouter un exercice', onPress: () => setSheet('pick-exercise') },
         ]}
         onClose={() => setSheet('none')}

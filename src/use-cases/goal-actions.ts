@@ -35,6 +35,41 @@ export async function evaluateGoal(goal: Goal): Promise<GoalEvaluation | null> {
   return evaluateRequirements(requirements, samples);
 }
 
+/** Un objectif dont l'étape en cours vient d'être satisfaite. */
+export type ReachedGoal = { readonly goal: Goal; readonly evaluation: GoalEvaluation };
+
+/**
+ * Les objectifs que ce qu'on vient de faire met à portée.
+ *
+ * Seuls ceux qui visent un exercice TRAVAILLÉ : annoncer les autres serait
+ * annoncer une réussite sans rapport avec la séance qu'on termine -- elle
+ * était déjà acquise avant d'entrer dans la salle.
+ *
+ * Rien n'est décidé ici : franchir une étape reste un choix (n°17), et cette
+ * fonction ne fait que dire lesquels sont mûrs.
+ */
+export async function goalsReachedBy(
+  exerciseIds: readonly string[],
+): Promise<ReachedGoal[]> {
+  const concerned = (await findAll()).filter((goal) => {
+    const subject = goal.currentSubject;
+    return (
+      goal.status === 'ACTIVE' &&
+      subject.kind === 'exercise' &&
+      exerciseIds.includes(subject.exerciseId)
+    );
+  });
+
+  const evaluations = await Promise.all(concerned.map((goal) => evaluateGoal(goal)));
+
+  return concerned.flatMap((goal, index) => {
+    const evaluation = evaluations[index];
+    // Une étape sans condition ne s'atteint pas toute seule : elle se valide
+    // à la main, et n'a donc rien à annoncer.
+    return evaluation?.satisfied ? [{ goal, evaluation }] : [];
+  });
+}
+
 /** AdvanceProgression (§25) : l'utilisateur accepte de passer à l'étape suivante. */
 export async function advanceProgression(goal: Goal): Promise<Goal> {
   goal.advance();

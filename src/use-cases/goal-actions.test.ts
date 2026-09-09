@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { anExercise, useCleanDatabase } from '../../test/support';
 import type { Condition } from '../domain/goal/goal';
 import { recordReading } from './body-actions';
-import { createGoal, evaluateGoal, listGoals } from './goal-actions';
+import { archiveGoal, createGoal, evaluateGoal, goalsReachedBy, listGoals } from './goal-actions';
 import {
   completePerformanceSet,
   finishActivity,
@@ -368,5 +368,51 @@ describe('les séries qualifiantes', () => {
       { measurementId: 'reps', operator: '>=', target: 10 },
       { measurementId: 'weight', operator: '>=', target: 60 },
     ]);
+  });
+});
+
+/**
+ * Ce qu'une séance vient de mettre à portée.
+ *
+ * La règle qui compte : on n'annonce QUE ce que cette séance a touché. Un
+ * objectif déjà satisfait sur un exercice qu'on n'a pas travaillé était acquis
+ * avant d'entrer dans la salle, et l'annoncer serait mentir sur la cause.
+ */
+describe('goalsReachedBy', () => {
+  it('annonce un objectif dont l étape est satisfaite', async () => {
+    const exercise = await anExercise();
+    await aSessionOf(exercise.id, [10, 11, 12]);
+    await goalOn(exercise.id, [hold()]);
+
+    const reached = await goalsReachedBy([exercise.id]);
+
+    expect(reached).toHaveLength(1);
+    expect(reached[0].evaluation.satisfied).toBe(true);
+  });
+
+  it('n annonce pas un objectif qui n est pas atteint', async () => {
+    const exercise = await anExercise();
+    await aSessionOf(exercise.id, [7, 8]);
+    await goalOn(exercise.id, [hold()]);
+
+    expect(await goalsReachedBy([exercise.id])).toHaveLength(0);
+  });
+
+  it('n annonce pas un objectif portant sur un exercice non travaillé', async () => {
+    const worked = await anExercise('Advanced Tuck');
+    const other = await anExercise('Straddle');
+    await aSessionOf(other.id, [10, 11, 12]);
+    await goalOn(other.id, [hold()]);
+
+    // L'objectif d'un autre exercice tient, mais la séance n'y est pour rien.
+    expect(await goalsReachedBy([worked.id])).toHaveLength(0);
+  });
+
+  it('n annonce pas un objectif archivé', async () => {
+    const exercise = await anExercise();
+    await aSessionOf(exercise.id, [10, 11, 12]);
+    await archiveGoal(await goalOn(exercise.id, [hold()]));
+
+    expect(await goalsReachedBy([exercise.id])).toHaveLength(0);
   });
 });
