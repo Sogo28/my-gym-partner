@@ -1,7 +1,9 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
+  describeDemand,
   describeSource,
+  describeSourceShort,
   targetUnit,
   WINDOW_LABELS,
 } from '../src/ui/goal-labels';
@@ -86,6 +88,16 @@ export default function NewGoalScreen() {
    * des MESURES de son exercice. Il patiente donc ici le temps du chargement.
    */
   const [justCreated, setJustCreated] = useState<string | null>(null);
+  /**
+   * L'étape qu'on est en train de régler, ou aucune.
+   *
+   * Une seule à la fois : les autres se replient sur ce qu'elles demandent.
+   * Déplier cinq étapes à la fois donnait une page de réglages où l'objectif
+   * lui-même devenait invisible.
+   */
+  const [open, setOpen] = useState<number | null>(null);
+  /** Les réglages fins de l'étape ouverte : période, agrégation, ET. */
+  const [refining, setRefining] = useState(false);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
@@ -164,21 +176,53 @@ export default function NewGoalScreen() {
    * dans la liste en état : celui qui vient d'être créé n'y est pas encore.
    */
   function addExerciseEntry(exercise: Exercise) {
-    const subject: GoalSubject = { kind: 'exercise', exerciseId: exercise.id };
-    const entry: Entry = {
-      subject,
-      conditions: [defaultCondition(subject, exercise.measurementIds)],
-    };
-    setEntries((current) => (progressive ? [...current, entry] : [entry]));
+    add([
+      {
+        subject: { kind: 'exercise', exerciseId: exercise.id },
+        measurementIds: exercise.measurementIds,
+      },
+    ]);
   }
 
   function addEntry(subject: GoalSubject) {
-    const available = measurementsOf(subject);
-    if (available.length === 0) return;
+    add([{ subject, measurementIds: measurementsOf(subject) }]);
+  }
 
-    const entry: Entry = { subject, conditions: [defaultCondition(subject, available)] };
+  /**
+   * Ajouter d'un coup, et ouvrir la dernière.
+   *
+   * D'un coup parce que le sélecteur en rend plusieurs : ajoutées une par
+   * une, chacune calculerait sa position sur une liste qui n'a pas encore
+   * changé. Et ouverte, parce qu'une étape qu'on vient de désigner est
+   * précisément celle qu'on veut régler.
+   */
+  function add(wanted: { subject: GoalSubject; measurementIds: readonly string[] }[]) {
+    const built = wanted
+      .filter((entry) => entry.measurementIds.length > 0)
+      .map(({ subject, measurementIds }) => ({
+        subject,
+        conditions: [defaultCondition(subject, measurementIds)],
+      }));
+    if (built.length === 0) return;
+
     // Un objectif simple ne vise qu'une chose : le nouveau remplace l'ancien.
-    setEntries((current) => (progressive ? [...current, entry] : [entry]));
+    setEntries((current) => (progressive ? [...current, ...built] : built.slice(-1)));
+    setOpen(progressive ? entries.length + built.length - 1 : 0);
+    setRefining(false);
+  }
+
+  /** Retirer une étape : ce qui était ouvert se décale, ou se referme. */
+  function removeEntry(index: number) {
+    setEntries((current) => current.filter((_, i) => i !== index));
+    setOpen((current) =>
+      current === null || current === index ? null : current > index ? current - 1 : current,
+    );
+  }
+
+  /** Ouvrir une étape en referme l'autre, et repart de ses réglages simples. */
+  function toggle(index: number) {
+    setRefining(false);
+    setOpen((current) => (current === index ? null : index));
   }
 
   function update(index: number, conditionIndex: number, changes: Partial<Condition>) {
@@ -296,7 +340,12 @@ export default function NewGoalScreen() {
             selected={!progressive}
             onPress={() => {
               setProgressive(false);
+              // Un objectif simple ne vise qu'une chose : les étapes au-delà
+              // de la première n'ont plus lieu d'être, et celle qui reste est
+              // évidemment celle qu'on règle.
               setEntries((current) => current.slice(0, 1));
+              setOpen((current) => (current === null ? null : 0));
+              setRefining(false);
             }}
           />
         </View>
@@ -310,15 +359,47 @@ export default function NewGoalScreen() {
           // Plusieurs mesures ne se règlent pas séparément : elles décrivent
           // ensemble la série qui compte.
           const paired = !isReading && available.length > 1;
+          const first = entry.conditions[0];
+
+          // Repliée, l'étape dit ce qu'elle demande et ce que ça signifie :
+          // de quoi la relire sans la rouvrir.
+          if (open !== index) {
+            return (
+              <Pressable key={index} onPress={() => toggle(index)}>
+                <Card className="flex-row items-center justify-between gap-3">
+                  <View className="shrink gap-0.5">
+                    <Text
+                      className="font-bold text-[15px] text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {progressive ? `${index + 1}. ` : ''}
+                      {subjectName(entry.subject)}
+                    </Text>
+                    <Text className="text-[11px] text-muted dark:text-muted-dark">
+                      {describeSourceShort(first)}
+                    </Text>
+                  </View>
+                  <Text
+                    className="font-mono-bold text-[13px] text-primary-ink dark:text-primary-ink-dark"
+                    style={{ fontVariant: ['tabular-nums'] }}
+                  >
+                    {describeDemand([{ conditions: entry.conditions }], unitOf)}
+                  </Text>
+                </Card>
+              </Pressable>
+            );
+          }
 
           return (
             <Card key={index} density="titled" className="gap-3">
               <View className="flex-row items-center justify-between">
-                <Text className="shrink font-bold text-[16px] text-ink dark:text-ink-dark">
-                  {progressive ? `${index + 1}. ` : ''}
-                  {subjectName(entry.subject)}
-                </Text>
-                <Pressable onPress={() => setEntries((c) => c.filter((_, i) => i !== index))}>
+                <Pressable className="shrink" onPress={() => toggle(index)}>
+                  <Text className="font-bold text-[16px] text-ink dark:text-ink-dark">
+                    {progressive ? `${index + 1}. ` : ''}
+                    {subjectName(entry.subject)}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => removeEntry(index)}>
                   <Text className="text-[13px] text-danger dark:text-danger-dark">retirer</Text>
                 </Pressable>
               </View>
@@ -334,29 +415,9 @@ export default function NewGoalScreen() {
                     </Text>
                   )}
 
-                  {!isReading && !paired && (
-                  <View className="flex-row flex-wrap gap-2">
-                    {AGGREGATION_LABELS.map(({ value, label }) => (
-                      <Chip
-                        key={value}
-                        label={label}
-                        selected={condition.aggregation === value}
-                        onPress={() =>
-                          update(index, conditionIndex, {
-                            aggregation: value,
-                            measurementId:
-                              value === 'setCount'
-                                ? null
-                                : (condition.measurementId ?? available[0] ?? null),
-                          })
-                        }
-                      />
-                    ))}
-                  </View>
-                  )}
-
                   {/* La série décrite d'un bloc : une cible par mesure, lues
-                      TOUJOURS sur la même série. */}
+                      TOUJOURS sur la même série. Elle reste en vue, car c'est
+                      elle que l'on vient régler. */}
                   {paired && (
                     <View className="gap-2">
                       <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
@@ -388,22 +449,48 @@ export default function NewGoalScreen() {
                     />
                   </View>
 
-                  {/* Les périodes que ce sujet sait alimenter : une
-                      mensuration n'en a qu'une, donc rien à choisir. */}
-                  {windows.length > 1 && (
-                  <View className="flex-row flex-wrap gap-2">
-                    {WINDOW_LABELS.filter((entry) => windows.includes(entry.value)).map(({ value, label }) => (
-                      <Chip
-                        key={value}
-                        label={label}
-                        selected={condition.window === value}
-                        onPress={() => update(index, conditionIndex, { window: value })}
-                      />
-                    ))}
-                  </View>
+                  {/* Comment la mesure est réduite, et sur quelle période :
+                      les valeurs de départ disent déjà ce que veut dire la
+                      plupart des objectifs, donc elles attendent qu'on les
+                      demande. */}
+                  {refining && !isReading && !paired && (
+                    <View className="flex-row flex-wrap gap-2">
+                      {AGGREGATION_LABELS.map(({ value, label }) => (
+                        <Chip
+                          key={value}
+                          label={label}
+                          selected={condition.aggregation === value}
+                          onPress={() =>
+                            update(index, conditionIndex, {
+                              aggregation: value,
+                              measurementId:
+                                value === 'setCount'
+                                  ? null
+                                  : (condition.measurementId ?? available[0] ?? null),
+                            })
+                          }
+                        />
+                      ))}
+                    </View>
                   )}
 
-                  {/* La phrase exacte que cette condition signifie. */}
+                  {/* Les périodes que ce sujet sait alimenter : une
+                      mensuration n'en a qu'une, donc rien à choisir. */}
+                  {refining && windows.length > 1 && (
+                    <View className="flex-row flex-wrap gap-2">
+                      {WINDOW_LABELS.filter((entry) => windows.includes(entry.value)).map(
+                        ({ value, label }) => (
+                          <Chip
+                            key={value}
+                            label={label}
+                            selected={condition.window === value}
+                            onPress={() => update(index, conditionIndex, { window: value })}
+                          />
+                        ),
+                      )}
+                    </View>
+                  )}
+
                   <View className="flex-row items-center justify-between gap-3">
                     <Text className="shrink font-mono text-[12px] text-planned">
                       {describeSource(condition)}
@@ -419,15 +506,26 @@ export default function NewGoalScreen() {
                 </View>
               ))}
 
-              <Button
-                label="+ Ajouter une condition"
-                variant="ghost"
-                size="md"
-                onPress={() => addCondition(index)}
-              />
+              {/* Tout reste atteignable : c'est l'ordre d'apparition qui
+                  change, pas ce qu'on peut exprimer. */}
+              <Pressable onPress={() => setRefining((on) => !on)}>
+                <Text className="font-bold text-[13px] text-primary-ink dark:text-primary-ink-dark">
+                  {refining ? 'Replier les réglages ⌃' : 'Affiner ⌄'}
+                </Text>
+              </Pressable>
+
+              {refining && (
+                <Button
+                  label="+ Ajouter une condition"
+                  variant="ghost"
+                  size="md"
+                  onPress={() => addCondition(index)}
+                />
+              )}
             </Card>
           );
         })}
+
 
         {/* Deux sources possibles : ce qu'on exécute, ou ce qu'on mesure. */}
         <View className="flex-row gap-2">
