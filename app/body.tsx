@@ -8,8 +8,8 @@ import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
 import { Fab } from '../src/ui/fab';
 import { formatDateTime } from '../src/ui/format';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { BusinessNotice } from '../src/ui/notice';
 import { NumberField } from '../src/ui/number-field';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
@@ -29,6 +29,7 @@ import {
  * produire. Une valeur, une date, rien de plus.
  */
 export default function BodyScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [readings, setReadings] = useState<BodyReading[]>([]);
@@ -41,7 +42,6 @@ export default function BodyScreen() {
     unit: string;
     muscleIds: string[];
   } | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [allMetrics, allReadings, allMuscles] = await Promise.all([
@@ -56,12 +56,7 @@ export default function BodyScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
-      reload().catch((e) => setError(messageOf(e)));
+      reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
 
@@ -91,9 +86,8 @@ export default function BodyScreen() {
     try {
       await recordReading({ metricId: metric.id, value });
       await reload();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -104,9 +98,8 @@ export default function BodyScreen() {
     try {
       await createMetric(draft);
       await reload();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -114,9 +107,8 @@ export default function BodyScreen() {
     try {
       await deleteMetric(metric);
       await reload();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -137,7 +129,6 @@ export default function BodyScreen() {
         contentContainerClassName="grow gap-3 px-5 pb-28"
         keyboardShouldPersistTaps="handled"
       >
-        {error && <BusinessNotice message={error} />}
 
         {tracked.length === 0 && (
           <EmptyState
@@ -192,7 +183,7 @@ export default function BodyScreen() {
                       onPress={() =>
                         deleteReading(reading.id)
                           .then(reload)
-                          .catch((e) => setError(messageOf(e)))
+                          .catch((e) => notify(messageOf(e)))
                       }
                       hitSlop={8}
                     >

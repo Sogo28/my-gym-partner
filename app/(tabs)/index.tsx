@@ -1,4 +1,5 @@
 import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -20,6 +21,7 @@ import { catalogueSource } from '../../src/use-cases/repdb-actions';
 import type { CatalogueSuggestion } from '../../src/ui/exercise-picker';
 
 export default function ExercisesScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -31,20 +33,15 @@ export default function ExercisesScreen() {
   /** Ce que le catalogue tiers propose pour cette recherche. */
   const [suggestions, setSuggestions] = useState<CatalogueSuggestion[]>([]);
   const [adopting, setAdopting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    // Une erreur appartient au moment où elle s'est produite : la garder d'un
-    // affichage à l'autre ferait porter à l'écran une panne qui n'a plus lieu
-    // -- et l'écran, lui, reste monté quand on le quitte.
-    setError(null);
     Promise.all([findAll(), findAllMeasurements(), findAllMuscles()])
       .then(([all, allMeasurements, allMuscles]) => {
         setExercises(all);
         setMeasurements(allMeasurements);
         setMuscles(allMuscles);
       })
-      .catch((e) => setError(messageOf(e)));
+      .catch((e) => notify(messageOf(e)));
   }, []);
 
   useFocusEffect(reload);
@@ -78,9 +75,8 @@ export default function ExercisesScreen() {
     try {
       await catalogue.adopt(id);
       setSuggestions((current) => current.filter((entry) => entry.id !== id));
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     } finally {
       setAdopting(null);
     }
@@ -220,7 +216,6 @@ export default function ExercisesScreen() {
         )}
       />
 
-      {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
 
       <Link href="/new-exercise" asChild>
         <Fab accessibilityLabel="Nouvel exercice" />

@@ -10,6 +10,7 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { describeCondition, WINDOW_PHRASES } from '../src/ui/goal-labels';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
@@ -33,6 +34,7 @@ import {
  * ici.
  */
 export default function GoalScreen() {
+  const { notify } = useNotifications();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -41,7 +43,6 @@ export default function GoalScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-archive'>('none');
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [goals, allExercises, allMeasurements, allMetrics] = await Promise.all([
@@ -61,8 +62,7 @@ export default function GoalScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setError(null);
-      reload().catch((e) => setError(messageOf(e)));
+      reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
 
@@ -89,7 +89,7 @@ export default function GoalScreen() {
         className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark"
       >
         <BackHeader title="Objectif" onBack={() => router.back()} />
-        <Text className="text-muted dark:text-muted-dark">{error ?? 'Objectif introuvable.'}</Text>
+        <Text className="text-muted dark:text-muted-dark">Objectif introuvable.</Text>
       </SafeAreaView>
     );
   }
@@ -115,7 +115,6 @@ export default function GoalScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
-        {error && <BusinessNotice message={error} />}
 
         {/* Ce qui est visé maintenant, et ce que ça demande. */}
         <Card density="titled" className="gap-2">
@@ -171,7 +170,7 @@ export default function GoalScreen() {
                 onPress={() =>
                   advanceProgression(goal)
                     .then(reload)
-                    .catch((e) => setError(messageOf(e)))
+                    .catch((e) => notify(messageOf(e)))
                 }
               />
             </View>
@@ -248,7 +247,7 @@ export default function GoalScreen() {
             onPress: () =>
               archiveGoal(goal)
                 .then(() => router.back())
-                .catch((e) => setError(messageOf(e))),
+                .catch((e) => notify(messageOf(e))),
           },
         ]}
         onClose={() => setSheet('none')}

@@ -1,5 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -21,7 +22,6 @@ import {
   useReorderableDrag,
 } from 'react-native-reorderable-list';
 import { NumberField } from '../src/ui/number-field';
-import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -55,6 +55,7 @@ function defaultSet(exercise: Exercise): { targets: Record<string, number> } {
  * validation -- y compris quand on modifie un entraînement existant.
  */
 export default function NewWorkoutScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [existing, setExisting] = useState<PlannedWorkout | null>(null);
@@ -82,16 +83,10 @@ export default function NewWorkoutScreen() {
   const [preselected, setPreselected] = useState<string[]>([]);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
-  const [error, setError] = useState<string | null>(null);
 
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       Promise.all([
         listActiveExercises(),
         findAllMeasurements(),
@@ -104,7 +99,7 @@ export default function NewWorkoutScreen() {
           setMuscles(allMuscles);
           setRecentIds(recent);
         })
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
 
       /**
        * Revenir du formulaire d'exercice reprend le geste interrompu : le
@@ -129,13 +124,13 @@ export default function NewWorkoutScreen() {
         setName(plan.name);
         setDraft(plan.exercises.map(keyed));
       })
-      .catch((e) => setError(messageOf(e)));
+      .catch((e) => notify(messageOf(e)));
   }, [id, keyed]);
 
   const catalogue = useMemo(
     () =>
       catalogueSource(() => {
-        listActiveExercises().then(setAvailable).catch((e) => setError(messageOf(e)));
+        listActiveExercises().then(setAvailable).catch((e) => notify(messageOf(e)));
       }),
     [],
   );
@@ -167,7 +162,6 @@ export default function NewWorkoutScreen() {
         };
       }),
     );
-    setError(null);
   }
 
   /** Une cible se change directement sur sa série, sans étape de validation. */
@@ -238,7 +232,7 @@ export default function NewWorkoutScreen() {
       await discardWorkout(existing);
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -252,7 +246,7 @@ export default function NewWorkoutScreen() {
       }
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -313,7 +307,6 @@ export default function NewWorkoutScreen() {
           </Text>
         </Pressable>
 
-        {error && <BusinessNotice message={error} />}
       </ScrollViewContainer>
 
       {/* Un même exercice peut revenir dans un entraînement -- un finisher en

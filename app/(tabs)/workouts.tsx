@@ -1,4 +1,5 @@
 import { Link, useFocusEffect } from 'expo-router';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -17,6 +18,7 @@ import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
 
 export default function WorkoutsScreen() {
+  const { notify } = useNotifications();
   const [workouts, setWorkouts] = useState<PlannedWorkout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
@@ -24,22 +26,16 @@ export default function WorkoutsScreen() {
   /** Les muscles retenus au filtre. Vide : tout voir. */
   const [filter, setFilter] = useState<string[]>([]);
   const [filtering, setFiltering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       Promise.all([listActiveWorkouts(), findAllExercises(), findAllMuscles()])
         .then(([plans, allExercises, allMuscles]) => {
           setWorkouts(plans);
           setExercises(allExercises);
           setMuscles(allMuscles);
         })
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
     }, []),
   );
 
@@ -141,7 +137,6 @@ export default function WorkoutsScreen() {
         }}
       />
 
-      {error && <Text className="pb-2 text-danger dark:text-danger-dark">{error}</Text>}
 
       <Link href="/new-workout" asChild>
         <Fab accessibilityLabel="Nouvel entraînement" />

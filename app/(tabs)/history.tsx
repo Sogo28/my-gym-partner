@@ -1,4 +1,5 @@
 import { useFocusEffect } from 'expo-router';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -44,11 +45,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function HistoryScreen() {
+  const { notify } = useNotifications();
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
-  const [error, setError] = useState<string | null>(null);
   /** La série ouverte à la correction, s'il y en a une. */
   const [editing, setEditing] = useState<{
     performanceId: string;
@@ -84,12 +85,7 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
-      load().catch((e) => setError(messageOf(e)));
+      load().catch((e) => notify(messageOf(e)));
     }, [load]),
   );
 
@@ -103,9 +99,8 @@ export default function HistoryScreen() {
       });
       setEditing(null);
       await load();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -122,9 +117,8 @@ export default function HistoryScreen() {
     setBusy(true);
     try {
       await shareBackup();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -133,9 +127,8 @@ export default function HistoryScreen() {
   async function choose() {
     try {
       setRestoring(await pickBackup());
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -146,9 +139,8 @@ export default function HistoryScreen() {
     try {
       await applyBackup(chosen.backup);
       await load();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -227,7 +219,6 @@ export default function HistoryScreen() {
         contentContainerClassName="grow gap-3 px-5 pb-6"
         keyboardShouldPersistTaps="handled"
       >
-        {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
         {summaries.length === 0 && (
           <EmptyState
             title="Aucun historique"
@@ -331,7 +322,6 @@ export default function HistoryScreen() {
             onPress={() => setShown((count) => count + PAGE)}
           />
         )}
-
       </ScrollView>
 
       <Sheet

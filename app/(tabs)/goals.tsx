@@ -8,13 +8,13 @@ import type { BodyMetric } from '../../src/domain/body/body-metric';
 import type { Goal, GoalSubject } from '../../src/domain/goal/goal';
 import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
 import { listMetrics } from '../../src/use-cases/body-actions';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { GoalCard } from '../../src/ui/goal-card';
 import { EmptyState } from '../../src/ui/empty-state';
 import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
 import { Fab } from '../../src/ui/fab';
-import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
 import {
   evaluateGoal,
@@ -23,6 +23,7 @@ import {
 } from '../../src/use-cases/goal-actions';
 
 export default function GoalsScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [evaluations, setEvaluations] = useState<Map<string, GoalEvaluation | null>>(new Map());
@@ -30,7 +31,6 @@ export default function GoalsScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [query, setQuery] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [all, allExercises, allMeasurements, allMetrics] = await Promise.all([
@@ -52,12 +52,7 @@ export default function GoalsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
-      reload().catch((e) => setError(messageOf(e)));
+      reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
 
@@ -109,7 +104,6 @@ export default function GoalsScreen() {
         contentContainerClassName="grow gap-3 px-5 pb-28"
         keyboardShouldPersistTaps="handled"
       >
-        {error && <BusinessNotice message={error} />}
         {active.length === 0 && (
           <EmptyState
             title="Aucun objectif"

@@ -4,8 +4,8 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { resetEverything } from '../src/use-cases/reset-actions';
@@ -31,20 +31,15 @@ function formatSize(bytes: number): string {
  * effaçable quand elle ne sert plus.
  */
 export default function SettingsScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [state, setState] = useState<CatalogueState>({ downloaded: false, size: 0 });
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       setState(catalogueState());
     }, []),
   );
@@ -53,9 +48,8 @@ export default function SettingsScreen() {
     setBusy(true);
     try {
       setState(await downloadCatalogue());
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -68,7 +62,6 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
-        {error && <BusinessNotice message={error} />}
 
         <Card density="titled" className="gap-2">
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
@@ -142,9 +135,7 @@ export default function SettingsScreen() {
             label: 'Tout effacer',
             tone: 'danger',
             onPress: () =>
-              resetEverything()
-                .then(() => setError(null))
-                .catch((e) => setError(messageOf(e))),
+              resetEverything().catch((e) => notify(messageOf(e))),
           },
         ]}
         onClose={() => setResetting(false)}

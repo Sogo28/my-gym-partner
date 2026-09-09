@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -25,12 +26,12 @@ import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogu
  * Écran sans effet de bord : consulter un entraînement ne le démarre pas.
  */
 export default function WorkoutDetailScreen() {
+  const { notify } = useNotifications();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [plan, setPlan] = useState<PlannedWorkout | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
-  const [error, setError] = useState<string | null>(null);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
 
@@ -38,18 +39,13 @@ export default function WorkoutDetailScreen() {
   // l'entraînement modifié, pas celui d'avant.
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       Promise.all([findAllPlans(), findAllExercises(), findAllMeasurements()])
         .then(([plans, allExercises, allMeasurements]) => {
           setPlan(plans.find((candidate) => candidate.id === id) ?? null);
           setExercises(allExercises);
           setMeasurements(allMeasurements);
         })
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
     }, [id]),
   );
 
@@ -71,7 +67,7 @@ export default function WorkoutDetailScreen() {
       <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark">
         <BackHeader title="Entraînement" onBack={() => router.back()} />
         <Text className="text-muted dark:text-muted-dark">
-          {error ?? 'Entraînement introuvable.'}
+          Entraînement introuvable.
         </Text>
       </SafeAreaView>
     );
@@ -102,7 +98,7 @@ export default function WorkoutDetailScreen() {
       await discardWorkout(plan);
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -166,8 +162,6 @@ export default function WorkoutDetailScreen() {
             </Card>
           </Pressable>
         ))}
-
-        {error && <Text className="text-danger dark:text-danger-dark">{error}</Text>}
       </ScrollView>
 
       {/* Action principale ancrée en bas, hors du défilement. */}
@@ -186,7 +180,7 @@ export default function WorkoutDetailScreen() {
                   onPress: () =>
                     unarchiveWorkout(plan)
                       .then(() => router.back())
-                      .catch((e) => setError(messageOf(e))),
+                      .catch((e) => notify(messageOf(e))),
                 },
               ]
             : [

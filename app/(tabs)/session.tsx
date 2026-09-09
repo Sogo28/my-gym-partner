@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -37,7 +38,6 @@ import { DatePickerSheet } from '../../src/ui/date-picker';
 import { EmptyState } from '../../src/ui/empty-state';
 import { ExercisePicker } from '../../src/ui/exercise-picker';
 import { catalogueSource } from '../../src/use-cases/repdb-actions';
-import { BusinessNotice } from '../../src/ui/notice';
 import { BackHeader, SectionHeader, SessionHeader } from '../../src/ui/screen-header';
 import { Sheet, type SheetAction } from '../../src/ui/sheet';
 import { SetChip } from '../../src/ui/set-chip';
@@ -72,6 +72,7 @@ import { defaultTargets } from '../../src/ui/set-defaults';
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 export default function SessionScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   /**
    * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
@@ -123,7 +124,6 @@ export default function SessionScreen() {
   const [sheet, setSheet] = useState<
     'none' | 'menu' | 'pending-menu' | 'confirm-cancel' | 'end-of-plan' | 'pick-exercise'
   >('none');
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [active, allExercises, allPlans, allMeasurements, allSchedule, allMuscles, recent] =
@@ -151,12 +151,7 @@ export default function SessionScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
-      reload().catch((e) => setError(messageOf(e)));
+      reload().catch((e) => notify(messageOf(e)));
 
       // Un exercice choisi et non démarré n'engage rien, et n'a donc pas à
       // survivre au départ de l'écran : revenir sur les séances repart de
@@ -174,16 +169,15 @@ export default function SessionScreen() {
     try {
       await action();
       await reload();
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
   const catalogue = useMemo(
     () =>
       catalogueSource(() => {
-        reload().catch((e) => setError(messageOf(e)));
+        reload().catch((e) => notify(messageOf(e)));
       }),
     [reload],
   );
@@ -278,9 +272,7 @@ export default function SessionScreen() {
       [side]: { ...(editedValues[side] ?? {}), [measurementId]: value },
     };
     setValues(next);
-    correctSet(editing, next)
-      .then(() => setError(null))
-      .catch((e) => setError(messageOf(e)));
+    correctSet(editing, next).catch((e) => notify(messageOf(e)));
   }
 
   /**
@@ -293,7 +285,7 @@ export default function SessionScreen() {
     setValues({});
     if (editing === index) {
       setEditing(null);
-      reload().catch((e) => setError(messageOf(e)));
+      reload().catch((e) => notify(messageOf(e)));
     } else {
       setEditing(index);
     }
@@ -360,7 +352,7 @@ export default function SessionScreen() {
     setAdjustingStart(false);
     reload()
       .then(() => setPending(exerciseId))
-      .catch((e) => setError(messageOf(e)));
+      .catch((e) => notify(messageOf(e)));
   }
 
   /**
@@ -485,7 +477,6 @@ export default function SessionScreen() {
         <View className="flex-1" />
 
         <View className="gap-3 pb-2">
-          {error && <BusinessNotice message={error} />}
 
           {adjustingStart && (
             <View className="flex-row gap-3">
@@ -549,7 +540,6 @@ export default function SessionScreen() {
           contentContainerClassName="grow gap-3 px-5 pb-4"
           keyboardShouldPersistTaps="handled"
         >
-          {error && <BusinessNotice message={error} />}
 
           {waiting.exercises.map((planned, position) => (
             <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-1">
@@ -639,7 +629,6 @@ export default function SessionScreen() {
           contentContainerClassName="grow gap-3 px-5 pb-4"
           keyboardShouldPersistTaps="handled"
         >
-          {error && <BusinessNotice message={error} />}
 
           {today.length > 0 && (
             <>
@@ -856,7 +845,6 @@ export default function SessionScreen() {
           </View>
 
           <View className="gap-3 pb-2">
-            {error && <BusinessNotice message={error} />}
 
             {/* Les champs n'apparaissent que pour la série qu'on a ouverte.
                 Un exercice unilatéral en montre une rangée par côté. */}
@@ -919,7 +907,6 @@ export default function SessionScreen() {
         </>
       ) : (
         <View className="mt-auto gap-3">
-          {error && <BusinessNotice message={error} />}
           <Text className="text-muted dark:text-muted-dark">Aucun exercice en cours.</Text>
           {/* Une séance libre démarre ici : sans ce bouton, elle ne pouvait
               que se terminer. */}

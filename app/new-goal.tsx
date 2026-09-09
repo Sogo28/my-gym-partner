@@ -5,6 +5,7 @@ import {
   targetUnit,
   WINDOW_LABELS,
 } from '../src/ui/goal-labels';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -22,7 +23,6 @@ import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { NumberField } from '../src/ui/number-field';
-import { BusinessNotice } from '../src/ui/notice';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -70,6 +70,7 @@ function defaultCondition(subject: GoalSubject, measurementIds: readonly string[
 }
 
 export default function NewGoalScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
@@ -83,17 +84,11 @@ export default function NewGoalScreen() {
   const [name, setName] = useState('');
   const [progressive, setProgressive] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   // À chaque affichage, et non au seul montage : un exercice ou une
   // mensuration créés entre-temps doivent apparaître ici.
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       Promise.all([
         listActiveExercises(),
         findAllMeasurements(),
@@ -108,14 +103,14 @@ export default function NewGoalScreen() {
           setMuscles(allMuscles);
           setRecentIds(recent);
         })
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
     }, []),
   );
 
   const catalogue = useMemo(
     () =>
       catalogueSource(() => {
-        listActiveExercises().then(setExercises).catch((e) => setError(messageOf(e)));
+        listActiveExercises().then(setExercises).catch((e) => notify(messageOf(e)));
       }),
     [],
   );
@@ -227,7 +222,7 @@ export default function NewGoalScreen() {
       }
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -415,8 +410,6 @@ export default function NewGoalScreen() {
             onPress={() => setPicking('body')}
           />
         </View>
-
-        {error && <BusinessNotice message={error} />}
       </ScrollView>
 
       <View className="p-5 pt-2">

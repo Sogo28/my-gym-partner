@@ -12,6 +12,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NotificationProvider } from '../src/ui/notifications';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
 import '../global.css';
 
@@ -69,6 +70,9 @@ export default function RootLayout() {
     // Racine des gestes : le glisser-déposer de la liste réordonnable en
     // dépend, et rien ne l'installe par défaut.
     <GestureHandlerRootView style={{ flex: 1 }}>
+    {/* Au-dessus des écrans et sous la racine des gestes : les messages
+        flottent par-dessus la pile, sans appartenir à aucun écran. */}
+    <NotificationProvider>
     <ThemeProvider value={theme}>
     <Stack
       screenOptions={{
@@ -93,6 +97,7 @@ export default function RootLayout() {
       <Stack.Screen name="settings" />
     </Stack>
     </ThemeProvider>
+    </NotificationProvider>
     </GestureHandlerRootView>
   );
 }

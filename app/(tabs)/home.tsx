@@ -14,8 +14,8 @@ import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { GoalCard } from '../../src/ui/goal-card';
 import { dayLabel, formatDateTime } from '../../src/ui/format';
+import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
-import { BusinessNotice } from '../../src/ui/notice';
 import { SectionHeader } from '../../src/ui/screen-header';
 import { evaluateGoal, listGoals, type GoalEvaluation } from '../../src/use-cases/goal-actions';
 import { listMetrics } from '../../src/use-cases/body-actions';
@@ -53,6 +53,7 @@ const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exe
  * moyennes ne disent rien que le schéma ne dise mieux.
  */
 export default function HomeScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [week, setWeek] = useState<MuscleSummary>(EMPTY);
@@ -70,15 +71,9 @@ export default function HomeScreen() {
   /** L'étape de la planification : choisir l'entraînement, puis sa date. */
   const [planning, setPlanning] = useState<'none' | 'workout' | 'date'>('none');
   const [chosen, setChosen] = useState<PlannedWorkout | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       Promise.all([
         findActive(),
         summarizeWeek(new Date()),
@@ -120,7 +115,7 @@ export default function HomeScreen() {
             });
           },
         )
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
     }, []),
   );
 
@@ -166,7 +161,7 @@ export default function HomeScreen() {
     if (!chosen) return;
     summarizeDay(chosen)
       .then(setDayWork)
-      .catch((e) => setError(messageOf(e)));
+      .catch((e) => notify(messageOf(e)));
   }
 
   const shown = day ? dayWork : week;
@@ -226,9 +221,8 @@ export default function HomeScreen() {
     try {
       await scheduleWorkout({ plannedWorkoutId: plan.id, at });
       setSchedule((await listSchedule()).filter((entry) => entry.status === 'SCHEDULED'));
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -246,7 +240,6 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-5 px-5 pb-10" keyboardShouldPersistTaps="handled">
-        {error && <BusinessNotice message={error} />}
 
         {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
         <View className="gap-3">

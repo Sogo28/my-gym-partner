@@ -10,8 +10,8 @@ import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
 import { formatDateTime } from '../src/ui/format';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { BusinessNotice } from '../src/ui/notice';
 import { BackHeader } from '../src/ui/screen-header';
 import { cn } from '../src/ui/cn';
 import { formatSetValues } from '../src/ui/set-values';
@@ -39,6 +39,7 @@ const PAGE = 5;
  * formulaire est maintenant derrière le menu.
  */
 export default function ExerciseDetailScreen() {
+  const { notify } = useNotifications();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [detail, setDetail] = useState<ExerciseDetail | null>(null);
@@ -51,17 +52,11 @@ export default function ExerciseDetailScreen() {
   const [tracked, setTracked] = useState<string | null>(null);
   /** Combien de séances passées on montre sous la dernière. */
   const [shown, setShown] = useState(PAGE);
-  const [error, setError] = useState<string | null>(null);
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
   // l'exercice tel qu'il est maintenant.
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
       setActive(true);
       return () => setActive(false);
     }, []),
@@ -75,7 +70,7 @@ export default function ExerciseDetailScreen() {
           setMeasurements(allMeasurements);
           setMuscles(allMuscles);
         })
-        .catch((e) => setError(messageOf(e)));
+        .catch((e) => notify(messageOf(e)));
     }, [id]),
   );
 
@@ -90,7 +85,7 @@ export default function ExerciseDetailScreen() {
     return (
       <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark">
         <BackHeader title="Exercice" onBack={() => router.back()} />
-        <Text className="text-muted dark:text-muted-dark">{error ?? 'Exercice introuvable.'}</Text>
+        <Text className="text-muted dark:text-muted-dark">Exercice introuvable.</Text>
       </SafeAreaView>
     );
   }
@@ -112,7 +107,7 @@ export default function ExerciseDetailScreen() {
       await discardExercise(exercise);
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -132,7 +127,6 @@ export default function ExerciseDetailScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-5 px-5 pb-8" keyboardShouldPersistTaps="handled">
-        {error && <BusinessNotice message={error} />}
 
         {/* Ce que l'exercice EST : ses mesures, ses muscles, sa nature. */}
         <View className="flex-row flex-wrap gap-1.5">
@@ -312,7 +306,7 @@ export default function ExerciseDetailScreen() {
                 onPress: () =>
                   unarchiveExercise(exercise)
                     .then(() => router.back())
-                    .catch((e) => setError(messageOf(e))),
+                    .catch((e) => notify(messageOf(e))),
               }
             : {
                 label: 'Retirer du catalogue',

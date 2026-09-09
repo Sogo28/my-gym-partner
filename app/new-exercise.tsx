@@ -1,4 +1,5 @@
 import { announceCreated } from '../src/ui/created-exercise';
+import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,7 +12,6 @@ import { MediaStrip } from '../src/ui/media-strip';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
 import { Button } from '../src/ui/button';
-import { BusinessNotice } from '../src/ui/notice';
 import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { Sheet } from '../src/ui/sheet';
 import { BackHeader } from '../src/ui/screen-header';
@@ -30,6 +30,7 @@ import {
  * de l'écrire deux fois.
  */
 export default function NewExerciseScreen() {
+  const { notify } = useNotifications();
   const router = useRouter();
   const { id, name: wanted, announce } = useLocalSearchParams<{
     id?: string;
@@ -54,7 +55,6 @@ export default function NewExerciseScreen() {
   );
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
-  const [error, setError] = useState<string | null>(null);
 
   const toggle =
     (set: (update: (current: string[]) => string[]) => void) => (id: string) =>
@@ -65,13 +65,8 @@ export default function NewExerciseScreen() {
   // Les catalogues se rechargent à chaque affichage...
   useFocusEffect(
     useCallback(() => {
-      // Une erreur appartient au moment où elle s'est produite : la garder
-      // d'un affichage à l'autre ferait porter à l'écran une panne qui n'a
-      // plus lieu -- et l'écran, lui, reste monté quand on le quitte.
-      setError(null);
-
-      findAllMeasurements().then(setMeasurements).catch((e) => setError(messageOf(e)));
-      findAllMuscles().then(setMuscles).catch((e) => setError(messageOf(e)));
+      findAllMeasurements().then(setMeasurements).catch((e) => notify(messageOf(e)));
+      findAllMuscles().then(setMuscles).catch((e) => notify(messageOf(e)));
     }, []),
   );
 
@@ -104,7 +99,7 @@ export default function NewExerciseScreen() {
         setSecondaryMuscles([...exercise.secondaryMuscleIds]);
         setMedia([...exercise.media]);
       })
-      .catch((e) => setError(messageOf(e)));
+      .catch((e) => notify(messageOf(e)));
   }, [id]);
 
   async function submit() {
@@ -136,7 +131,7 @@ export default function NewExerciseScreen() {
       await forgetUnusedMedia();
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -145,9 +140,8 @@ export default function NewExerciseScreen() {
     try {
       const picked = await pickDemonstration();
       if (picked) setMedia((current) => [...current, picked]);
-      setError(null);
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -159,7 +153,7 @@ export default function NewExerciseScreen() {
       await forgetUnusedMedia();
       router.back();
     } catch (e) {
-      setError(messageOf(e));
+      notify(messageOf(e));
     }
   }
 
@@ -280,8 +274,6 @@ export default function NewExerciseScreen() {
             thumbColor="#FFFFFF"
           />
         </View>
-
-        {error && <BusinessNotice message={error} />}
       </ScrollView>
 
       <View className="p-5 pt-2">
@@ -328,7 +320,7 @@ export default function NewExerciseScreen() {
                   onPress: () =>
                     unarchiveExercise(existing)
                       .then(() => router.back())
-                      .catch((e) => setError(messageOf(e))),
+                      .catch((e) => notify(messageOf(e))),
                 },
               ]
             : [
