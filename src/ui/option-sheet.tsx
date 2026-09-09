@@ -1,5 +1,6 @@
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { cn } from './cn';
+import { ToastHost } from './notifications';
 
 /** Ce qu'une feuille de choix manipule : de quoi afficher, et de quoi retenir. */
 export type Option = { id: string; name: string };
@@ -162,6 +163,10 @@ export function OptionSheet({
           </Pressable>
         </View>
       </View>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }

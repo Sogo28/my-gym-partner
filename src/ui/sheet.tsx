@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { cn } from './cn';
 import { SearchField } from './search';
+import { ToastHost } from './notifications';
 
 export type SheetAction = {
   label: string;
@@ -125,6 +126,10 @@ export function Sheet({
         </Pressable>
       </View>
       </KeyboardAvoidingView>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }

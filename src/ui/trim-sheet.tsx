@@ -4,6 +4,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import type { ExerciseMedia, MediaTrim } from '../domain/exercise/media';
 import { Button } from './button';
 import { seekOnLoad } from './trimmed-video';
+import { ToastHost } from './notifications';
 
 /**
  * Choisir le passage d'une vidéo qu'on veut revoir.
@@ -112,6 +113,10 @@ function Sheet({
           />
         </View>
       </View>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }

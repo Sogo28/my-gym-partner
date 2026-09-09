@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import type { MediaTrim } from '../domain/exercise/media';
+import { ToastHost } from './notifications';
 
 /**
  * Place le lecteur à un instant donné dès que sa source est prête.
@@ -143,6 +144,10 @@ function LargeVideo({
             pas, elle garde ses touchers pour elle. */}
         <Pressable className="absolute inset-0" onPress={onClose} />
       </View>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }

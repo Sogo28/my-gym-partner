@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
 import { Button } from './button';
 import { cn } from './cn';
+import { ToastHost } from './notifications';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -191,6 +192,10 @@ export function DatePickerSheet({
           <Text className="font-bold text-muted dark:text-muted-dark">Annuler</Text>
         </Pressable>
       </View>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }

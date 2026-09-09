@@ -54,6 +54,22 @@ type Notifications = {
 
 const NotificationContext = createContext<Notifications | null>(null);
 
+/**
+ * La liste courante, servie à part.
+ *
+ * Deux contextes et non un seul : `notify` et `ask` ne changent JAMAIS, alors
+ * que la liste change à chaque message. Les réunir ferait re-rendre les
+ * quatorze écrans à chaque toast, alors qu'aucun ne l'affiche.
+ */
+const ToastListContext = createContext<{
+  toasts: readonly Toast[];
+  dismiss: (id: number) => void;
+}>({ toasts: [], dismiss: () => {} });
+
+function useToastList() {
+  return useContext(ToastListContext);
+}
+
 /** Le temps de lire, sans plus : un message qui s'attarde devient du décor. */
 const LIFETIME = 4000;
 
@@ -88,25 +104,48 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const ask = useCallback((request: DialogRequest) => setDialog(request), []);
 
   const value = useMemo(() => ({ notify, ask }), [notify, ask]);
+  const list = useMemo(() => ({ toasts, dismiss }), [toasts, dismiss]);
 
   return (
     <NotificationContext.Provider value={value}>
-      {children}
+      <ToastListContext.Provider value={list}>
+        {children}
 
-      {/* Par-dessus les écrans, sous la main : en haut, là où rien n'agit,
-          plutôt qu'en bas où vivent les boutons et la barre d'onglets. */}
-      <SafeAreaView
-        edges={['top']}
-        pointerEvents="box-none"
-        className="absolute inset-x-0 top-0 z-50 px-4"
-      >
-        {toasts.map((toast) => (
-          <ToastView key={toast.id} toast={toast} onDismiss={() => dismiss(toast.id)} />
-        ))}
-      </SafeAreaView>
+        <ToastHost />
 
-      <Dialog request={dialog} onClose={() => setDialog(null)} />
+        <Dialog request={dialog} onClose={() => setDialog(null)} />
+      </ToastListContext.Provider>
     </NotificationContext.Provider>
+  );
+}
+
+/**
+ * La SURFACE d'affichage des toasts. L'état, lui, reste unique.
+ *
+ * Un Modal est une fenêtre native posée par-dessus l'application : ce qui est
+ * dessiné dans l'application passe DERRIÈRE lui. Un message levé pendant
+ * qu'une feuille est ouverte serait donc invisible.
+ *
+ * D'où cette séparation : la liste vit dans le fournisseur, et chaque fenêtre
+ * qui peut rester ouverte pendant une action monte sa propre surface -- en
+ * DERNIER dans son contenu, pour être dessinée au-dessus. Toute nouvelle
+ * fenêtre modale doit en faire autant.
+ */
+export function ToastHost() {
+  const { toasts, dismiss } = useToastList();
+
+  return (
+    // Par-dessus les écrans, hors de la main : en haut, là où rien n'agit,
+    // plutôt qu'en bas où vivent les boutons et la barre d'onglets.
+    <SafeAreaView
+      edges={['top']}
+      pointerEvents="box-none"
+      className="absolute inset-x-0 top-0 z-50 px-4"
+    >
+      {toasts.map((toast) => (
+        <ToastView key={toast.id} toast={toast} onDismiss={() => dismiss(toast.id)} />
+      ))}
+    </SafeAreaView>
   );
 }
 

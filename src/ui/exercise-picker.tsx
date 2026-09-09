@@ -13,6 +13,8 @@ import { SearchField } from './search';
 import { fold } from '../text';
 import { BackHeader } from './screen-header';
 import { Tag } from './tag';
+import { useNotifications, ToastHost } from './notifications';
+import { messageOf } from './message';
 
 /**
  * Le sélecteur d'exercices, partagé par tous les écrans qui en demandent un :
@@ -87,6 +89,7 @@ export function ExercisePicker({
   onOpenSettings,
   onCreate,
 }: ExercisePickerProps) {
+  const { notify } = useNotifications();
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -171,7 +174,12 @@ export function ExercisePicker({
     onCreate(wanted);
   }
 
-  /** Adopter, c'est créer l'exercice puis le retenir comme les autres. */
+  /**
+   * Adopter, c'est créer l'exercice puis le retenir comme les autres.
+   *
+   * L'échec se DIT : sans cela, un catalogue devenu illisible ne produisait
+   * ni exercice ni message -- le tap semblait n'avoir servi à rien.
+   */
   async function adopt(id: string) {
     if (!catalogue) return;
     setAdopting(id);
@@ -184,6 +192,8 @@ export function ExercisePicker({
         return;
       }
       setSelected((current) => [...current, exerciseId]);
+    } catch (e) {
+      notify(messageOf(e));
     } finally {
       setAdopting(null);
     }
@@ -339,6 +349,10 @@ export function ExercisePicker({
           onClose={() => setFiltering(false)}
         />
       </SafeAreaView>
+
+      {/* En dernier : une fenêtre native masque ce que
+          l'application dessine sous elle, messages compris. */}
+      <ToastHost />
     </Modal>
   );
 }
