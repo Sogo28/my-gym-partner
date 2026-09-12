@@ -82,6 +82,17 @@ export default function ExercisesScreen() {
     }
   }
 
+  /**
+   * Un exercice porte-t-il EXACTEMENT ce nom ?
+   *
+   * La recherche répond à « qu'est-ce qui ressemble » ; créer répond à
+   * « est-ce que ça existe ». Deux questions différentes.
+   */
+  const nameTaken = (() => {
+    const needle = fold(query.trim());
+    return needle !== '' && exercises.some((exercise) => fold(exercise.name) === needle);
+  })();
+
   const nameOf = (id: string) => measurements.find((m) => m.id === id)?.name ?? id;
 
   // Les exercices archivés ne polluent plus la liste, mais restent consultables.
@@ -166,9 +177,13 @@ export default function ExercisesScreen() {
               </View>
             )}
 
-            {/* Ni chez toi ni dans le catalogue : c'est un exercice à écrire,
-                et son nom est déjà tapé. */}
-            {query.trim() !== '' && shown.length === 0 && suggestions.length === 0 && (
+            {/* Un exercice à écrire, et son nom est déjà tapé.
+
+                La question n'est pas « la recherche a-t-elle rendu quelque
+                chose », mais « ce nom existe-t-il ». Chercher une variante
+                faisait ressortir l'exercice dont elle dérive, et l'écran en
+                concluait qu'il n'y avait rien à créer. */}
+            {query.trim() !== '' && !nameTaken && (
               <CatalogueRow
                 name={`Créer « ${query.trim()} »`}
                 detail="ouvre le formulaire, nom déjà rempli"

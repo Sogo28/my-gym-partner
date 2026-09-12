@@ -132,6 +132,17 @@ export function ExercisePicker({
     });
   }, [exercises, query, muscleFilter]);
 
+  /**
+   * Un exercice porte-t-il EXACTEMENT ce nom ?
+   *
+   * La recherche répond à « qu'est-ce qui ressemble » ; créer répond à « est-ce
+   * que ça existe ». Deux questions différentes, longtemps confondues.
+   */
+  const nameTaken = useMemo(() => {
+    const needle = fold(query.trim());
+    return needle !== '' && exercises.some((exercise) => fold(exercise.name) === needle);
+  }, [exercises, query]);
+
   // Les récents ne s'affichent qu'en tête de liste vierge : dès qu'on cherche
   // ou qu'on filtre, ils ne sont plus une réponse à la question posée.
   const recent =
@@ -278,17 +289,6 @@ export function ExercisePicker({
             </Text>
           )}
 
-          {/* Ce que personne n'a : à ce stade, c'est le tien. Et sur un
-              catalogue encore vide, l'invitation ne doit pas attendre qu'on
-              ait tapé un nom -- il n'y a rien à chercher. */}
-          {onCreate && matching.length === 0 && (query.trim() !== '' || exercises.length === 0) && (
-            <CatalogueRow
-              name={query.trim() === '' ? 'Créer un exercice' : `Créer « ${query.trim()} »`}
-              detail="ouvre le formulaire"
-              onPress={create}
-            />
-          )}
-
           {/* Le catalogue vient APRÈS : ce que tu fais déjà passe devant ce
               qu'un tiers propose. */}
           {/* Chercher sans rien trouver, alors qu'un catalogue de 601
@@ -317,6 +317,24 @@ export function ExercisePicker({
                 />
               ))}
             </>
+          )}
+
+          {/* Ce que personne n'a : à ce stade, c'est le tien.
+
+              Proposé dès que le nom TAPÉ n'existe pas chez toi -- et non
+              quand la recherche ne rend rien. « Advanced tuck front lever »
+              faisait ressortir « Front lever », donc l'écran considérait la
+              question réglée : impossible de créer la variante qu'on était
+              justement venu chercher.
+
+              En dernier, après le catalogue : mieux vaut adopter que réécrire
+              ce qu'un tiers a déjà décrit. */}
+          {onCreate && (query.trim() === '' ? exercises.length === 0 : !nameTaken) && (
+            <CatalogueRow
+              name={query.trim() === '' ? 'Créer un exercice' : `Créer « ${query.trim()} »`}
+              detail="ouvre le formulaire"
+              onPress={create}
+            />
           )}
         </ScrollView>
 

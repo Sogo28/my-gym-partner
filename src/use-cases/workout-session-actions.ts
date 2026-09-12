@@ -65,6 +65,24 @@ export async function startWorkoutSession(
 }
 
 /**
+ * Commencer une séance pour de bon : la séance ET sa première série.
+ *
+ * Les deux vont ensemble parce qu'une séance DATE de sa première série : les
+ * créer séparément laisserait, entre les deux, une séance qui existe sans
+ * avoir commencé -- exactement ce que la règle interdit.
+ *
+ * Les écrans qui proposent un palier avant de s'y mettre appellent ceci au
+ * moment du bouton, pas au moment du choix.
+ */
+export async function beginWorkoutSession(
+  plannedWorkoutId: PlannedWorkoutId,
+  scheduledWorkoutId: string | null = null,
+): Promise<void> {
+  await startWorkoutSession(plannedWorkoutId, scheduledWorkoutId);
+  await startPerformanceSet();
+}
+
+/**
  * StartActivity (§30) : démarrer un exercice crée aussi sa performance.
  *
  * Deux agrégats, donc deux écritures qu'aucune transaction ne peut réunir --

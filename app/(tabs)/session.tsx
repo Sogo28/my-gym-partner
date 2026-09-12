@@ -62,6 +62,7 @@ import {
   startActivity,
   startPerformanceSet,
   startRest,
+  beginWorkoutSession,
   startWorkoutSession,
   stopRest,
 } from '../../src/use-cases/workout-session-actions';
@@ -436,8 +437,7 @@ export default function SessionScreen() {
    */
   function begin(plannedWorkoutId: string, scheduledId?: string) {
     run(async () => {
-      await startWorkoutSession(plannedWorkoutId, scheduledId ?? null);
-      await startPerformanceSet();
+      await beginWorkoutSession(plannedWorkoutId, scheduledId ?? null);
       // Le paramètre a fait son office : le garder ramènerait sur l'écran
       // d'attente si la séance était annulée.
       router.setParams({ plan: '', scheduled: '' });
@@ -888,7 +888,21 @@ export default function SessionScreen() {
                 </View>
               ))}
 
-            {performance?.currentSet && (
+            {/* Ajuster une série passe AVANT tout le reste : les valeurs
+                s'écrivent à chaque pas, et le bouton qui occupe cette place
+                d'habitude -- terminer, enchaîner -- ferait tout autre chose
+                que ce qu'on est en train de faire. Un seul geste ici, celui
+                de refermer. */}
+            {editing !== null && (
+              <Button
+                label="Terminer l ajustement"
+                variant="secondary"
+                size="lg"
+                onPress={() => toggleEditing(editing)}
+              />
+            )}
+
+            {editing === null && performance?.currentSet && (
               <Button
                 label="Terminer"
                 size="lg"
@@ -901,7 +915,7 @@ export default function SessionScreen() {
                 celui-ci épuisé -- au milieu des séries prévues, ce serait
                 proposer d'abandonner ce qu'on est en train de faire. Le menu
                 garde l'échappatoire pour les jours où l'on écourte. */}
-            {!performance?.currentSet && (
+            {editing === null && !performance?.currentSet && (
               <View className="flex-row gap-3">
                 <Button
                   label={plannedDone ? 'Nouvelle série' : 'Démarrer'}

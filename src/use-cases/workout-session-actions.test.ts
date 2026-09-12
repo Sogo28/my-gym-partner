@@ -13,6 +13,7 @@ import {
   goToNextExercise,
   startActivity,
   startPerformanceSet,
+  beginWorkoutSession,
   startWorkoutSession,
 } from './workout-session-actions';
 
@@ -53,6 +54,23 @@ describe('StartWorkoutSession', () => {
 
     expect(session.currentActivity?.exerciseId).toBe(exercise.id);
     expect(session.currentActivity?.plannedPosition).toBe(0);
+  });
+});
+
+describe('BeginWorkoutSession', () => {
+  /**
+   * Une séance DATE de sa première série. Créer l'une sans l'autre laisserait,
+   * entre les deux, une séance qui existe sans avoir commencé.
+   */
+  it('ouvre la séance et sa première série d un seul geste', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 3);
+
+    await beginWorkoutSession(plan.id);
+
+    const session = await findActive();
+    expect(session?.currentActivity?.exerciseId).toBe(exercise.id);
+    expect((await currentSets()).at(-1)?.status).toBe('IN_PROGRESS');
   });
 });
 

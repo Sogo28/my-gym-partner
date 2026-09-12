@@ -18,6 +18,7 @@ import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
+import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -55,11 +56,18 @@ export default function WorkoutDetailScreen() {
     measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
 
   /**
-   * Ouvrir la séance à l'écran, sans la créer : elle commencera à sa première
-   * série. Consulter un entraînement puis se raviser ne doit rien laisser.
+   * Démarrer pour de bon : cette fiche EST le palier.
+   *
+   * Elle montre déjà les exercices et leurs séries ; passer par l'écran
+   * d'attente de la séance ferait relire la même chose pour appuyer un second
+   * bouton. Depuis l'accueil, où l'on n'a vu qu'un nom, le palier garde tout
+   * son sens -- il y est le premier endroit qui dit ce qu'on s'apprête à
+   * faire.
    */
   function start() {
-    router.push({ pathname: '/session', params: { plan: id } });
+    beginWorkoutSession(id)
+      .then(() => router.push('/session'))
+      .catch((e) => notify(messageOf(e)));
   }
 
   if (!plan) {
