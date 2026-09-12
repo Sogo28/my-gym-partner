@@ -8,6 +8,7 @@ import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
+import { eraseHistory } from '../src/use-cases/erase-history';
 import { resetEverything } from '../src/use-cases/reset-actions';
 import type { EvaluationWindow } from '../src/domain/goal/goal';
 import { WINDOW_LABELS } from '../src/ui/goal-labels';
@@ -44,6 +45,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [erasing, setErasing] = useState(false);
   /** La période sur laquelle TOUS les objectifs se jugent. */
   const [window, setWindow] = useState<EvaluationWindow>('LAST_SESSION');
 
@@ -157,6 +159,26 @@ export default function SettingsScreen() {
 
         <Card density="titled" className="mt-2 gap-2">
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+            Historique
+          </Text>
+          <Text className="text-small text-muted dark:text-muted-dark">
+            Efface tes séances passées et tout ce qu elles ont produit. Tes exercices,
+            entraînements, objectifs et relevés restent : ce sont tes outils, pas ton historique.
+          </Text>
+          <Text className="text-small text-muted dark:text-muted-dark">
+            Tes objectifs gardent l étape où ils en sont -- tu l as franchie --, mais n auront plus
+            de performances à évaluer.
+          </Text>
+          <Button
+            label="Effacer l historique"
+            variant="danger"
+            size="md"
+            onPress={() => setErasing(true)}
+          />
+        </Card>
+
+        <Card density="titled" className="mt-2 gap-2">
+          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
             Repartir de zéro
           </Text>
           <Text className="text-small text-muted dark:text-muted-dark">
@@ -176,6 +198,23 @@ export default function SettingsScreen() {
           />
         </Card>
       </ScrollView>
+
+      <Sheet
+        visible={erasing}
+        title="Effacer l historique ?"
+        description="Toutes tes séances passées disparaissent définitivement, avec les performances qu elles portaient. Une sauvegarde est le seul moyen de les retrouver."
+        actions={[
+          {
+            label: "Effacer l historique",
+            tone: 'danger',
+            onPress: () =>
+              eraseHistory()
+                .then(() => notify('Historique effacé.', 'success'))
+                .catch((e) => notify(messageOf(e))),
+          },
+        ]}
+        onClose={() => setErasing(false)}
+      />
 
       <Sheet
         visible={resetting}

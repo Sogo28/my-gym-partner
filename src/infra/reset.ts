@@ -38,3 +38,39 @@ export async function resetData(): Promise<void> {
     await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 }
+
+/**
+ * Efface l'HISTORIQUE : les séances et ce qu'elles ont produit.
+ *
+ * Ce qui reste : les exercices, les entraînements, les objectifs, les relevés
+ * corporels. Rien de tout cela n'est de l'historique -- ce sont les outils
+ * avec lesquels on s'entraîne, et ils survivent à l'effacement de ce qu'on en
+ * a fait.
+ *
+ * Les intentions déjà CONSOMMÉES partent aussi : une séance programmée puis
+ * exécutée ne désigne plus rien une fois la séance effacée. Celles qui
+ * attendent encore restent -- une intention n'est pas un souvenir.
+ *
+ * L'étape atteinte d'un objectif ne bouge pas : on l'a franchie, et effacer
+ * la trace de la séance ne défait pas ce qui a été fait.
+ */
+export async function deleteHistory(): Promise<void> {
+  const db = await getDatabase();
+
+  // Même raison qu'au-dessus : l'ordre des suppressions violerait forcément
+  // une clé étrangère à un moment.
+  await db.execAsync('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM performance_set_values;');
+      await db.runAsync('DELETE FROM performance_sets;');
+      await db.runAsync('DELETE FROM exercise_performances;');
+      await db.runAsync('DELETE FROM session_rests;');
+      await db.runAsync('DELETE FROM session_activities;');
+      await db.runAsync('DELETE FROM workout_sessions;');
+      await db.runAsync("DELETE FROM scheduled_workouts WHERE status = 'EXECUTED';");
+    });
+  } finally {
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+}
