@@ -74,3 +74,56 @@ export async function deleteHistory(): Promise<void> {
     await db.execAsync('PRAGMA foreign_keys = ON;');
   }
 }
+
+/**
+ * Efface UNE séance, et tout ce qu'elle a produit.
+ *
+ * Les performances partent avec elle : elles ne sont pas seulement affichées
+ * dans son résumé, elles nourrissent l'historique d'un exercice, ses records
+ * et l'évaluation des objectifs. Les laisser derrière ferait disparaître la
+ * séance de la liste tout en continuant à la compter partout ailleurs.
+ *
+ * L'intention qu'elle a consommée part aussi : elle désignait une séance qui
+ * n'existe plus, et la garder ferait dire à l'accueil « séance non faite » un
+ * jour où l'on n'a rien affirmé de tel.
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  const db = await getDatabase();
+  const performances = `
+    SELECT performance_id FROM session_activities
+    WHERE session_id = ?1 AND performance_id IS NOT NULL`;
+
+  await db.execAsync('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.withTransactionAsync(async () => {
+      // Les performances D'ABORD : on les retrouve par les activités, qu'il
+      // faut donc effacer après elles.
+      await db.runAsync(
+        `DELETE FROM performance_set_values WHERE performance_id IN (${performances});`,
+        sessionId,
+      );
+      await db.runAsync(
+        `DELETE FROM performance_sets WHERE performance_id IN (${performances});`,
+        sessionId,
+      );
+      await db.runAsync(
+        `DELETE FROM exercise_performances WHERE id IN (${performances});`,
+        sessionId,
+      );
+
+      await db.runAsync('DELETE FROM session_rests WHERE session_id = ?1;', sessionId);
+      await db.runAsync('DELETE FROM session_activities WHERE session_id = ?1;', sessionId);
+
+      // Avant la séance elle-même, qui porte le lien vers l'intention.
+      await db.runAsync(
+        `DELETE FROM scheduled_workouts WHERE id IN (
+           SELECT scheduled_workout_id FROM workout_sessions
+           WHERE id = ?1 AND scheduled_workout_id IS NOT NULL);`,
+        sessionId,
+      );
+      await db.runAsync('DELETE FROM workout_sessions WHERE id = ?1;', sessionId);
+    });
+  } finally {
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+  }
+}

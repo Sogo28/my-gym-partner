@@ -1,6 +1,6 @@
 import { DomainError } from '../domain/domain-error';
-import { deleteHistory } from '../infra/reset';
-import { findActive } from '../infra/workout-session-repository';
+import { deleteHistory, deleteSession } from '../infra/reset';
+import { findActive, findById } from '../infra/workout-session-repository';
 
 /**
  * Effacer l'historique, sans toucher à ce avec quoi on s'entraîne.
@@ -20,4 +20,22 @@ export async function eraseHistory(): Promise<void> {
     throw new DomainError('Termine ou annule la séance en cours avant d effacer l historique.');
   }
   await deleteHistory();
+}
+
+/**
+ * Retirer une séance de l'historique.
+ *
+ * Une séance en cours ne s'efface pas : elle se termine ou s'annule. Les deux
+ * gestes existent, et ils disent quelque chose de différent -- annuler garde
+ * les séries déjà validées (décision gelée n°15), effacer ne garde rien.
+ */
+export async function eraseSession(sessionId: string): Promise<void> {
+  const session = await findById(sessionId);
+  if (!session) {
+    throw new DomainError('Cette séance n existe plus.');
+  }
+  if (session.status === 'ACTIVE') {
+    throw new DomainError('Termine ou annule cette séance avant de l effacer.');
+  }
+  await deleteSession(sessionId);
 }

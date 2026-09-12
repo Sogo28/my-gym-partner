@@ -15,9 +15,11 @@ import { formatClock, formatDateTime } from '../src/ui/format';
 import { GoalCard } from '../src/ui/goal-card';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
-import { SectionHeader } from '../src/ui/screen-header';
+import { BackHeader } from '../src/ui/screen-header';
+import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
+import { eraseSession } from '../src/use-cases/erase-history';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 
 /**
@@ -31,13 +33,14 @@ import { findSessionSummary, type SessionSummary } from '../src/use-cases/sessio
 export default function SessionSummaryScreen() {
   const { notify } = useNotifications();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
 
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm'>('none');
 
   const reload = useCallback(async () => {
     const [found, allExercises, allMeasurements, allPlans] = await Promise.all([
@@ -103,9 +106,19 @@ export default function SessionSummaryScreen() {
       className="flex-1 bg-background pb-3 dark:bg-background-dark"
     >
       <View className="px-5 pt-4">
-        <SectionHeader
-          title="Séance terminée"
-          subtitle={`${plan ? plan.name : 'Séance libre'} · ${formatDateTime(summary.session.startedAt)}`}
+        {/* La même page sert deux moments : le bilan d'une séance qu'on vient
+            de finir, et la fiche d'une séance qu'on consulte. Le second a
+            besoin d'une flèche, le premier d'un point final -- et ce point
+            final n'est pas un retour : la séance n'existe plus derrière. */}
+        <BackHeader
+          title={fresh ? 'Séance terminée' : plan ? plan.name : 'Séance libre'}
+          subtitle={
+            fresh
+              ? `${plan ? plan.name : 'Séance libre'} · ${formatDateTime(summary.session.startedAt)}`
+              : formatDateTime(summary.session.startedAt)
+          }
+          onBack={() => (fresh ? router.replace('/home') : router.back())}
+          onMenu={() => setSheet('menu')}
         />
       </View>
 
@@ -230,9 +243,44 @@ export default function SessionSummaryScreen() {
         </View>
       </ScrollView>
 
-      <View className="px-5 pt-2">
-        <Button label="Terminer" size="lg" onPress={() => router.replace('/home')} />
-      </View>
+      {fresh && (
+        <View className="px-5 pt-2">
+          <Button label="Terminer" size="lg" onPress={() => router.replace('/home')} />
+        </View>
+      )}
+
+      <Sheet
+        visible={sheet === 'menu'}
+        title={plan ? plan.name : 'Séance libre'}
+        actions={[
+          {
+            label: 'Effacer cette séance',
+            tone: 'danger',
+            onPress: () => setSheet('confirm'),
+          },
+        ]}
+        onClose={() => setSheet('none')}
+      />
+
+      <Sheet
+        visible={sheet === 'confirm'}
+        title="Effacer cette séance ?"
+        description="Ses performances disparaissent avec elle : elles ne compteront plus dans tes records ni dans tes objectifs. Rien ne permettra de revenir en arrière."
+        actions={[
+          {
+            label: 'Effacer cette séance',
+            tone: 'danger',
+            onPress: () =>
+              eraseSession(id)
+                .then(() => {
+                  notify('Séance effacée.', 'success');
+                  router.replace('/history');
+                })
+                .catch((e) => notify(messageOf(e))),
+          },
+        ]}
+        onClose={() => setSheet('none')}
+      />
     </SafeAreaView>
   );
 }

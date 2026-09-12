@@ -369,7 +369,7 @@ export default function SessionScreen() {
     const finished = session?.id;
     run(async () => {
       await finishWorkoutSession();
-      if (finished) router.replace({ pathname: '/session-summary', params: { id: finished } });
+      if (finished) router.replace({ pathname: '/session-summary', params: { id: finished, fresh: '1' } });
     });
   }
 

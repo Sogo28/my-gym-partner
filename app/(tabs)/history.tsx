@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useState } from 'react';
@@ -46,6 +46,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function HistoryScreen() {
   const { notify } = useNotifications();
+  const router = useRouter();
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -311,6 +312,21 @@ export default function HistoryScreen() {
                   )}
                 </View>
               ))}
+
+              {/* L'historique sert à RETROUVER et à corriger ; la fiche sert à
+                  relire une séance entière, et c'est elle qui porte le geste
+                  de l'effacer. Un texte, pas un bouton : ce n'est pas ce que
+                  cette page demande. */}
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: '/session-summary', params: { id: session.id } })
+                }
+                className="py-2"
+              >
+                <Text className="text-center text-caption text-primary-ink dark:text-primary-ink-dark">
+                  Voir la fiche de cette séance
+                </Text>
+              </Pressable>
             </Collapsible>
           );
         })}
