@@ -34,3 +34,39 @@ export async function evaluationWindow(): Promise<EvaluationWindow> {
 export async function setEvaluationWindow(window: EvaluationWindow): Promise<void> {
   await writeSetting(KEY, window);
 }
+
+/**
+ * Le décompte avant qu'une captation ne démarre (décidé le 2026-09-12).
+ *
+ * Il existe pour une raison précise : on s'entraîne seul. Sans lui, il
+ * faudrait lancer l'enregistrement, marcher jusqu'à la barre, faire la série,
+ * revenir couper -- et la vidéo montrerait surtout le trajet.
+ *
+ * Réglé globalement parce qu'il dépend de la salle, pas de l'exercice : c'est
+ * la distance entre le téléphone et la barre qui décide, et elle ne change
+ * pas d'une série à l'autre.
+ */
+const COUNTDOWN_KEY = 'capture.countdown';
+
+/** En secondes. Zéro : le départ est immédiat. */
+export const COUNTDOWN_CHOICES = [0, 3, 5, 10] as const;
+
+const COUNTDOWN_FALLBACK = 5;
+
+export async function captureCountdown(): Promise<number> {
+  const stored = Number(await readSetting(COUNTDOWN_KEY));
+  return COUNTDOWN_CHOICES.includes(stored as never) ? stored : COUNTDOWN_FALLBACK;
+}
+
+export async function setCaptureCountdown(seconds: number): Promise<void> {
+  await writeSetting(COUNTDOWN_KEY, String(seconds));
+}
+
+/**
+ * La durée maximale d'une captation, en secondes.
+ *
+ * Pas un réglage : c'est un garde-fou. Une série dure une minute au plus, et
+ * trente secondes de vidéo pèsent déjà des dizaines de mégaoctets -- sans
+ * borne, un oubli remplirait le téléphone.
+ */
+export const CAPTURE_MAX_SECONDS = 60;

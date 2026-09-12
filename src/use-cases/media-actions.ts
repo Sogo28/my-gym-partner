@@ -3,6 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { DomainError } from '../domain/domain-error';
 import { isRemote, type ExerciseMedia } from '../domain/exercise/media';
 import { findAll } from '../infra/exercise-repository';
+import { findAllSetVideos } from '../infra/performance-repository';
 
 /** Où vivent les vidéos importées, à côté de la base et jamais dans le cache. */
 const FOLDER = 'media';
@@ -39,6 +40,38 @@ export function mediaUri(media: ExerciseMedia): string {
 export function mediaExists(media: ExerciseMedia): boolean {
   if (isRemote(media)) return true;
   return new File(mediaDirectory(), media.uri).exists;
+}
+
+/** L'adresse d'un fichier gardé, par son seul nom. Voir `mediaUri`. */
+export function fileUri(name: string): string {
+  return new File(mediaDirectory(), name).uri;
+}
+
+/** Le fichier est-il toujours là ? */
+export function fileExists(name: string): boolean {
+  return new File(mediaDirectory(), name).exists;
+}
+
+/**
+ * Garde la captation d'une série, et rend le nom sous lequel la retrouver.
+ *
+ * La caméra écrit dans le cache : s'y référer marcherait aujourd'hui et
+ * échouerait demain, quand le système fera le ménage. On déménage donc le
+ * fichier plutôt que de le copier -- personne d'autre ne le réclame, et une
+ * vidéo pèse trop lourd pour en garder deux exemplaires le temps d'un
+ * effacement.
+ */
+export async function keepRecording(uri: string): Promise<string> {
+  const source = new File(uri);
+  const name = `${randomUUID()}.mp4`;
+  const kept = new File(ensureMediaDirectory(), name);
+
+  try {
+    await source.move(kept);
+  } catch {
+    throw new DomainError("Cette vidéo n'a pas pu être enregistrée.");
+  }
+  return name;
 }
 
 /**
@@ -108,11 +141,15 @@ export async function cachedImage(uri: string): Promise<string> {
 export async function forgetUnusedMedia(): Promise<void> {
   const directory = mediaDirectory();
   if (!directory.exists) return;
-  const kept = new Set(
-    (await findAll()).flatMap((exercise) =>
+  // Les captations de séries comptent AUSSI parmi les fichiers réclamés :
+  // sans cela, la première passe de ramassage les effacerait toutes, alors
+  // qu'aucun exercice ne les référencera jamais.
+  const kept = new Set([
+    ...(await findAll()).flatMap((exercise) =>
       exercise.media.map((media) => (isRemote(media) ? cacheOf(media.uri).name : media.uri)),
     ),
-  );
+    ...(await findAllSetVideos()),
+  ]);
 
   for (const entry of directory.list()) {
     if (entry instanceof File && !kept.has(entry.name)) entry.delete();

@@ -94,6 +94,7 @@ export default function RootLayout() {
       <Stack.Screen name="goal" />
       <Stack.Screen name="new-goal" />
       <Stack.Screen name="body" />
+      <Stack.Screen name="record" />
       <Stack.Screen name="session-summary" />
       <Stack.Screen name="settings" />
     </Stack>

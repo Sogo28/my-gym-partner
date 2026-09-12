@@ -13,7 +13,10 @@ import { resetEverything } from '../src/use-cases/reset-actions';
 import type { EvaluationWindow } from '../src/domain/goal/goal';
 import { WINDOW_LABELS } from '../src/ui/goal-labels';
 import {
+  captureCountdown,
+  COUNTDOWN_CHOICES,
   evaluationWindow,
+  setCaptureCountdown,
   setEvaluationWindow,
   SELECTABLE_WINDOWS,
 } from '../src/use-cases/preferences';
@@ -48,13 +51,21 @@ export default function SettingsScreen() {
   const [erasing, setErasing] = useState(false);
   /** La période sur laquelle TOUS les objectifs se jugent. */
   const [window, setWindow] = useState<EvaluationWindow>('LAST_SESSION');
+  /** Le décompte avant qu'une captation ne démarre, en secondes. */
+  const [countdown, setCountdown] = useState(5);
 
   useFocusEffect(
     useCallback(() => {
       setState(catalogueState());
       evaluationWindow().then(setWindow).catch((e) => notify(messageOf(e)));
+      captureCountdown().then(setCountdown).catch((e) => notify(messageOf(e)));
     }, []),
   );
+
+  function chooseCountdown(next: number) {
+    setCountdown(next);
+    setCaptureCountdown(next).catch((e) => notify(messageOf(e)));
+  }
 
   function chooseWindow(next: EvaluationWindow) {
     // Affiché tout de suite, écrit ensuite : le choix n'a rien à confirmer,
@@ -156,6 +167,41 @@ export default function SettingsScreen() {
           Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d un bouton, et
           l alourdir n aurait servi personne.
         </Text>
+
+        <Card density="titled" className="mt-2 gap-2">
+          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+            Filmer une série
+          </Text>
+          <Text className="text-small text-muted dark:text-muted-dark">
+            Le temps dont tu disposes, entre le départ et le début de l enregistrement, pour poser
+            le téléphone et rejoindre la barre. L enregistrement s arrête seul au bout d une
+            minute.
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2 pt-1">
+            {COUNTDOWN_CHOICES.map((value) => (
+              <Pressable
+                key={value}
+                onPress={() => chooseCountdown(value)}
+                className={
+                  countdown === value
+                    ? 'min-h-touch justify-center rounded-full border border-primary-ink bg-primary-soft px-4 dark:border-primary-ink-dark dark:bg-primary-soft-dark'
+                    : 'min-h-touch justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
+                }
+              >
+                <Text
+                  className={
+                    countdown === value
+                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
+                      : 'font-medium text-body text-muted dark:text-muted-dark'
+                  }
+                >
+                  {value === 0 ? 'Immédiat' : `${value} s`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
 
         <Card density="titled" className="mt-2 gap-2">
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">

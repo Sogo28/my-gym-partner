@@ -27,6 +27,13 @@
       "expo-font",
       "expo-splash-screen",
       "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Filmer une série pour revoir ton exécution. La vidéo reste sur ce téléphone.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-video"
     ],
     "scheme": "mygympartner"

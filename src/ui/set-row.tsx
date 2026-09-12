@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, useColorScheme, View, type ViewStyle } from 'react-native';
 import { cn } from './cn';
+import { VideoBadge } from './set-video';
 
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
 
@@ -60,6 +61,8 @@ type SetRowProps = {
   /** Rend la ligne tapable, pour ouvrir l'ajustement de cette série. */
   onPress?: () => void;
   selected?: boolean;
+  /** Fourni : la série a été filmée, et la pastille ouvre sa vidéo. */
+  onPlay?: () => void;
 };
 
 /**
@@ -67,7 +70,14 @@ type SetRowProps = {
  * l'étiquette -- jamais par la seule luminance du texte, qui tomberait sous
  * le seuil de contraste lisible en salle.
  */
-export function SetRow({ index, status, values, onPress, selected = false }: SetRowProps) {
+export function SetRow({
+  index,
+  status,
+  values,
+  onPress,
+  selected = false,
+  onPlay,
+}: SetRowProps) {
   const accents = ACCENTS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   // Ouvrir une série à l'ajustement, c'est y revenir : elle se montre comme
   // celle qu'on est en train de faire.
@@ -107,6 +117,8 @@ export function SetRow({ index, status, values, onPress, selected = false }: Set
       >
         {values}
       </Text>
+
+      {onPlay && <VideoBadge onPress={onPlay} />}
 
       {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
       {LABELS[status] && (

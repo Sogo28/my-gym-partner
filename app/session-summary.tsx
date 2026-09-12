@@ -20,6 +20,9 @@ import { useNotifications } from '../src/ui/notifications';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
+import { SetVideoViewer, VideoBadge } from '../src/ui/set-video';
+import { fileUri, forgetUnusedMedia } from '../src/use-cases/media-actions';
+import { detachSetVideo } from '../src/use-cases/set-video';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 import { eraseSession } from '../src/use-cases/erase-history';
@@ -44,6 +47,12 @@ export default function SessionSummaryScreen() {
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm'>('none');
+  /** La captation ouverte, et la série d'où elle vient. */
+  const [watching, setWatching] = useState<{
+    performanceId: string;
+    setIndex: number;
+    name: string;
+  } | null>(null);
   /**
    * La série ouverte à la correction.
    *
@@ -269,12 +278,25 @@ export default function SessionSummaryScreen() {
                           : undefined
                       }
                     >
-                      <Text
-                        className="font-mono text-small text-muted dark:text-muted-dark"
-                        style={{ fontVariant: ['tabular-nums'] }}
-                      >
-                        {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
-                      </Text>
+                      <View className="flex-row items-center gap-2">
+                        <Text
+                          className="font-mono text-small text-muted dark:text-muted-dark"
+                          style={{ fontVariant: ['tabular-nums'] }}
+                        >
+                          {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
+                        </Text>
+                        {set.videoUri && activity.performanceId && (
+                          <VideoBadge
+                            onPress={() =>
+                              setWatching({
+                                performanceId: activity.performanceId!,
+                                setIndex,
+                                name: set.videoUri!,
+                              })
+                            }
+                          />
+                        )}
+                      </View>
                     </Pressable>
                   ))
                 )}
@@ -310,6 +332,20 @@ export default function SessionSummaryScreen() {
           },
         ]}
         onClose={() => setSheet('none')}
+      />
+
+      <SetVideoViewer
+        uri={watching ? fileUri(watching.name) : null}
+        onClose={() => setWatching(null)}
+        onDelete={() => {
+          const target = watching;
+          setWatching(null);
+          if (!target) return;
+          detachSetVideo(target.performanceId, target.setIndex)
+            .then(reload)
+            .then(() => notify('Vidéo supprimée.', 'success'))
+            .catch((e) => notify(messageOf(e)));
+        }}
       />
 
       <Sheet
@@ -368,6 +404,10 @@ export default function SessionSummaryScreen() {
             tone: 'danger',
             onPress: () =>
               eraseSession(id)
+                // Les captations de ses séries ne sont plus réclamées par
+                // personne : la passe de ramassage les emporte, comme elle
+                // emporte les démonstrations d'un exercice supprimé.
+                .then(forgetUnusedMedia)
                 .then(() => {
                   notify('Séance effacée.', 'success');
                   router.replace('/history');

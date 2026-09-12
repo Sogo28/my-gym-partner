@@ -10,6 +10,7 @@ const set = (startedAt: Date, endedAt: Date): PerformanceSet => ({
   values: { BOTH: { reps: 8 } },
   startedAt,
   endedAt,
+  videoUri: null,
 });
 
 describe('métriques de séance', () => {

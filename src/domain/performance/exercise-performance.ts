@@ -64,6 +64,17 @@ export type PerformanceSet = {
   readonly values: ValuesBySide;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
+  /**
+   * Le nom du fichier vidéo de CETTE série, ou null.
+   *
+   * De la série, et non de l'exercice : une démonstration montre comment un
+   * mouvement se fait, une captation montre comment TU l'as fait ce jour-là.
+   * Elle n'a donc de sens qu'attachée au fait daté, et disparaît avec lui.
+   *
+   * Le nom seul, pas le chemin : le dossier de l'application change d'adresse
+   * d'une installation à l'autre.
+   */
+  readonly videoUri: string | null;
 };
 
 /**
@@ -138,7 +149,13 @@ export class ExercisePerformance {
     if (this.currentSet) {
       throw new DomainError('Une série est déjà en cours.');
     }
-    this._sets.push({ status: 'IN_PROGRESS', values: {}, startedAt: at, endedAt: null });
+    this._sets.push({
+      status: 'IN_PROGRESS',
+      values: {},
+      startedAt: at,
+      endedAt: null,
+      videoUri: null,
+    });
   }
 
   /** IN_PROGRESS -> COMPLETED : les valeurs deviennent une performance. */
@@ -189,6 +206,21 @@ export class ExercisePerformance {
       throw new DomainError("Cette série est encore en cours : termine-la d'abord.");
     }
     this._sets[setIndex] = { ...set, values: this.checkValues(values) };
+  }
+
+  /**
+   * Attacher ou retirer la captation d'une série.
+   *
+   * Autorisé sur une série TERMINÉE comme sur celle en cours : on filme
+   * pendant, et on supprime longtemps après. Ce n'est pas une performance --
+   * rien de ce qui est mesuré ne change --, donc rien ici ne le refuse.
+   */
+  setVideo(setIndex: number, videoUri: string | null): void {
+    const set = this._sets[setIndex];
+    if (!set) {
+      throw new DomainError("Cette série n'existe pas.");
+    }
+    this._sets[setIndex] = { ...set, videoUri };
   }
 
   private replaceCurrentSet(status: PerformanceSetStatus, values: ValuesBySide, at: Date): void {

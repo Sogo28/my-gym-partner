@@ -69,6 +69,9 @@ import {
 
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
 import { defaultTargets } from '../../src/ui/set-defaults';
+import { SetVideoViewer } from '../../src/ui/set-video';
+import { fileUri } from '../../src/use-cases/media-actions';
+import { detachSetVideo } from '../../src/use-cases/set-video';
 
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
@@ -119,6 +122,8 @@ export default function SessionScreen() {
   const [values, setValues] = useState<ValuesBySide>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
+  /** La captation ouverte, par son nom de fichier. */
+  const [watching, setWatching] = useState<string | null>(null);
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(true);
@@ -806,6 +811,7 @@ export default function SessionScreen() {
                   // corriger ce qu'on a réellement fait.
                   onPress={set.status === 'IN_PROGRESS' ? undefined : () => toggleEditing(index)}
                   selected={editing === index}
+                  onPlay={set.videoUri ? () => setWatching(set.videoUri) : undefined}
                   values={
                     format(
                       editing === index
@@ -900,11 +906,28 @@ export default function SessionScreen() {
                 place d'habitude -- terminer, enchaîner -- feraient tout autre
                 chose que ce qu'on est en train de faire. */}
             {editing === null && performance?.currentSet && (
-              <Button
-                label="Terminer"
-                size="lg"
-                onPress={() => run(() => completePerformanceSet(shown))}
-              />
+              <View className="flex-row gap-3">
+                <Button
+                  label="Terminer"
+                  size="lg"
+                  className="flex-1"
+                  onPress={() => run(() => completePerformanceSet(shown))}
+                />
+                {/* Filmer appartient à la série EN COURS : c'est celle qu'on
+                    est en train de faire, et la seule qu'on puisse encore
+                    montrer. */}
+                <Button
+                  label={lastSet?.videoUri ? 'Refilmer' : 'Filmer'}
+                  variant="secondary"
+                  size="lg"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/record',
+                      params: { performance: activity!.performanceId!, set: String(lastSetIndex) },
+                    })
+                  }
+                />
+              </View>
             )}
 
             {/* Hors série en cours : lancer la série suivante. Passer à
@@ -964,6 +987,18 @@ export default function SessionScreen() {
         onClose={() => setSheet('none')}
       />
       {exercisePicker(addExercise)}
+      <SetVideoViewer
+        uri={watching ? fileUri(watching) : null}
+        onClose={() => setWatching(null)}
+        onDelete={() => {
+          const index = sets.findIndex((set) => set.videoUri === watching);
+          setWatching(null);
+          if (index >= 0 && activity?.performanceId) {
+            run(() => detachSetVideo(activity.performanceId!, index));
+          }
+        }}
+      />
+
       <Sheet
         visible={sheet === 'confirm-cancel'}
         title="Annuler la séance ?"

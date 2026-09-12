@@ -15,6 +15,7 @@ type SetRow = {
   status: PerformanceSetStatus;
   started_at: string;
   ended_at: string | null;
+  video_uri: string | null;
 };
 type ValueRow = {
   performance_id: string;
@@ -53,13 +54,15 @@ export async function save(performance: ExercisePerformance): Promise<void> {
     await db.runAsync('DELETE FROM performance_sets WHERE performance_id = ?;', performance.id);
     for (const [setIndex, set] of performance.sets.entries()) {
       await db.runAsync(
-        `INSERT INTO performance_sets (performance_id, set_index, status, started_at, ended_at)
-         VALUES (?, ?, ?, ?, ?);`,
+        `INSERT INTO performance_sets
+           (performance_id, set_index, status, started_at, ended_at, video_uri)
+         VALUES (?, ?, ?, ?, ?, ?);`,
         performance.id,
         setIndex,
         set.status,
         set.startedAt.toISOString(),
         set.endedAt?.toISOString() ?? null,
+        set.videoUri,
       );
       for (const [side, sideValues] of Object.entries(set.values)) {
         for (const [measurementId, value] of Object.entries(sideValues ?? {})) {
@@ -146,6 +149,7 @@ export async function findByIds(ids: readonly string[]): Promise<Map<string, Exe
       >,
       startedAt: new Date(row.started_at),
       endedAt: row.ended_at ? new Date(row.ended_at) : null,
+      videoUri: row.video_uri,
     });
     setsOf.set(row.performance_id, list);
   }
@@ -184,4 +188,13 @@ export async function findRecentExerciseIds(limit = 5): Promise<string[]> {
     limit,
   );
   return rows.map((row) => row.exercise_id);
+}
+
+/** Les captations que des séries réclament encore, par leur nom de fichier. */
+export async function findAllSetVideos(): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ video_uri: string }>(
+    'SELECT video_uri FROM performance_sets WHERE video_uri IS NOT NULL;',
+  );
+  return rows.map((row) => row.video_uri);
 }
