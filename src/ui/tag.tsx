@@ -26,7 +26,11 @@ export function Tag({ label, variant = 'neutral' }: { label: string; variant?: T
     >
       <Text
         className={cn(
-          'font-mono text-caption',
+          // Un NOM, pas une valeur : la chasse fixe est réservée aux nombres,
+          // où elle sert à aligner les colonnes. Elle n'a rien à aligner ici,
+          // et ses glyphes larges font paraître la pastille plus grosse que
+          // le titre qu'elle annote.
+          'font-medium text-micro',
           variant === 'neutral'
             ? 'text-muted dark:text-muted-dark'
             : 'text-primary-ink dark:text-primary-ink-dark',
