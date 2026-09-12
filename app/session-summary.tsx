@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
+import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
@@ -10,6 +11,7 @@ import { findAll as findAllPlans } from '../src/infra/planned-workout-repository
 import { BodyMap } from '../src/ui/body-map';
 import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
+import { NumberField } from '../src/ui/number-field';
 import { Card } from '../src/ui/card';
 import { formatClock, formatDateTime } from '../src/ui/format';
 import { GoalCard } from '../src/ui/goal-card';
@@ -19,6 +21,7 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
+import { correctPastSet } from '../src/use-cases/correct-past-set';
 import { eraseSession } from '../src/use-cases/erase-history';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 
@@ -41,6 +44,20 @@ export default function SessionSummaryScreen() {
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm'>('none');
+  /**
+   * La série ouverte à la correction.
+   *
+   * Elle vit ICI depuis que l'historique ne déplie plus ses séances : c'est
+   * la fiche qui montre le détail, donc c'est elle qui doit permettre de le
+   * corriger. Une faute de saisie doit pouvoir se réparer, même des semaines
+   * plus tard.
+   */
+  const [editing, setEditing] = useState<{
+    performanceId: string;
+    setIndex: number;
+    measurementIds: readonly string[];
+    values: ValuesBySide;
+  } | null>(null);
 
   const reload = useCallback(async () => {
     const [found, allExercises, allMeasurements, allPlans] = await Promise.all([
@@ -65,6 +82,21 @@ export default function SessionSummaryScreen() {
       reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
+
+  async function saveCorrection() {
+    if (!editing) return;
+    try {
+      await correctPastSet({
+        performanceId: editing.performanceId,
+        setIndex: editing.setIndex,
+        values: editing.values,
+      });
+      setEditing(null);
+      await reload();
+    } catch (e) {
+      notify(messageOf(e));
+    }
+  }
 
   const exerciseOf = (exerciseId: string) => exercises.find((e) => e.id === exerciseId);
   const nameOf = (exerciseId: string) => exerciseOf(exerciseId)?.name ?? exerciseId;
@@ -218,14 +250,32 @@ export default function SessionSummaryScreen() {
                     Aucune série validée.
                   </Text>
                 ) : (
-                  activity.completedSets.map(({ set }, position) => (
-                    <Text
+                  activity.completedSets.map(({ set, index: setIndex }, position) => (
+                    <Pressable
                       key={position}
-                      className="font-mono text-small text-muted dark:text-muted-dark"
-                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="py-0.5"
+                      onPress={
+                        activity.performanceId
+                          ? () =>
+                              setEditing({
+                                performanceId: activity.performanceId!,
+                                // Le rang RÉEL dans la performance, abandons
+                                // compris : le résumé le fournit, et le
+                                // recalculer ici désignerait la mauvaise série.
+                                setIndex,
+                                measurementIds: activity.measurementIds,
+                                values: { ...set.values },
+                              })
+                          : undefined
+                      }
                     >
-                      {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
-                    </Text>
+                      <Text
+                        className="font-mono text-small text-muted dark:text-muted-dark"
+                        style={{ fontVariant: ['tabular-nums'] }}
+                      >
+                        {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
+                      </Text>
+                    </Pressable>
                   ))
                 )}
 
@@ -261,6 +311,52 @@ export default function SessionSummaryScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
+
+      <Sheet
+        visible={editing !== null}
+        title={`Corriger la série ${(editing?.setIndex ?? 0) + 1}`}
+        description="La performance reste ce que tu déclares avoir fait."
+        onClose={() => setEditing(null)}
+      >
+        {editing && (
+          <View className="gap-3 pb-2">
+            {/* Une rangée par côté : un exercice unilatéral en a deux. */}
+            {(Object.keys(editing.values) as Side[]).map((side) => (
+              <View key={side} className="gap-1">
+                {side !== 'BOTH' && (
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
+                  </Text>
+                )}
+                <View className="flex-row gap-3">
+                  {editing.measurementIds.map((id) => (
+                    <NumberField
+                      key={id}
+                      unit={unitOf(id)}
+                      value={editing.values[side]?.[id] ?? 0}
+                      step={id === 'weight' ? 2.5 : 1}
+                      onChange={(value) =>
+                        setEditing((current) =>
+                          current
+                            ? {
+                                ...current,
+                                values: {
+                                  ...current.values,
+                                  [side]: { ...(current.values[side] ?? {}), [id]: value },
+                                },
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
+            <Button label="Enregistrer" size="md" onPress={saveCorrection} />
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         visible={sheet === 'confirm'}

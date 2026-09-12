@@ -5,10 +5,8 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
-import type { Side, ValuesBySide } from '../../src/domain/performance/exercise-performance';
-import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
+import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
 import { listSessionSummaries, type SessionSummary } from '../../src/use-cases/session-summary';
 import {
@@ -18,16 +16,13 @@ import {
   type BackupPreview,
 } from '../../src/use-cases/backup-actions';
 import { Button } from '../../src/ui/button';
-import { Collapsible } from '../../src/ui/collapsible';
-import { NumberField } from '../../src/ui/number-field';
+import { Card } from '../../src/ui/card';
 import { Sheet } from '../../src/ui/sheet';
 import { EmptyState } from '../../src/ui/empty-state';
 import { SectionHeader } from '../../src/ui/screen-header';
 import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
 import { formatClock, formatDateTime } from '../../src/ui/format';
-import { formatSetValues } from '../../src/ui/set-values';
-import { correctPastSet } from '../../src/use-cases/correct-past-set';
 
 /** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
 const PAGE = 10;
@@ -49,15 +44,7 @@ export default function HistoryScreen() {
   const router = useRouter();
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
-  /** La série ouverte à la correction, s'il y en a une. */
-  const [editing, setEditing] = useState<{
-    performanceId: string;
-    setIndex: number;
-    measurementIds: readonly string[];
-    values: ValuesBySide;
-  } | null>(null);
   /** La sauvegarde choisie, en attente de confirmation. */
   const [restoring, setRestoring] = useState<BackupPreview | null>(null);
   /** La période affichée, en jours. Null : tout l'historique. */
@@ -71,16 +58,14 @@ export default function HistoryScreen() {
   const load = useCallback(async () => {
     // Le résumé est calculé par le use case : l'écran ne fait plus que
     // l'afficher.
-    const [allSummaries, allExercises, allMeasurements, allPlans] = await Promise.all([
+    const [allSummaries, allExercises, allPlans] = await Promise.all([
       listSessionSummaries(),
       findAllExercises(),
-      findAllMeasurements(),
       findAllPlans(),
     ]);
 
     setSummaries(allSummaries);
     setExercises(allExercises);
-    setMeasurements(allMeasurements);
     setPlans(allPlans);
   }, []);
 
@@ -90,23 +75,7 @@ export default function HistoryScreen() {
     }, [load]),
   );
 
-  async function saveCorrection() {
-    if (!editing) return;
-    try {
-      await correctPastSet({
-        performanceId: editing.performanceId,
-        setIndex: editing.setIndex,
-        values: editing.values,
-      });
-      setEditing(null);
-      await load();
-    } catch (e) {
-      notify(messageOf(e));
-    }
-  }
-
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
-  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
 
   const thisMonth = summaries.filter(
     ({ session }) =>
@@ -238,96 +207,40 @@ export default function HistoryScreen() {
           const plan = plans.find((p) => p.id === session.plannedWorkoutId);
           const date = session.startedAt;
 
+          // Une carte, trois chiffres, et le détail derrière un tap. Déplier
+          // chaque séance ICI faisait de l'historique une liste de pages
+          // empilées, alors qu'on y vient pour RETROUVER une séance -- la
+          // lire est le travail de sa fiche.
           return (
-            <Collapsible
+            <Pressable
               key={session.id}
-              // La dernière séance est celle qu'on vient revoir ; les autres
-              // attendent qu'on les demande.
-              defaultOpen={position === 0}
-              title={
-                <View className="shrink">
-                  <Text className="font-extrabold text-body text-ink dark:text-ink-dark">
-                    {plan ? plan.name : 'Séance libre'}
-                  </Text>
-                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                    {formatDateTime(date)}
-                  </Text>
-                </View>
+              onPress={() =>
+                router.push({ pathname: '/session-summary', params: { id: session.id } })
               }
-              summary={<StatusPill status={session.status} />}
             >
-              <View className="flex-row gap-3 pt-1">
-                <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
-                <Stat label="repos" value={formatClock(restTotal)} />
-                <Stat label="séries" value={String(completedSetCount)} />
-              </View>
-
-{activities.map((activity, index) => (
-                <View key={index} className="mt-2 gap-1.5">
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    {nameOf(activity.exerciseId)}
-                  </Text>
-
-                  {activity.completedSets.length === 0 ? (
-                    <Text className="text-small text-muted dark:text-muted-dark">
-                      aucune série complétée
+              <Card density="titled" className="gap-2">
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="shrink">
+                    <Text
+                      className="font-extrabold text-body text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {plan ? plan.name : 'Séance libre'}
                     </Text>
-                  ) : (
-                    activity.completedSets.map(({ set, index: setIndex, restBefore }, position) => (
-                      <View key={setIndex} className="gap-1.5">
-                        {restBefore ? (
-                          <Text className="pl-4 font-mono text-small text-muted dark:text-muted-dark">
-                            repos {formatClock(restBefore)}
-                          </Text>
-                        ) : null}
-                        {/* Du texte, pas un cadre : toutes ces séries sont
-                            validées, et l'encadré ne distinguait donc rien.
-                            La ligne reste tapable -- une faute de saisie doit
-                            pouvoir se réparer, même des semaines plus tard. */}
-                        <Pressable
-                          onPress={
-                            activity.performanceId
-                              ? () =>
-                                  setEditing({
-                                    performanceId: activity.performanceId!,
-                                    // Le rang réel dans la performance, fourni
-                                    // par le résumé.
-                                    setIndex,
-                                    measurementIds: activity.measurementIds,
-                                    values: { ...set.values },
-                                  })
-                              : undefined
-                          }
-                          className="py-0.5"
-                        >
-                          <Text
-                            className="font-mono text-small text-ink dark:text-ink-dark"
-                            style={{ fontVariant: ['tabular-nums'] }}
-                          >
-                            {position + 1}.  {formatSetValues(set.values, unitOf)}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
+                    <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                      {formatDateTime(date)}
+                    </Text>
+                  </View>
+                  <StatusPill status={session.status} />
                 </View>
-              ))}
 
-              {/* L'historique sert à RETROUVER et à corriger ; la fiche sert à
-                  relire une séance entière, et c'est elle qui porte le geste
-                  de l'effacer. Un texte, pas un bouton : ce n'est pas ce que
-                  cette page demande. */}
-              <Pressable
-                onPress={() =>
-                  router.push({ pathname: '/session-summary', params: { id: session.id } })
-                }
-                className="py-2"
-              >
-                <Text className="text-center text-caption text-primary-ink dark:text-primary-ink-dark">
-                  Voir la fiche de cette séance
-                </Text>
-              </Pressable>
-            </Collapsible>
+                <View className="flex-row gap-3">
+                  <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
+                  <Stat label="repos" value={formatClock(restTotal)} />
+                  <Stat label="séries" value={String(completedSetCount)} />
+                </View>
+              </Card>
+            </Pressable>
           );
         })}
         {matching.length > visible.length && (
@@ -364,51 +277,6 @@ export default function HistoryScreen() {
         onClose={() => setRestoring(null)}
       />
 
-      <Sheet
-        visible={editing !== null}
-        title={`Corriger la série ${(editing?.setIndex ?? 0) + 1}`}
-        description="La performance reste ce que tu déclares avoir fait."
-        onClose={() => setEditing(null)}
-      >
-        {editing && (
-          <View className="gap-3 pb-2">
-            {/* Une rangée par côté : un exercice unilatéral en a deux. */}
-            {(Object.keys(editing.values) as Side[]).map((side) => (
-              <View key={side} className="gap-1">
-                {side !== 'BOTH' && (
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
-                  </Text>
-                )}
-                <View className="flex-row gap-3">
-                  {editing.measurementIds.map((id) => (
-                    <NumberField
-                      key={id}
-                      unit={unitOf(id)}
-                      value={editing.values[side]?.[id] ?? 0}
-                      step={id === 'weight' ? 2.5 : 1}
-                      onChange={(value) =>
-                        setEditing((current) =>
-                          current
-                            ? {
-                                ...current,
-                                values: {
-                                  ...current.values,
-                                  [side]: { ...(current.values[side] ?? {}), [id]: value },
-                                },
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                  ))}
-                </View>
-              </View>
-            ))}
-            <Button label="Enregistrer" size="md" onPress={saveCorrection} />
-          </View>
-        )}
-      </Sheet>
     </SafeAreaView>
   );
 }
