@@ -60,19 +60,23 @@ module.exports = {
        * compacité est censée servir.
        */
       fontSize: {
+        // Les deux plus petits ne bougent plus : sous dix pixels, un texte
+        // cesse d'être lu et devient une texture.
         micro: ['10px', { lineHeight: '13px' }],
         caption: ['11px', { lineHeight: '14px' }],
         // Les intitulés en capitales : plus petits que le texte, mais espacés
         // pour rester lisibles.
         label: ['11px', { lineHeight: '14px', letterSpacing: '1.1px' }],
-        small: ['12px', { lineHeight: '16px' }],
-        body: ['14px', { lineHeight: '19px' }],
-        lead: ['15px', { lineHeight: '20px' }],
-        strong: ['16px', { lineHeight: '21px' }],
-        heading: ['18px', { lineHeight: '23px' }],
-        value: ['20px', { lineHeight: '24px' }],
-        title: ['22px', { lineHeight: '26px' }],
-        display: ['40px', { lineHeight: '40px' }],
+        small: ['12px', { lineHeight: '15px' }],
+        body: ['13px', { lineHeight: '17px' }],
+        lead: ['14px', { lineHeight: '18px' }],
+        strong: ['15px', { lineHeight: '20px' }],
+        heading: ['17px', { lineHeight: '22px' }],
+        value: ['19px', { lineHeight: '23px' }],
+        title: ['20px', { lineHeight: '24px' }],
+        display: ['36px', { lineHeight: '36px' }],
+        // Le chrono se lit de loin, posé au sol entre deux séries : il n'a
+        // pas de rang dans la hiérarchie, il occupe l'écran.
         timer: ['52px', { lineHeight: '52px' }],
       },
 
