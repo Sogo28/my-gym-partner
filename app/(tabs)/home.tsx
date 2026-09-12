@@ -7,13 +7,14 @@ import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-wo
 import type { ScheduledWorkout } from '../../src/domain/scheduling/scheduled-workout';
 import type { WorkoutSession } from '../../src/domain/workout-session/workout-session';
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
+import { findSessionsOn, type DaySession } from '../../src/infra/session-history';
 import { findActive } from '../../src/infra/workout-session-repository';
 import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { GoalCard } from '../../src/ui/goal-card';
-import { dayLabel, formatDateTime } from '../../src/ui/format';
+import { dayLabel, formatDateTime, formatTime } from '../../src/ui/format';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { SectionHeader } from '../../src/ui/screen-header';
@@ -61,6 +62,8 @@ export default function HomeScreen() {
   /** Le jour regardé seul, ou null pour la semaine entière. */
   const [day, setDay] = useState<Date | null>(null);
   const [dayWork, setDayWork] = useState<MuscleSummary>(EMPTY);
+  /** Les séances réellement FAITES le jour regardé. */
+  const [daySessions, setDaySessions] = useState<DaySession[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -117,6 +120,20 @@ export default function HomeScreen() {
         )
         .catch((e) => notify(messageOf(e)));
     }, []),
+  );
+
+  /**
+   * Ce qui a été fait le jour regardé.
+   *
+   * À part du reste, et rechargé quand le jour change comme à chaque
+   * affichage : une séance vient peut-être de s'y ajouter.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      findSessionsOn(day ?? new Date())
+        .then(setDaySessions)
+        .catch((e) => notify(messageOf(e)));
+    }, [day]),
   );
 
   const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
@@ -178,8 +195,16 @@ export default function HomeScreen() {
   const shownDay = day ?? today;
   /** Un jour passé ne se planifie plus : il se lit. */
   const past = shownDay.getTime() < today.getTime();
+  /**
+   * Ce qui était PRÉVU ce jour-là et n'a pas été fait.
+   *
+   * Une intention exécutée est déjà racontée par la séance qu'elle a
+   * produite : la redire ici ferait deux cartes pour une seule séance.
+   */
   const plannedThatDay = thisWeek.filter(
-    (entry) => startOfDay(entry.scheduledAt).getTime() === shownDay.getTime(),
+    (entry) =>
+      entry.status !== 'EXECUTED' &&
+      startOfDay(entry.scheduledAt).getTime() === shownDay.getTime(),
   );
   const strip = weekDays(new Date()).map((date) => ({
     date,
@@ -288,7 +313,7 @@ export default function HomeScreen() {
             {dayLabel(shownDay, new Date())}
           </Text>
 
-          {plannedThatDay.length === 0 ? (
+          {daySessions.length === 0 && plannedThatDay.length === 0 ? (
             <Card density="titled" className="gap-2">
               <Text className="text-small text-muted dark:text-muted-dark">
                 {past
@@ -300,7 +325,7 @@ export default function HomeScreen() {
 
               {/* Rien à proposer sur un jour passé : on ne programme pas
                   hier. Et sans entraînement, « Planifier » n'ouvrirait qu'une
-                  liste vide -- l'invitation mène là où il y a à faire. */}
+                  liste vide. */}
               {!past && (
                 <Button
                   label={
@@ -317,43 +342,70 @@ export default function HomeScreen() {
               )}
             </Card>
           ) : (
-            plannedThatDay.map((entry) => (
-              <Card key={entry.id} density="titled" className="gap-2">
-                <View className="flex-row items-start justify-between gap-3">
-                  <Text
-                    className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
-                    numberOfLines={1}
-                  >
-                    {planNameOf(entry.plannedWorkoutId)}
-                  </Text>
-                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
-                    {formatDateTime(entry.scheduledAt)}
-                  </Text>
-                </View>
+            <>
+              {/* Ce qui a été FAIT passe devant ce qui était prévu : c'est ce
+                  qu'on vient voir, et une séance libre n'existe qu'ici --
+                  aucun calendrier ne l'a jamais connue. */}
+              {daySessions.map((entry) => (
+                <Pressable
+                  key={entry.id}
+                  onPress={() =>
+                    router.push({ pathname: '/session-summary', params: { id: entry.id } })
+                  }
+                >
+                  <Card density="titled" className="gap-2">
+                    <View className="flex-row items-start justify-between gap-3">
+                      <Text
+                        className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {entry.plannedWorkoutId
+                          ? planNameOf(entry.plannedWorkoutId)
+                          : 'Séance libre'}
+                      </Text>
+                      <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                        {formatTime(entry.startedAt)}
+                      </Text>
+                    </View>
+                    <Text className="text-small text-success dark:text-success-dark">
+                      Séance faite · {entry.completedSets} série
+                      {entry.completedSets > 1 ? 's' : ''}
+                    </Text>
+                  </Card>
+                </Pressable>
+              ))}
 
-                {/* Faite : on ne repropose pas de la démarrer. Le dire vaut
-                    mieux que la faire disparaître -- un vide ressemblerait à
-                    un oubli de programmation. */}
-                {entry.status === 'EXECUTED' ? (
-                  <Text className="text-small text-success dark:text-success-dark">
-                    Séance faite.
-                  </Text>
-                ) : past ? (
-                  // Prévue et non faite, et le jour est passé : le dire, sans
-                  // proposer de la démarrer -- elle ne le serait plus ce
-                  // jour-là de toute façon.
-                  <Text className="text-small text-muted dark:text-muted-dark">
-                    Séance non faite.
-                  </Text>
-                ) : (
-                  <Button
-                    label="Démarrer"
-                    size="md"
-                    onPress={() => start(entry.plannedWorkoutId, entry.id)}
-                  />
-                )}
-              </Card>
-            ))
+              {plannedThatDay.map((entry) => (
+                <Card key={entry.id} density="titled" className="gap-2">
+                  <View className="flex-row items-start justify-between gap-3">
+                    <Text
+                      className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {planNameOf(entry.plannedWorkoutId)}
+                    </Text>
+                    <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                      {formatDateTime(entry.scheduledAt)}
+                    </Text>
+                  </View>
+
+                  {past ? (
+                    // Prévue et non faite, et le jour est passé : le dire, sans
+                    // proposer de la démarrer -- elle ne le serait plus ce
+                    // jour-là de toute façon.
+                    <Text className="text-small text-muted dark:text-muted-dark">
+                      Séance non faite.
+                    </Text>
+                  ) : (
+                    <Button
+                      label="Démarrer"
+                      size="md"
+                      onPress={() => start(entry.plannedWorkoutId, entry.id)}
+                    />
+                  )}
+                </Card>
+              ))}
+            </>
           )}
         </View>
         )}
