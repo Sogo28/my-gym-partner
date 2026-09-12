@@ -245,10 +245,10 @@ export default function HistoryScreen() {
               defaultOpen={position === 0}
               title={
                 <View className="shrink">
-                  <Text className="font-extrabold text-lead text-ink dark:text-ink-dark">
+                  <Text className="font-extrabold text-body text-ink dark:text-ink-dark">
                     {plan ? plan.name : 'Séance libre'}
                   </Text>
-                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                     {formatDateTime(date)}
                   </Text>
                 </View>

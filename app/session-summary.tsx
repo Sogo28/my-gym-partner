@@ -193,7 +193,7 @@ export default function SessionSummaryScreen() {
                   }
                 >
                   <Text
-                    className="font-bold text-lead text-ink dark:text-ink-dark"
+                    className="font-bold text-body text-ink dark:text-ink-dark"
                     numberOfLines={1}
                   >
                     {nameOf(activity.exerciseId)}
@@ -201,7 +201,7 @@ export default function SessionSummaryScreen() {
                 </Pressable>
 
                 {activity.completedSets.length === 0 ? (
-                  <Text className="text-small text-muted dark:text-muted-dark">
+                  <Text className="text-caption text-muted dark:text-muted-dark">
                     Aucune série validée.
                   </Text>
                 ) : (

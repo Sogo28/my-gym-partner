@@ -356,14 +356,14 @@ export default function HomeScreen() {
                   <Card density="titled" className="gap-2">
                     <View className="flex-row items-start justify-between gap-3">
                       <Text
-                        className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
+                        className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
                         numberOfLines={1}
                       >
                         {entry.plannedWorkoutId
                           ? planNameOf(entry.plannedWorkoutId)
                           : 'Séance libre'}
                       </Text>
-                      <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                      <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                         {formatTime(entry.startedAt)}
                       </Text>
                     </View>
@@ -379,12 +379,12 @@ export default function HomeScreen() {
                 <Card key={entry.id} density="titled" className="gap-2">
                   <View className="flex-row items-start justify-between gap-3">
                     <Text
-                      className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
+                      className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
                       numberOfLines={1}
                     >
                       {planNameOf(entry.plannedWorkoutId)}
                     </Text>
-                    <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                    <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                       {formatDateTime(entry.scheduledAt)}
                     </Text>
                   </View>

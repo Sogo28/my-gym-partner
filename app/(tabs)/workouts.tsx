@@ -116,10 +116,10 @@ export default function WorkoutsScreen() {
             <Link href={{ pathname: '/workout', params: { id: item.id } }} asChild>
               <Pressable>
                 <Card density="titled">
-                  <Text className="font-extrabold text-lead text-ink dark:text-ink-dark">
+                  <Text className="font-extrabold text-body text-ink dark:text-ink-dark">
                     {item.name}
                   </Text>
-                  <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                     {item.exercises.length} ex · {setCount} série{setCount > 1 ? 's' : ''}
                   </Text>
                   {item.exercises.length > 0 && (

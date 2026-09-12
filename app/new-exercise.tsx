@@ -257,10 +257,10 @@ export default function NewExerciseScreen() {
 
         <View className="flex-row items-center justify-between gap-4">
           <View className="shrink">
-            <Text className="font-bold text-lead text-ink dark:text-ink-dark">
+            <Text className="font-bold text-body text-ink dark:text-ink-dark">
               Exercice unilatéral
             </Text>
-            <Text className="text-small text-muted dark:text-muted-dark">
+            <Text className="text-caption text-muted dark:text-muted-dark">
               Saisie côté gauche / côté droit.
             </Text>
           </View>

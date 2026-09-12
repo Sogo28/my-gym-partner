@@ -41,14 +41,14 @@ export function GoalCard({
     <Pressable onPress={onPress} style={width ? { width } : undefined}>
       <Card className="gap-2">
         <Text
-          className="h-[36px] font-bold text-lead text-ink dark:text-ink-dark"
+          className="h-[34px] font-bold text-body text-ink dark:text-ink-dark"
           numberOfLines={2}
         >
           {goal.name}
         </Text>
 
         <Text
-          className="text-small text-primary-ink dark:text-primary-ink-dark"
+          className="text-caption text-primary-ink dark:text-primary-ink-dark"
           numberOfLines={1}
         >
           {subjectName(goal)}

@@ -56,10 +56,10 @@ export function GoalProgression({
                   className={cn(
                     'shrink',
                     state === 'past'
-                      ? 'text-lead text-muted line-through dark:text-muted-dark'
+                      ? 'text-body text-muted line-through dark:text-muted-dark'
                       : state === 'current'
                         ? 'font-extrabold text-heading text-ink dark:text-ink-dark'
-                        : 'text-lead text-ink dark:text-ink-dark',
+                        : 'text-body text-ink dark:text-ink-dark',
                   )}
                   numberOfLines={1}
                 >

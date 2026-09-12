@@ -354,14 +354,14 @@ export default function NewGoalScreen() {
             <Card key={index} density="titled" className="gap-1">
               <View className="flex-row items-center justify-between pb-1">
                 <Text
-                  className="shrink font-bold text-lead text-ink dark:text-ink-dark"
+                  className="shrink font-bold text-body text-ink dark:text-ink-dark"
                   numberOfLines={1}
                 >
                   {progressive ? `${index + 1}. ` : ''}
                   {subjectName(entry.subject)}
                 </Text>
                 <Pressable onPress={() => removeEntry(index)} hitSlop={8}>
-                  <Text className="text-small text-danger dark:text-danger-dark">retirer</Text>
+                  <Text className="text-caption text-danger dark:text-danger-dark">retirer</Text>
                 </Pressable>
               </View>
 

@@ -421,7 +421,7 @@ function DraftCard({
             <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
           </Pressable>
           <Text
-            className="shrink font-bold text-lead text-ink dark:text-ink-dark"
+            className="shrink font-bold text-body text-ink dark:text-ink-dark"
             numberOfLines={1}
           >
             {exercise?.name ?? planned.exerciseId}

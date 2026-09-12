@@ -138,7 +138,7 @@ export default function WorkoutDetailScreen() {
             <Card density="titled" className="gap-2">
               <View className="flex-row items-center justify-between gap-3">
                 <Text
-                  className="shrink font-bold text-lead text-ink dark:text-ink-dark"
+                  className="shrink font-bold text-body text-ink dark:text-ink-dark"
                   numberOfLines={1}
                 >
                   {position + 1}. {nameOf(planned.exerciseId)}

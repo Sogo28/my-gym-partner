@@ -238,12 +238,12 @@ export default function ExerciseDetailScreen() {
                   {goals.map((goal) => (
                     <Card key={goal.id} className="flex-row items-center justify-between gap-3">
                       <Text
-                        className="shrink font-bold text-lead text-ink dark:text-ink-dark"
+                        className="shrink font-bold text-body text-ink dark:text-ink-dark"
                         numberOfLines={1}
                       >
                         {goal.name}
                       </Text>
-                      <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                      <Text className="text-caption text-muted dark:text-muted-dark">
                         {goal.status === 'ACTIVE' ? 'en cours' : 'archivé'}
                       </Text>
                     </Card>
