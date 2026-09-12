@@ -96,23 +96,25 @@ describe('Effacer l historique', () => {
 });
 
 describe('Effacer une séance', () => {
-  async function aSessionOf(exerciseId: string, durations: number[]) {
-    await startWorkoutSession();
+  /** Rend l'identifiant : deux séances de la même milliseconde ne se
+   *  distinguent pas par leur ordre. */
+  async function aSessionOf(exerciseId: string, durations: number[]): Promise<string> {
+    const session = await startWorkoutSession();
     await startActivity(exerciseId);
     for (const duration of durations) {
       await startPerformanceSet();
       await completePerformanceSet({ BOTH: { duration } });
     }
     await finishWorkoutSession();
+    return session.id;
   }
 
   it('emporte les performances, qui comptaient partout ailleurs', async () => {
     const exercise = await anExercise();
     await aSessionOf(exercise.id, [10, 11]);
-    await aSessionOf(exercise.id, [7]);
+    const effacee = await aSessionOf(exercise.id, [7]);
 
-    const [recent] = await listSessionSummaries();
-    await eraseSession(recent.session.id);
+    await eraseSession(effacee);
 
     // La séance disparaît de l'historique ET de ce qui nourrit les records et
     // les objectifs : la laisser compter serait l'effacer à moitié.
@@ -124,21 +126,21 @@ describe('Effacer une séance', () => {
 
   it('ne touche pas aux autres séances', async () => {
     const exercise = await anExercise();
-    await aSessionOf(exercise.id, [10]);
-    await aSessionOf(exercise.id, [11]);
+    const gardee = await aSessionOf(exercise.id, [10]);
+    const effacee = await aSessionOf(exercise.id, [11]);
 
-    const [recent, older] = await listSessionSummaries();
-    await eraseSession(recent.session.id);
+    await eraseSession(effacee);
 
-    expect((await listSessionSummaries())[0].session.id).toBe(older.session.id);
+    const left = await listSessionSummaries();
+    expect(left).toHaveLength(1);
+    expect(left[0].session.id).toBe(gardee);
   });
 
   it('refuse une séance en cours', async () => {
     const exercise = await anExercise();
-    await startWorkoutSession();
+    const active = await startWorkoutSession();
     await startActivity(exercise.id);
-    const active = (await listSessionSummaries())[0];
 
-    await expect(eraseSession(active.session.id)).rejects.toThrow(/Termine ou annule/);
+    await expect(eraseSession(active.id)).rejects.toThrow(/Termine ou annule/);
   });
 });
