@@ -856,10 +856,17 @@ export default function SessionScreen() {
             </ScrollView>
           )}
 
-          {/* Le chrono occupe le centre de l'écran pendant la récupération. */}
-          <View className="flex-1 items-center justify-center">
+          {/* Le chrono occupe le centre de l'écran pendant la récupération.
+
+              Et c'est le VIDE de l'écran : y taper referme l'ajustement en
+              cours, comme retaper la série elle-même. Rien à apprendre, et
+              donc pas de bouton pour le dire. */}
+          <Pressable
+            className="flex-1 items-center justify-center"
+            onPress={() => editing !== null && toggleEditing(editing)}
+          >
             {resting && <Timer seconds={restElapsed} large />}
-          </View>
+          </Pressable>
 
           <View className="gap-3 pb-2">
 
@@ -889,19 +896,9 @@ export default function SessionScreen() {
               ))}
 
             {/* Ajuster une série passe AVANT tout le reste : les valeurs
-                s'écrivent à chaque pas, et le bouton qui occupe cette place
-                d'habitude -- terminer, enchaîner -- ferait tout autre chose
-                que ce qu'on est en train de faire. Un seul geste ici, celui
-                de refermer. */}
-            {editing !== null && (
-              <Button
-                label="Terminer l ajustement"
-                variant="secondary"
-                size="lg"
-                onPress={() => toggleEditing(editing)}
-              />
-            )}
-
+                s'écrivent à chaque pas, et les boutons qui occupent cette
+                place d'habitude -- terminer, enchaîner -- feraient tout autre
+                chose que ce qu'on est en train de faire. */}
             {editing === null && performance?.currentSet && (
               <Button
                 label="Terminer"
