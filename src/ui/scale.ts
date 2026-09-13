@@ -19,8 +19,13 @@ export function chartScale(values: readonly number[]): Scale {
    * Le mensonge qu'une base tronquée fait courir est désamorcé par les
    * graduations : elles portent les nombres réels, et l'on voit d'où part
    * l'échelle.
+   *
+   * Elle ne descend jamais sous zéro quand les valeurs n'y descendent pas :
+   * un volume de moins deux, un poids négatif, une durée qui recule -- la
+   * graduation annoncerait une grandeur qui n'existe pas.
    */
-  return { floor: min - (max - min) * 0.25, max };
+  const floor = min - (max - min) * 0.25;
+  return { floor: min >= 0 ? Math.max(floor, 0) : floor, max };
 }
 
 /**

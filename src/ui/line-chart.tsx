@@ -43,6 +43,11 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
    */
   const x = (index: number) => ((index + 0.5) / points.length) * 100;
 
+  const named = labelledSessions(points.length);
+  // Toutes le même jour : la date ne distingue plus rien, l'heure si.
+  const sameDay =
+    points[0].at.toDateString() === points[points.length - 1].at.toDateString();
+
   const line = offsets
     .map((offset, index) => `${index === 0 ? 'M' : 'L'} ${x(index)} ${y(offset)}`)
     .join(' ');
@@ -134,11 +139,14 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
         </View>
       </View>
 
-      {/* Ce que l'axe des abscisses porte : des séances, dites par leur date.
+      {/* Ce que l'axe des abscisses porte : les séances, nommées.
 
-          Cinq au plus, réparties, la première et la dernière toujours. Une
-          date par séance tenait à trois séances et se chevauchait à dix ; les
-          espacer garde l'axe lisible quel que soit le nombre de points. */}
+          Par leur HEURE quand elles tombent le même jour : répéter six fois
+          « 13 sept » ne distingue rien, et c'est l'heure qui les sépare. Par
+          leur date sinon.
+
+          Et quatre au plus, régulièrement espacées depuis la dernière. Une
+          par séance se chevauchait et se tronquait en « 13 sep… ». */}
       <View className="flex-row">
         <View style={{ width: GUTTER }} />
         <View className="flex-1 flex-row">
@@ -148,7 +156,7 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
                 className="font-mono text-micro text-muted dark:text-muted-dark"
                 numberOfLines={1}
               >
-                {dated(index, points.length) ? shortDate(point.at) : ''}
+                {named.has(index) ? (sameDay ? shortTime(point.at) : shortDate(point.at)) : ''}
               </Text>
             </View>
           ))}
@@ -158,14 +166,28 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
   );
 }
 
-/** Cette séance porte-t-elle sa date ? Au plus cinq, dont les deux extrêmes. */
-function dated(index: number, total: number): boolean {
-  if (index === 0 || index === total - 1) return true;
-  return index % Math.ceil((total - 1) / 4) === 0;
+/**
+ * Les séances qui portent leur nom : quatre au plus.
+ *
+ * Comptées DEPUIS LA DERNIÈRE, à pas régulier : la plus récente est celle
+ * qu'on cherche, et partir d'elle garantit l'écart entre deux étiquettes.
+ * Partir du début et ajouter la dernière à part les faisait se toucher dès
+ * que le compte tombait mal -- six séances donnaient « 13 sep…13 sep… ».
+ */
+function labelledSessions(total: number): Set<number> {
+  const step = Math.max(1, Math.ceil(total / 4));
+  const kept = new Set<number>();
+  for (let index = total - 1; index >= 0; index -= step) kept.add(index);
+  return kept;
 }
 
 function round(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** « 11:31 » : ce qui sépare deux séances d'un même jour. */
+function shortTime(date: Date): string {
+  return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 /** « 12 août » : l'année n'aide pas à lire une progression sur douze séances. */

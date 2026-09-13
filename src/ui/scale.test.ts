@@ -35,3 +35,15 @@ describe('L échelle verticale', () => {
     expect(curveOffsets([])).toEqual([]);
   });
 });
+
+describe('Le plancher de l échelle', () => {
+  it('ne descend pas sous zéro pour des grandeurs qui n y descendent pas', () => {
+    // Un quart de l'écart sous 32 tomberait à -2, et la graduation
+    // annoncerait un volume négatif : une grandeur qui n'existe pas.
+    expect(chartScale([32, 168]).floor).toBe(0);
+  });
+
+  it('garde sa marge quand elle reste positive', () => {
+    expect(chartScale([100, 180]).floor).toBe(80);
+  });
+});

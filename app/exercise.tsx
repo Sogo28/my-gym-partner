@@ -218,13 +218,16 @@ export default function ExerciseDetailScreen() {
                   unit={unitOf(record.measurementId)}
                 />
               ))}
-              {/* Le volume n'apparaît que si l'exercice porte les deux mesures
-                  dont il est le produit. */}
+              {/* Le volume n'apparaît qu'à partir de deux mesures : avec une
+                  seule, son produit répéterait cette mesure.
+
+                  Et sans unité : des kilos par répétition ne sont une
+                  grandeur d'aucune physique. « kg » était faux. */}
               {volume && (
                 <Stat
                   label="Volume/série"
                   value={`${Math.round(volume.value * 10) / 10}`}
-                  unit="kg"
+                  unit=""
                 />
               )}
             </View>
