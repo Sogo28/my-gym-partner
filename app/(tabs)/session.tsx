@@ -524,11 +524,13 @@ export default function SessionScreen() {
           />
         </View>
 
-        <View className="flex-1" />
+        {/* Le vide de l'écran referme le réglage, comme pendant la séance :
+            c'est la cible la plus large, et le seul endroit où taper ne veut
+            rien dire d'autre. */}
+        <Pressable className="flex-1" onPress={() => setAdjustingStart(false)} />
 
         <View className="gap-3 pb-2">
-
-          {adjustingStart && (
+          {adjustingStart ? (
             <View className="flex-row gap-3">
               {pendingExercise.measurementIds.map((id) => (
                 <NumberField
@@ -540,9 +542,12 @@ export default function SessionScreen() {
                 />
               ))}
             </View>
+          ) : (
+            // Pendant qu'on règle, « Let's go » occupe la place où la main va
+            // et partirait pour tout autre chose que ce qu'on est en train de
+            // faire.
+            <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
           )}
-
-          <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
         </View>
 
         {/* Le menu ne propose que ce qui existe à ce stade : rien n'a été
