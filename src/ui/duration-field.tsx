@@ -26,12 +26,22 @@ export function DurationField({
   onChange,
   label,
   compact = false,
+  onDone,
 }: {
   /** En secondes : c'est ainsi qu'une durée est mesurée et stockée. */
   value: number;
   onChange: (seconds: number) => void;
   label?: string;
   compact?: boolean;
+  /**
+   * Appelé en refermant la roulette.
+   *
+   * Pour une durée, la roulette EST tout le réglage : une fois la valeur
+   * choisie, il n'y a plus rien à faire sur cette série. L'écran qui la
+   * tenait ouverte peut donc la relâcher, au lieu d'attendre un second geste
+   * qui ne dirait rien de plus.
+   */
+  onDone?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -69,7 +79,10 @@ export function DurationField({
         visible={open}
         value={value}
         onChange={onChange}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          onDone?.();
+        }}
       />
     </View>
   );

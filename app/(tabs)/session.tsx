@@ -551,6 +551,7 @@ export default function SessionScreen() {
                   value={targets[id] ?? 0}
                   step={STEPS[id] ?? 1}
                   onChange={(value) => setFreeTargets({ ...targets, [id]: value })}
+                  onDone={() => setAdjustingStart(false)}
                 />
               ))}
             </View>
@@ -940,6 +941,7 @@ export default function SessionScreen() {
                         value={editedValues[side]?.[id] ?? 0}
                         step={STEPS[id] ?? 1}
                         onChange={(value) => adjust(side, id, value)}
+                        onDone={() => editing !== null && toggleEditing(editing)}
                       />
                     ))}
                   </View>

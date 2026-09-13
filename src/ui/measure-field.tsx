@@ -18,6 +18,7 @@ export function MeasureField({
   label,
   step,
   compact = false,
+  onDone,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -26,9 +27,22 @@ export function MeasureField({
   /** Le pas d'un compteur. Sans objet pour une durée, qui n'en a pas. */
   step?: number;
   compact?: boolean;
+  /**
+   * Le réglage est terminé. N'a de sens que pour une durée : elle se choisit
+   * d'un geste et se referme, là où un compteur n'a pas de fin.
+   */
+  onDone?: () => void;
 }) {
   if (isDuration(unit)) {
-    return <DurationField value={value} onChange={onChange} label={label} compact={compact} />;
+    return (
+      <DurationField
+        value={value}
+        onChange={onChange}
+        label={label}
+        compact={compact}
+        onDone={onDone}
+      />
+    );
   }
   return (
     <NumberField
