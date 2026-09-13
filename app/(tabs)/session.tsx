@@ -50,7 +50,7 @@ import {
   formatTargets,
   formatTargetsShort,
 } from '../../src/ui/set-values';
-import { formatDateTime } from '../../src/ui/format';
+import { formatDateTime, isDuration } from '../../src/ui/format';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -280,6 +280,19 @@ export default function SessionScreen() {
   const shown = baseline();
 
   /**
+   * La série n'a-t-elle qu'une durée à régler ?
+   *
+   * Alors taper la série ouvre directement sa roulette : s'arrêter sur le
+   * champ demanderait un tap pour rien. Dès qu'une autre mesure ou un second
+   * côté existe, il y a un choix à faire avant, et l'ouverture d'office le
+   * cacherait.
+   */
+  const durationOnly =
+    sides.length === 1 &&
+    (performance?.measurementIds ?? []).length === 1 &&
+    isDuration(unitOf(performance!.measurementIds[0]));
+
+  /**
    * Valider la série qu'on vient de filmer.
    *
    * À part de l'effet de focus, qui est figé à sa création : ici les valeurs
@@ -503,6 +516,9 @@ export default function SessionScreen() {
 
   if (!session && pendingExercise) {
     const targets = freeTargets ?? defaultTargets(pendingExercise.measurementIds);
+    const soleDuration =
+      pendingExercise.measurementIds.length === 1 &&
+      isDuration(unitOf(pendingExercise.measurementIds[0]));
 
     return (
       <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
@@ -551,6 +567,7 @@ export default function SessionScreen() {
                   value={targets[id] ?? 0}
                   step={STEPS[id] ?? 1}
                   onChange={(value) => setFreeTargets({ ...targets, [id]: value })}
+                  autoOpen={soleDuration}
                   onDone={() => setAdjustingStart(false)}
                 />
               ))}
@@ -941,6 +958,7 @@ export default function SessionScreen() {
                         value={editedValues[side]?.[id] ?? 0}
                         step={STEPS[id] ?? 1}
                         onChange={(value) => adjust(side, id, value)}
+                        autoOpen={durationOnly}
                         onDone={() => editing !== null && toggleEditing(editing)}
                       />
                     ))}

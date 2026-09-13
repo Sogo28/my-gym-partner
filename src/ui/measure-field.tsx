@@ -18,6 +18,7 @@ export function MeasureField({
   label,
   step,
   compact = false,
+  autoOpen = false,
   onDone,
 }: {
   value: number;
@@ -32,6 +33,8 @@ export function MeasureField({
    * d'un geste et se referme, là où un compteur n'a pas de fin.
    */
   onDone?: () => void;
+  /** Sans objet pour un compteur, qui n'a pas de fenêtre à ouvrir. */
+  autoOpen?: boolean;
 }) {
   if (isDuration(unit)) {
     return (
@@ -40,6 +43,7 @@ export function MeasureField({
         onChange={onChange}
         label={label}
         compact={compact}
+        autoOpen={autoOpen}
         onDone={onDone}
       />
     );

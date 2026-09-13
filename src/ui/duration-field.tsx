@@ -26,6 +26,7 @@ export function DurationField({
   onChange,
   label,
   compact = false,
+  autoOpen = false,
   onDone,
 }: {
   /** En secondes : c'est ainsi qu'une durée est mesurée et stockée. */
@@ -41,9 +42,17 @@ export function DurationField({
    * tenait ouverte peut donc la relâcher, au lieu d'attendre un second geste
    * qui ne dirait rien de plus.
    */
+  /**
+   * Ouvre la roulette dès l'apparition du champ.
+   *
+   * Pour une série dont la durée est la SEULE mesure, le champ n'a rien à
+   * montrer que la roulette ne montre : s'arrêter dessus demanderait un tap
+   * pour rien. Le champ reste derrière, et se retrouve en refermant.
+   */
+  autoOpen?: boolean;
   onDone?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
 
   return (
     <View className="flex-1 gap-1">
