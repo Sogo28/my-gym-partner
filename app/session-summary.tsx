@@ -1,10 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
-import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
@@ -12,7 +10,6 @@ import { findAll as findAllPlans } from '../src/infra/planned-workout-repository
 import { BodyMap } from '../src/ui/body-map';
 import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
-import { NumberField } from '../src/ui/number-field';
 import { Card } from '../src/ui/card';
 import { formatClock, formatDateTime } from '../src/ui/format';
 import { GoalCard } from '../src/ui/goal-card';
@@ -25,13 +22,8 @@ import { SetVideoViewer, VideoBadge } from '../src/ui/set-video';
 import { fileUri, forgetUnusedMedia } from '../src/use-cases/media-actions';
 import { detachSetVideo } from '../src/use-cases/set-video';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
-import { correctPastSet } from '../src/use-cases/correct-past-set';
 import { eraseSession } from '../src/use-cases/erase-history';
-import {
-  findSessionSummary,
-  type ActivitySummary,
-  type SessionSummary,
-} from '../src/use-cases/session-summary';
+import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -58,22 +50,6 @@ export default function SessionSummaryScreen() {
     setIndex: number;
     name: string;
   } | null>(null);
-  /** L'exercice dont on a ouvert le menu, avec ses séries. */
-  const [acting, setActing] = useState<ActivitySummary | null>(null);
-  /**
-   * La série ouverte à la correction.
-   *
-   * Elle vit ICI depuis que l'historique ne déplie plus ses séances : c'est
-   * la fiche qui montre le détail, donc c'est elle qui doit permettre de le
-   * corriger. Une faute de saisie doit pouvoir se réparer, même des semaines
-   * plus tard.
-   */
-  const [editing, setEditing] = useState<{
-    performanceId: string;
-    setIndex: number;
-    measurementIds: readonly string[];
-    values: ValuesBySide;
-  } | null>(null);
 
   const reload = useCallback(async () => {
     const [found, allExercises, allMeasurements, allPlans] = await Promise.all([
@@ -98,21 +74,6 @@ export default function SessionSummaryScreen() {
       reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
-
-  async function saveCorrection() {
-    if (!editing) return;
-    try {
-      await correctPastSet({
-        performanceId: editing.performanceId,
-        setIndex: editing.setIndex,
-        values: editing.values,
-      });
-      setEditing(null);
-      await reload();
-    } catch (e) {
-      notify(messageOf(e));
-    }
-  }
 
   const exerciseOf = (exerciseId: string) => exercises.find((e) => e.id === exerciseId);
   const nameOf = (exerciseId: string) => exerciseOf(exerciseId)?.name ?? exerciseId;
@@ -248,33 +209,21 @@ export default function SessionSummaryScreen() {
 
             return (
               <Card key={index} className="gap-1">
-                {/* Trois gestes se disputaient cette carte : ouvrir
-                    l'exercice, ajuster une série, voir sa vidéo -- trois
-                    cibles voisines, dont une ligne de texte. Seul ce qu'on
-                    fait SOUVENT reste direct : ouvrir l'exercice, et regarder
-                    une vidéo. Corriger et supprimer passent par le menu, où
-                    ils nomment la série qu'ils visent. */}
-                <View className="flex-row items-start justify-between gap-2">
-                  <Pressable
-                    className="shrink"
-                    onPress={() =>
-                      router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
-                    }
+                {/* La fiche se LIT : ouvrir l'exercice, regarder une vidéo.
+                    Corriger appartient à l'écran de modification, où chaque
+                    geste a la place qu'une ligne de série n'a pas. */}
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
+                  }
+                >
+                  <Text
+                    className="font-bold text-body text-ink dark:text-ink-dark"
+                    numberOfLines={1}
                   >
-                    <Text
-                      className="font-bold text-body text-ink dark:text-ink-dark"
-                      numberOfLines={1}
-                    >
-                      {nameOf(activity.exerciseId)}
-                    </Text>
-                  </Pressable>
-
-                  {activity.performanceId && activity.completedSets.length > 0 && (
-                    <Pressable onPress={() => setActing(activity)} hitSlop={8}>
-                      <Ionicons name="ellipsis-horizontal" size={18} color="#8B9086" />
-                    </Pressable>
-                  )}
-                </View>
+                    {nameOf(activity.exerciseId)}
+                  </Text>
+                </Pressable>
 
                 {activity.completedSets.length === 0 ? (
                   <Text className="text-caption text-muted dark:text-muted-dark">
@@ -329,48 +278,16 @@ export default function SessionSummaryScreen() {
         title={plan ? plan.name : 'Séance libre'}
         actions={[
           {
+            label: 'Modifier cette séance',
+            onPress: () => router.push({ pathname: '/edit-session', params: { id } }),
+          },
+          {
             label: 'Effacer cette séance',
             tone: 'danger',
             onPress: () => setSheet('confirm'),
           },
         ]}
         onClose={() => setSheet('none')}
-      />
-
-      {/* Une entrée par série, plutôt qu'un geste à viser sur la ligne :
-          ici le doigt a de la place, et chaque action dit sur quoi elle
-          porte. */}
-      <Sheet
-        visible={acting !== null}
-        title={acting ? nameOf(acting.exerciseId) : ''}
-        actions={(acting?.completedSets ?? []).flatMap(({ set, index: setIndex }, position) => [
-          {
-            label: `Ajuster la série ${position + 1}`,
-            onPress: () =>
-              setEditing({
-                performanceId: acting!.performanceId!,
-                // Le rang RÉEL dans la performance, abandons compris : le
-                // résumé le fournit, et le recalculer désignerait de travers.
-                setIndex,
-                measurementIds: acting!.measurementIds,
-                values: { ...set.values },
-              }),
-          },
-          ...(set.videoUri
-            ? [
-                {
-                  label: `Supprimer la vidéo de la série ${position + 1}`,
-                  tone: 'danger' as const,
-                  onPress: () =>
-                    detachSetVideo(acting!.performanceId!, setIndex)
-                      .then(reload)
-                      .then(() => notify('Vidéo supprimée.', 'success'))
-                      .catch((e) => notify(messageOf(e))),
-                },
-              ]
-            : []),
-        ])}
-        onClose={() => setActing(null)}
       />
 
       <SetVideoViewer
@@ -386,52 +303,6 @@ export default function SessionSummaryScreen() {
             .catch((e) => notify(messageOf(e)));
         }}
       />
-
-      <Sheet
-        visible={editing !== null}
-        title={`Corriger la série ${(editing?.setIndex ?? 0) + 1}`}
-        description="La performance reste ce que tu déclares avoir fait."
-        onClose={() => setEditing(null)}
-      >
-        {editing && (
-          <View className="gap-3 pb-2">
-            {/* Une rangée par côté : un exercice unilatéral en a deux. */}
-            {(Object.keys(editing.values) as Side[]).map((side) => (
-              <View key={side} className="gap-1">
-                {side !== 'BOTH' && (
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
-                  </Text>
-                )}
-                <View className="flex-row gap-3">
-                  {editing.measurementIds.map((id) => (
-                    <NumberField
-                      key={id}
-                      unit={unitOf(id)}
-                      value={editing.values[side]?.[id] ?? 0}
-                      step={id === 'weight' ? 2.5 : 1}
-                      onChange={(value) =>
-                        setEditing((current) =>
-                          current
-                            ? {
-                                ...current,
-                                values: {
-                                  ...current.values,
-                                  [side]: { ...(current.values[side] ?? {}), [id]: value },
-                                },
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                  ))}
-                </View>
-              </View>
-            ))}
-            <Button label="Enregistrer" size="md" onPress={saveCorrection} />
-          </View>
-        )}
-      </Sheet>
 
       <Sheet
         visible={sheet === 'confirm'}

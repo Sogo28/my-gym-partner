@@ -96,6 +96,7 @@ export default function RootLayout() {
       <Stack.Screen name="body" />
       <Stack.Screen name="record" />
       <Stack.Screen name="session-summary" />
+      <Stack.Screen name="edit-session" />
       <Stack.Screen name="settings" />
     </Stack>
     </ThemeProvider>
