@@ -1,6 +1,7 @@
 import { DurationField } from './duration-field';
 import { isDuration } from './format';
 import { NumberField } from './number-field';
+import { ceilingOf, stepOf } from './set-defaults';
 
 /**
  * La saisie d'une mesure, quelle qu'elle soit.
@@ -15,8 +16,8 @@ export function MeasureField({
   value,
   onChange,
   unit,
+  measurementId,
   label,
-  step,
   compact = false,
   autoOpen = false,
   onDone,
@@ -24,9 +25,13 @@ export function MeasureField({
   value: number;
   onChange: (value: number) => void;
   unit: string;
+  /**
+   * Ce qui est mesuré. Le pas et le plafond en découlent : ce sont des
+   * propriétés de la MESURE, pas de l'écran qui l'affiche -- où ils étaient
+   * recopiés trois fois.
+   */
+  measurementId: string;
   label?: string;
-  /** Le pas d'un compteur. Sans objet pour une durée, qui n'en a pas. */
-  step?: number;
   compact?: boolean;
   /**
    * Le réglage est terminé. N'a de sens que pour une durée : elle se choisit
@@ -36,6 +41,8 @@ export function MeasureField({
   /** Sans objet pour un compteur, qui n'a pas de fenêtre à ouvrir. */
   autoOpen?: boolean;
 }) {
+  const step = stepOf(measurementId);
+
   if (isDuration(unit)) {
     return (
       <DurationField
@@ -55,6 +62,7 @@ export function MeasureField({
       unit={unit}
       label={label}
       step={step}
+      ceiling={ceilingOf(measurementId)}
       compact={compact}
     />
   );

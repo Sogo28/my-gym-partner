@@ -502,6 +502,7 @@ export default function NewGoalScreen() {
                       key={clause.measurementId}
                       compact
                       unit={unitOf(clause.measurementId)}
+                      measurementId={clause.measurementId}
                       value={clause.target}
                       onChange={(target) =>
                         updateClause(editing.entry, editing.condition, clause.measurementId, target)
@@ -550,6 +551,9 @@ export default function NewGoalScreen() {
               <MeasureField
                 compact
                 unit={targetUnit(editedCondition, unitOf)}
+                // Un décompte de séries ne lit aucune mesure : le pas est
+                // alors celui d'une unité, et la roulette compte des séries.
+                measurementId={editedCondition.measurementId ?? 'setCount'}
                 value={editedCondition.target}
                 onChange={(target) => update(editing.entry, editing.condition, { target })}
               />

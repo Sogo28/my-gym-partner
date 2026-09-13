@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
 import { formatDuration } from './format';
 import { Sheet } from './sheet';
+import { ladder, Wheel } from './wheel';
 
-/** La hauteur d'un cran. Trois tiennent dans la fenêtre : le choisi, et ses voisins. */
-const ITEM = 44;
-const VISIBLE = 3;
+/** Zéro à cinquante-neuf : les deux colonnes d'une durée ont les mêmes crans. */
+const SIXTY = ladder(1, 59);
 
 /**
  * Une durée se règle à la roulette, pas au compteur.
@@ -114,94 +114,10 @@ function DurationSheet({
   return (
     <Sheet visible={visible} title="Durée" description={formatDuration(value)} onClose={onClose}>
       <View className="flex-row items-center justify-center gap-2 pb-2">
-        <Wheel count={60} unit="min" value={minutes} onChange={(m) => onChange(m * 60 + seconds)} />
+        <Wheel values={SIXTY} unit="min" value={minutes} onChange={(m) => onChange(m * 60 + seconds)} />
         <Text className="font-mono-bold text-heading text-muted dark:text-muted-dark">:</Text>
-        <Wheel count={60} unit="s" value={seconds} onChange={(s) => onChange(minutes * 60 + s)} />
+        <Wheel values={SIXTY} unit="s" value={seconds} onChange={(s) => onChange(minutes * 60 + s)} />
       </View>
     </Sheet>
-  );
-}
-
-/**
- * Une colonne de nombres qui s'arrête sur un cran.
- *
- * L'aimantation vient de `snapToInterval` : le défilement s'arrête toujours
- * PILE sur une valeur, jamais entre deux. La valeur retenue se déduit alors
- * de la position, ce qui évite d'avoir à deviner sur quoi l'oeil s'est posé.
- */
-function Wheel({
-  count,
-  unit,
-  value,
-  onChange,
-}: {
-  count: number;
-  unit: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  const list = useRef<ScrollView>(null);
-
-  // La position de départ, posée sans animation : la roulette doit s'ouvrir
-  // DÉJÀ sur la valeur courante, pas défiler jusqu'à elle sous les yeux.
-  useEffect(() => {
-    const timer = setTimeout(
-      () => list.current?.scrollTo({ y: value * ITEM, animated: false }),
-      0,
-    );
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const settle = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const landed = Math.round(event.nativeEvent.contentOffset.y / ITEM);
-    const next = Math.min(Math.max(landed, 0), count - 1);
-    if (next !== value) onChange(next);
-  };
-
-  return (
-    <View className="items-center gap-1">
-      <View style={{ height: ITEM * VISIBLE }} className="w-[76px] justify-center">
-        {/* Le cran retenu, désigné par un aplat derrière la colonne : c'est
-            lui qui dit où regarder, sans rien ajouter à ce qui défile. */}
-        <View
-          pointerEvents="none"
-          style={{ height: ITEM }}
-          className="absolute inset-x-0 rounded-lg bg-primary-soft dark:bg-primary-soft-dark"
-        />
-
-        <ScrollView
-          ref={list}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM}
-          decelerationRate="fast"
-          // Une hauteur de cran en haut et en bas : le premier et le dernier
-          // nombre peuvent alors se placer au centre comme les autres.
-          contentContainerStyle={{ paddingVertical: ITEM }}
-          onMomentumScrollEnd={settle}
-          // Un glissement lent s'arrête sans élan : sans cela, la valeur ne
-          // suivrait pas.
-          onScrollEndDrag={settle}
-        >
-          {Array.from({ length: count }, (_, n) => (
-            <View key={n} style={{ height: ITEM }} className="items-center justify-center">
-              <Text
-                className={cn(
-                  'font-mono-bold',
-                  n === value
-                    ? 'text-heading text-ink dark:text-ink-dark'
-                    : 'text-lead text-planned dark:text-planned-dark',
-                )}
-                style={{ fontVariant: ['tabular-nums'] }}
-              >
-                {n}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      <Text className="text-caption text-muted dark:text-muted-dark">{unit}</Text>
-    </View>
   );
 }

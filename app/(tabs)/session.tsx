@@ -67,14 +67,12 @@ import {
   stopRest,
 } from '../../src/use-cases/workout-session-actions';
 
-/** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
 import { defaultTargets } from '../../src/ui/set-defaults';
 import { takeStoppedByHand } from '../../src/ui/filmed-set';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
 
-const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
@@ -567,8 +565,8 @@ export default function SessionScreen() {
                 <MeasureField
                   key={id}
                   unit={unitOf(id)}
+                  measurementId={id}
                   value={targets[id] ?? 0}
-                  step={STEPS[id] ?? 1}
                   onChange={(value) => setFreeTargets({ ...targets, [id]: value })}
                   autoOpen={soleDuration}
                   onDone={soleDuration ? () => setAdjustingStart(false) : undefined}
@@ -958,8 +956,8 @@ export default function SessionScreen() {
                       <MeasureField
                         key={id}
                         unit={unitOf(id)}
+                        measurementId={id}
                         value={editedValues[side]?.[id] ?? 0}
-                        step={STEPS[id] ?? 1}
                         onChange={(value) => adjust(side, id, value)}
                         // Les deux suivent la MÊME condition : la roulette
                         // n'est tout le réglage que si elle est le seul. À

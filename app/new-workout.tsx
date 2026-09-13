@@ -36,7 +36,6 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 
 import { defaultTargets } from '../src/ui/set-defaults';
 
-const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
 type Planned = { key: string; planned: PlannedExercise };
@@ -438,8 +437,8 @@ function DraftCard({
               key={measurementId}
               compact
               unit={unitOf(measurementId)}
+              measurementId={measurementId}
               value={set.targets[measurementId] ?? 0}
-              step={STEPS[measurementId] ?? 1}
               onChange={(value) => onChangeTarget(index, measurementId, value)}
             />
           ))}

@@ -21,8 +21,6 @@ import { fileUri } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 import { detachSetVideo } from '../src/use-cases/set-video';
 
-/** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
-const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
 /** La série qu'on règle : de quoi la retrouver, et de quoi l'afficher. */
 type Editing = {
@@ -228,8 +226,8 @@ export default function EditSessionScreen() {
                       key={measurementId}
                       compact
                       unit={unitOf(measurementId)}
+                      measurementId={measurementId}
                       value={edited.values[side]?.[measurementId] ?? 0}
-                      step={STEPS[measurementId] ?? 1}
                       onChange={(value) => adjust(side, measurementId, value)}
                     />
                   ))}

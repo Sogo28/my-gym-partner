@@ -1,6 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
+import { Sheet } from './sheet';
+import { ladder, Wheel } from './wheel';
 
 type NumberFieldProps = {
   value: number;
@@ -16,6 +19,13 @@ type NumberFieldProps = {
    * hauteur, la page ne montrerait plus qu'un exercice à la fois.
    */
   compact?: boolean;
+  /**
+   * Jusqu'où la roulette monte. Absent : le nombre n'en ouvre aucune.
+   *
+   * C'est la mesure qui le sait -- deux cents répétitions, quatre cents
+   * kilos -- et non le champ, qui ne connaît qu'un pas et une unité.
+   */
+  ceiling?: number;
 };
 
 /**
@@ -32,7 +42,9 @@ export function NumberField({
   label,
   step = 1,
   compact = false,
+  ceiling,
 }: NumberFieldProps) {
+  const [picking, setPicking] = useState(false);
   return (
     <View className="flex-1 gap-1">
       {label && (
@@ -56,17 +68,32 @@ export function NumberField({
           <Ionicons name="remove" size={compact ? 17 : 20} color="#8B9086" />
         </Pressable>
 
-        <Text
+        {/* Le nombre lui-même ouvre une roulette.
+            Les flèches servent le cas courant -- la valeur arrive déjà
+            presque bonne, reprise de la série précédente, et l'on ajuste d'un
+            ou deux crans. Mais poser 2 km quand on part de 100 m demanderait
+            cent quatre-vingt-dix taps : pour ce saut-là, il faut viser, pas
+            avancer. Le trait sous le nombre dit qu'on peut le toucher. */}
+        <Pressable
+          onPress={() => ceiling !== undefined && setPicking(true)}
+          disabled={ceiling === undefined}
           className={cn(
-            'font-mono-bold text-ink dark:text-ink-dark',
-            compact ? 'text-lead' : 'text-heading',
+            'shrink items-center justify-center',
+            ceiling !== undefined && 'border-b border-dashed border-border-strong dark:border-border-strong-dark',
           )}
-          style={{ fontVariant: ['tabular-nums'] }}
-          numberOfLines={1}
         >
-          {value}
-          <Text className="font-sans text-small text-muted dark:text-muted-dark"> {unit}</Text>
-        </Text>
+          <Text
+            className={cn(
+              'font-mono-bold text-ink dark:text-ink-dark',
+              compact ? 'text-lead' : 'text-heading',
+            )}
+            style={{ fontVariant: ['tabular-nums'] }}
+            numberOfLines={1}
+          >
+            {value}
+            <Text className="font-sans text-small text-muted dark:text-muted-dark"> {unit}</Text>
+          </Text>
+        </Pressable>
 
         <Pressable
           onPress={() => onChange(round(value + step))}
@@ -77,6 +104,18 @@ export function NumberField({
         </Pressable>
       </View>
 
+      {ceiling !== undefined && (
+        <Sheet
+          visible={picking}
+          title={label ?? 'Choisir'}
+          description={`${value} ${unit}`}
+          onClose={() => setPicking(false)}
+        >
+          <View className="items-center pb-2">
+            <Wheel values={ladder(step, ceiling)} unit={unit} value={value} onChange={onChange} width={110} />
+          </View>
+        </Sheet>
+      )}
     </View>
   );
 }

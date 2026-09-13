@@ -337,8 +337,8 @@ export default function BodyScreen() {
             <View className="flex-row gap-3">
               <MeasureField
                 unit={recording.unit}
+                measurementId={recording.id}
                 value={value}
-                step={recording.unit === 'kg' ? 0.5 : 0.5}
                 onChange={setValue}
               />
             </View>
