@@ -101,3 +101,37 @@ export function bestValue(sets: readonly PerformanceSet[], measurementId: string
 
   return best;
 }
+
+/**
+ * Le volume MOYEN des séries d'une séance.
+ *
+ * La moyenne et non la meilleure : une séance est un ensemble de séries, et
+ * sa meilleure n'en raconte qu'une. Trois séries à 700 puis une à 300 valent
+ * mieux qu'une à 700 suivie de trois à 300, alors que leur meilleure est la
+ * même.
+ *
+ * Et non la somme : celle-ci monterait pour la seule raison qu'on a fait une
+ * série de plus, même plus faible. On vient lire une progression, pas un
+ * décompte d'efforts.
+ */
+export function averageVolume(sets: readonly PerformanceSet[]): number | null {
+  return average(sets.map(volumeOf));
+}
+
+/** La moyenne d'une MESURE sur les séries d'une séance, même règle. */
+export function averageValue(
+  sets: readonly PerformanceSet[],
+  measurementId: string,
+): number | null {
+  return average(
+    sets.map((set) =>
+      set.status === 'COMPLETED' ? (weakestValues(set.values)[measurementId] ?? null) : null,
+    ),
+  );
+}
+
+function average(values: readonly (number | null)[]): number | null {
+  const kept = values.filter((value): value is number => value !== null);
+  if (kept.length === 0) return null;
+  return kept.reduce((total, value) => total + value, 0) / kept.length;
+}

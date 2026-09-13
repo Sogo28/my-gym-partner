@@ -29,7 +29,7 @@ import { MediaStrip } from '../src/ui/media-strip';
 import { Tag } from '../src/ui/tag';
 import { TrimmedVideo } from '../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../src/use-cases/edit-catalogue';
-import { bestValue, bestVolume } from '../src/domain/performance/records';
+import { averageValue, averageVolume } from '../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
@@ -119,10 +119,14 @@ export default function ExerciseDetailScreen() {
   const points = [...sessions]
     .reverse()
     .map((entry) => ({
+      // La MOYENNE des séries de la séance, et non sa meilleure : une séance
+      // est un ensemble, et sa meilleure série n'en raconte qu'une. Ni la
+      // somme, qui monterait pour la seule raison qu'on a fait une série de
+      // plus, même plus faible.
       value:
         charted === VOLUME
-          ? (bestVolume(entry.sets)?.value ?? null)
-          : bestValue(entry.sets, charted),
+          ? averageVolume(entry.sets)
+          : averageValue(entry.sets, charted),
       at: entry.startedAt,
     }))
     .filter((point): point is { value: number; at: Date } => point.value !== null);
@@ -215,15 +219,15 @@ export default function ExerciseDetailScreen() {
               <View className="gap-0.5">
                 <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
                   {charted === VOLUME
-                    ? 'Volume par séance'
-                    : `Meilleure série par séance · ${unitOf(charted)}`}
+                    ? 'Volume moyen par séance'
+                    : `Moyenne par séance · ${unitOf(charted)}`}
                 </Text>
                 <Text className="text-caption text-muted dark:text-muted-dark">
                   {charted === VOLUME
-                    ? `Le produit de ce qu'une série mesure : ${exercise.measurementIds
+                    ? `Le volume d'une série est le produit de ce qu'elle mesure : ${exercise.measurementIds
                         .map((id) => measurementNameOf(id).toLowerCase())
-                        .join(' × ')}. Sa meilleure série, séance par séance.`
-                    : 'Sa meilleure série, séance par séance.'}
+                        .join(' × ')}.`
+                    : 'La moyenne de ses séries, séance par séance.'}
                 </Text>
               </View>
 
