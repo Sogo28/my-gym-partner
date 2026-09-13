@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -26,7 +27,11 @@ import { detachSetVideo } from '../src/use-cases/set-video';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 import { eraseSession } from '../src/use-cases/erase-history';
-import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
+import {
+  findSessionSummary,
+  type ActivitySummary,
+  type SessionSummary,
+} from '../src/use-cases/session-summary';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -53,6 +58,8 @@ export default function SessionSummaryScreen() {
     setIndex: number;
     name: string;
   } | null>(null);
+  /** L'exercice dont on a ouvert le menu, avec ses séries. */
+  const [acting, setActing] = useState<ActivitySummary | null>(null);
   /**
    * La série ouverte à la correction.
    *
@@ -241,18 +248,33 @@ export default function SessionSummaryScreen() {
 
             return (
               <Card key={index} className="gap-1">
-                <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
-                  }
-                >
-                  <Text
-                    className="font-bold text-body text-ink dark:text-ink-dark"
-                    numberOfLines={1}
+                {/* Trois gestes se disputaient cette carte : ouvrir
+                    l'exercice, ajuster une série, voir sa vidéo -- trois
+                    cibles voisines, dont une ligne de texte. Seul ce qu'on
+                    fait SOUVENT reste direct : ouvrir l'exercice, et regarder
+                    une vidéo. Corriger et supprimer passent par le menu, où
+                    ils nomment la série qu'ils visent. */}
+                <View className="flex-row items-start justify-between gap-2">
+                  <Pressable
+                    className="shrink"
+                    onPress={() =>
+                      router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
+                    }
                   >
-                    {nameOf(activity.exerciseId)}
-                  </Text>
-                </Pressable>
+                    <Text
+                      className="font-bold text-body text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {nameOf(activity.exerciseId)}
+                    </Text>
+                  </Pressable>
+
+                  {activity.performanceId && activity.completedSets.length > 0 && (
+                    <Pressable onPress={() => setActing(activity)} hitSlop={8}>
+                      <Ionicons name="ellipsis-horizontal" size={18} color="#8B9086" />
+                    </Pressable>
+                  )}
+                </View>
 
                 {activity.completedSets.length === 0 ? (
                   <Text className="text-caption text-muted dark:text-muted-dark">
@@ -260,44 +282,25 @@ export default function SessionSummaryScreen() {
                   </Text>
                 ) : (
                   activity.completedSets.map(({ set, index: setIndex }, position) => (
-                    <Pressable
-                      key={position}
-                      className="py-0.5"
-                      onPress={
-                        activity.performanceId
-                          ? () =>
-                              setEditing({
-                                performanceId: activity.performanceId!,
-                                // Le rang RÉEL dans la performance, abandons
-                                // compris : le résumé le fournit, et le
-                                // recalculer ici désignerait la mauvaise série.
-                                setIndex,
-                                measurementIds: activity.measurementIds,
-                                values: { ...set.values },
-                              })
-                          : undefined
-                      }
-                    >
-                      <View className="flex-row items-center gap-2">
-                        <Text
-                          className="font-mono text-small text-muted dark:text-muted-dark"
-                          style={{ fontVariant: ['tabular-nums'] }}
-                        >
-                          {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
-                        </Text>
-                        {set.videoUri && activity.performanceId && (
-                          <VideoBadge
-                            onPress={() =>
-                              setWatching({
-                                performanceId: activity.performanceId!,
-                                setIndex,
-                                name: set.videoUri!,
-                              })
-                            }
-                          />
-                        )}
-                      </View>
-                    </Pressable>
+                    <View key={position} className="flex-row items-center gap-2 py-0.5">
+                      <Text
+                        className="font-mono text-small text-muted dark:text-muted-dark"
+                        style={{ fontVariant: ['tabular-nums'] }}
+                      >
+                        {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
+                      </Text>
+                      {set.videoUri && activity.performanceId && (
+                        <VideoBadge
+                          onPress={() =>
+                            setWatching({
+                              performanceId: activity.performanceId!,
+                              setIndex,
+                              name: set.videoUri!,
+                            })
+                          }
+                        />
+                      )}
+                    </View>
                   ))
                 )}
 
@@ -332,6 +335,42 @@ export default function SessionSummaryScreen() {
           },
         ]}
         onClose={() => setSheet('none')}
+      />
+
+      {/* Une entrée par série, plutôt qu'un geste à viser sur la ligne :
+          ici le doigt a de la place, et chaque action dit sur quoi elle
+          porte. */}
+      <Sheet
+        visible={acting !== null}
+        title={acting ? nameOf(acting.exerciseId) : ''}
+        actions={(acting?.completedSets ?? []).flatMap(({ set, index: setIndex }, position) => [
+          {
+            label: `Ajuster la série ${position + 1}`,
+            onPress: () =>
+              setEditing({
+                performanceId: acting!.performanceId!,
+                // Le rang RÉEL dans la performance, abandons compris : le
+                // résumé le fournit, et le recalculer désignerait de travers.
+                setIndex,
+                measurementIds: acting!.measurementIds,
+                values: { ...set.values },
+              }),
+          },
+          ...(set.videoUri
+            ? [
+                {
+                  label: `Supprimer la vidéo de la série ${position + 1}`,
+                  tone: 'danger' as const,
+                  onPress: () =>
+                    detachSetVideo(acting!.performanceId!, setIndex)
+                      .then(reload)
+                      .then(() => notify('Vidéo supprimée.', 'success'))
+                      .catch((e) => notify(messageOf(e))),
+                },
+              ]
+            : []),
+        ])}
+        onClose={() => setActing(null)}
       />
 
       <SetVideoViewer

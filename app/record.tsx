@@ -9,6 +9,7 @@ import { useNotifications } from '../src/ui/notifications';
 import { BackHeader } from '../src/ui/screen-header';
 import { keepRecording } from '../src/use-cases/media-actions';
 import { CAPTURE_MAX_SECONDS, captureCountdown } from '../src/use-cases/preferences';
+import { announceStoppedByHand } from '../src/ui/filmed-set';
 import { attachSetVideo } from '../src/use-cases/set-video';
 
 /**
@@ -34,6 +35,14 @@ export default function RecordScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [recording, setRecording] = useState(false);
+  /**
+   * L'arrêt a-t-il été COMMANDÉ ?
+   *
+   * `recordAsync` rend la main de la même façon qu'on ait coupé soi-même ou
+   * que la durée maximale soit atteinte. Or les deux ne disent pas la même
+   * chose de la série, et seul ce drapeau les distingue.
+   */
+  const stopped = useRef(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -56,6 +65,7 @@ export default function RecordScreen() {
 
       const name = await keepRecording(captured.uri);
       await attachSetVideo(performance, Number(set), name);
+      if (stopped.current) announceStoppedByHand();
       router.back();
     } catch (e) {
       notify(messageOf(e));
@@ -137,7 +147,7 @@ export default function RecordScreen() {
           <View className="items-center gap-2">
             <Text className="text-caption text-white/70">
               {recording
-                ? `arrêt automatique à ${CAPTURE_MAX_SECONDS} s`
+                ? 'arrêter termine aussi la série'
                 : 'place le téléphone, puis recule'}
             </Text>
             {recording && (
@@ -145,7 +155,10 @@ export default function RecordScreen() {
                 label="Arrêter"
                 variant="danger"
                 size="lg"
-                onPress={() => camera.current?.stopRecording()}
+                onPress={() => {
+                  stopped.current = true;
+                  camera.current?.stopRecording();
+                }}
               />
             )}
           </View>

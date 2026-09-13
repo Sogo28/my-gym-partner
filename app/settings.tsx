@@ -174,8 +174,8 @@ export default function SettingsScreen() {
           </Text>
           <Text className="text-small text-muted dark:text-muted-dark">
             Le temps dont tu disposes, entre le départ et le début de l enregistrement, pour poser
-            le téléphone et rejoindre la barre. L enregistrement s arrête seul au bout d une
-            minute.
+            le téléphone et rejoindre la barre. L enregistrement s arrête seul au bout de deux
+            minutes.
           </Text>
 
           <View className="flex-row flex-wrap gap-2 pt-1">

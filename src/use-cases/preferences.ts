@@ -65,8 +65,9 @@ export async function setCaptureCountdown(seconds: number): Promise<void> {
 /**
  * La durée maximale d'une captation, en secondes.
  *
- * Pas un réglage : c'est un garde-fou. Une série dure une minute au plus, et
- * trente secondes de vidéo pèsent déjà des dizaines de mégaoctets -- sans
- * borne, un oubli remplirait le téléphone.
+ * Pas un réglage : c'est un garde-fou contre l'oubli, pas une contrainte sur
+ * la série. Deux minutes couvrent large -- le temps de reculer, de faire une
+ * série longue et de revenir -- sans qu'un enregistrement laissé ouvert
+ * remplisse le téléphone.
  */
-export const CAPTURE_MAX_SECONDS = 60;
+export const CAPTURE_MAX_SECONDS = 120;

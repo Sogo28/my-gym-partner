@@ -69,6 +69,7 @@ import {
 
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
 import { defaultTargets } from '../../src/ui/set-defaults';
+import { takeStoppedByHand } from '../../src/ui/filmed-set';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
@@ -124,6 +125,14 @@ export default function SessionScreen() {
   const [editing, setEditing] = useState<number | null>(null);
   /** La captation ouverte, par son nom de fichier. */
   const [watching, setWatching] = useState<string | null>(null);
+  /**
+   * La série filmée attend d'être validée.
+   *
+   * Elle ne peut pas l'être au retour de la caméra : ce qu'une série vaut --
+   * les cibles du plan, ou ce qu'on a ajusté -- n'est connu que d'ici, et
+   * l'écran de captation ne le sait pas.
+   */
+  const [finishAfterFilm, setFinishAfterFilm] = useState(false);
   // Replié, les séries tiennent sur une ligne de pastilles ; déplié, on
   // retrouve la liste détaillée.
   const [showDetail, setShowDetail] = useState(true);
@@ -158,6 +167,10 @@ export default function SessionScreen() {
   useFocusEffect(
     useCallback(() => {
       reload().catch((e) => notify(messageOf(e)));
+
+      // Couper l'enregistrement, c'est dire qu'on a fini la série : on ne
+      // s'arrête pas de filmer au milieu d'un mouvement.
+      if (takeStoppedByHand()) setFinishAfterFilm(true);
 
       // Un exercice choisi et non démarré n'engage rien, et n'a donc pas à
       // survivre au départ de l'écran : revenir sur les séances repart de
@@ -265,6 +278,21 @@ export default function SessionScreen() {
   // La série en cours n'est plus recouverte par la saisie locale : celle-ci
   // appartient désormais à la série ouverte à l'ajustement, qui est une autre.
   const shown = baseline();
+
+  /**
+   * Valider la série qu'on vient de filmer.
+   *
+   * À part de l'effet de focus, qui est figé à sa création : ici les valeurs
+   * sont celles du rendu courant, donc celles que « Terminer » aurait
+   * écrites. On attend d'ailleurs que la série en cours soit là -- le retour
+   * de la caméra précède le rechargement.
+   */
+  useEffect(() => {
+    if (!finishAfterFilm || !performance?.currentSet) return;
+    setFinishAfterFilm(false);
+    run(() => completePerformanceSet(shown));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finishAfterFilm, performance]);
 
   /** Les valeurs de la série ouverte, recouvertes par la saisie en cours. */
   const editedSet = editing !== null ? sets[editing] : undefined;
