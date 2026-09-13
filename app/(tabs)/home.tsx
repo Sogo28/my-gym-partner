@@ -345,8 +345,12 @@ export default function HomeScreen() {
             <>
               {/* Ce qui a été FAIT passe devant ce qui était prévu : c'est ce
                   qu'on vient voir, et une séance libre n'existe qu'ici --
-                  aucun calendrier ne l'a jamais connue. */}
-              {daySessions.map((entry) => (
+                  aucun calendrier ne l'a jamais connue.
+
+                  Une SEULE, la dernière, même si la journée en compte
+                  plusieurs : l'accueil dit où l'on en est, pas ce qu'on a
+                  fait en détail. L'historique, lui, les garde toutes. */}
+              {daySessions.slice(-1).map((entry) => (
                 <Pressable
                   key={entry.id}
                   onPress={() =>
