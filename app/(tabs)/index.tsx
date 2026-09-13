@@ -137,15 +137,22 @@ export default function ExercisesScreen() {
         keyExtractor={(item) => item.id}
         // La liste s'arrête au-dessus de la pastille d'ajout.
         contentContainerClassName="grow gap-3 pb-28"
+        // Chercher sans trouver n'est pas le vide : le catalogue et
+        // l'invitation à créer suivent juste en dessous, et un bloc centré
+        // les repousserait hors de l'écran en annonçant une page vide. Une
+        // ligne suffit à dire que la recherche n'a rien donné -- c'est ce que
+        // fait déjà le sélecteur d'exercice.
         ListEmptyComponent={
-          <EmptyState
-            title={query || filter.length > 0 ? 'Aucun résultat' : 'Aucun exercice'}
-            description={
-              query || filter.length > 0
-                ? 'Aucun exercice ne correspond à cette recherche.'
-                : 'Un exercice définit ce que tu fais et comment sa performance se mesure.'
-            }
-          />
+          query || filter.length > 0 ? (
+            <Text className="py-6 text-center text-body text-muted dark:text-muted-dark">
+              Aucun exercice ne correspond.
+            </Text>
+          ) : (
+            <EmptyState
+              title="Aucun exercice"
+              description="Un exercice définit ce que tu fais et comment sa performance se mesure."
+            />
+          )
         }
         ListFooterComponent={
           <>
