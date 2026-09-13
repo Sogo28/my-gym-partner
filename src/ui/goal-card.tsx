@@ -40,18 +40,20 @@ export function GoalCard({
 
   return (
     <Pressable onPress={onPress} style={width ? { width } : undefined}>
-      <Card className="gap-1.5">
-        {/* Deux lignes RÉSERVÉES au nom, mais seulement en rangée : c'est ce
-            qui aligne les vignettes de l'accueil, quel que soit le nom. En
-            liste, où chaque carte occupe sa propre ligne, cette réserve ne
-            cale rien -- elle ne laissait qu'un blanc sous les noms courts. */}
-        <Text
-          className={cn(
-            'font-bold text-body text-ink dark:text-ink-dark',
-            width !== undefined && 'h-[34px]',
-          )}
-          numberOfLines={2}
-        >
+      {/*
+        En rangée, la carte s'ÉTIRE jusqu'à la hauteur de la plus grande, au
+        lieu de réserver deux lignes à son nom.
+
+        Les deux alignent, mais pas au même endroit : la réserve laissait le
+        blanc sous le titre, entre lui et ce qu'il annonce, alors que
+        l'étirement le renvoie en bas de la carte, là où il ne sépare rien.
+
+        La rangée ne grandit pas pour autant : `grow-0` la règle sur son
+        contenu, donc sur la plus haute vignette -- et non sur la page, ce qui
+        les allongeait toutes bien au-delà de ce qu'elles contiennent.
+      */}
+      <Card className={cn('gap-1.5', width !== undefined && 'flex-1')}>
+        <Text className="font-bold text-body text-ink dark:text-ink-dark" numberOfLines={2}>
           {goal.name}
         </Text>
 

@@ -446,9 +446,10 @@ export default function HomeScreen() {
               keyboardShouldPersistTaps="handled"
               horizontal
               showsHorizontalScrollIndicator={false}
-              // Une hauteur commune, pas un étirement : la rangée vit dans
-              // une page qui défile, et s'étirer sur elle allongeait les
-              // vignettes bien au-delà de ce qu'elles contiennent.
+              // La rangée se règle sur son CONTENU, pas sur la page : sans
+              // cela, elle s'étirerait sur toute la hauteur qui défile, et
+              // les vignettes avec elle. Réglée sur son contenu, elle les met
+              // à la hauteur de la plus grande -- ce qu'elles cherchent.
               className="grow-0"
               contentContainerClassName="gap-2 pb-1 pr-4"
             >
