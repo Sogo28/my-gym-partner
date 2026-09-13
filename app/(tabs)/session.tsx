@@ -282,10 +282,13 @@ export default function SessionScreen() {
   /**
    * La série n'a-t-elle qu'une durée à régler ?
    *
-   * Alors taper la série ouvre directement sa roulette : s'arrêter sur le
-   * champ demanderait un tap pour rien. Dès qu'une autre mesure ou un second
-   * côté existe, il y a un choix à faire avant, et l'ouverture d'office le
-   * cacherait.
+   * Alors taper la série ouvre directement sa roulette, et la refermer
+   * relâche la série : s'arrêter sur le champ, avant comme après,
+   * demanderait un tap pour rien.
+   *
+   * Dès qu'une autre mesure ou un second côté existe, les deux tombent. Il y
+   * a un choix à faire avant, que l'ouverture d'office cacherait -- et un
+   * réglage qui reste après, que la fermeture emporterait.
    */
   const durationOnly =
     sides.length === 1 &&
@@ -568,7 +571,7 @@ export default function SessionScreen() {
                   step={STEPS[id] ?? 1}
                   onChange={(value) => setFreeTargets({ ...targets, [id]: value })}
                   autoOpen={soleDuration}
-                  onDone={() => setAdjustingStart(false)}
+                  onDone={soleDuration ? () => setAdjustingStart(false) : undefined}
                 />
               ))}
             </View>
@@ -958,8 +961,17 @@ export default function SessionScreen() {
                         value={editedValues[side]?.[id] ?? 0}
                         step={STEPS[id] ?? 1}
                         onChange={(value) => adjust(side, id, value)}
+                        // Les deux suivent la MÊME condition : la roulette
+                        // n'est tout le réglage que si elle est le seul. À
+                        // plusieurs mesures, elle en est une parmi d'autres,
+                        // et la refermer ramène aux autres au lieu de tout
+                        // relâcher.
                         autoOpen={durationOnly}
-                        onDone={() => editing !== null && toggleEditing(editing)}
+                        onDone={
+                          durationOnly
+                            ? () => editing !== null && toggleEditing(editing)
+                            : undefined
+                        }
                       />
                     ))}
                   </View>
