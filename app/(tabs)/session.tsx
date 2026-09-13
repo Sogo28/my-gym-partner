@@ -312,15 +312,22 @@ export default function SessionScreen() {
   /**
    * Ouvre l'ajustement d'une série, le déplace, ou le referme.
    *
-   * On relit la performance dans TOUS les cas, et pas seulement en refermant :
-   * les valeurs ont bien été écrites à chaque pas, mais la copie gardée en
-   * mémoire date d'avant. Sans cette relecture, passer d'une série à l'autre
-   * laissait la première afficher ce qu'elle valait avant qu'on y touche.
+   * On relit AVANT de bouger, et non après. Les valeurs ont bien été écrites
+   * à chaque pas, mais la copie gardée en mémoire date d'avant : bouger
+   * d'abord ferait relire cette copie à la série qu'on quitte, le temps que
+   * la lecture aboutisse -- soit un clignotement de l'ancienne valeur.
+   *
+   * Tant que la relecture n'a pas abouti, rien ne change à l'écran : la série
+   * ouverte le reste, avec ce qu'on vient d'y régler.
    */
   function toggleEditing(index: number) {
-    setValues({});
-    setEditing((current) => (current === index ? null : index));
-    reload().catch((e) => notify(messageOf(e)));
+    const next = editing === index ? null : index;
+    reload()
+      .then(() => {
+        setValues({});
+        setEditing(next);
+      })
+      .catch((e) => notify(messageOf(e)));
   }
 
   function closeEditing() {
