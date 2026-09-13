@@ -208,60 +208,66 @@ export default function SessionSummaryScreen() {
             )?.sets.length;
 
             return (
-              <Card key={index} className="gap-1">
-                {/* La fiche se LIT : ouvrir l'exercice, regarder une vidéo.
-                    Corriger appartient à l'écran de modification, où chaque
-                    geste a la place qu'une ligne de série n'a pas. */}
-                <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
-                  }
-                >
+              /* La CARTE entière ouvre l'exercice, et pas son seul titre : on
+                 vise une carte, pas une ligne de texte de treize pixels. La
+                 pastille vidéo garde son tap -- un Pressable posé dans un
+                 autre reçoit ce qui le touche.
+
+                 La fiche se LIT : ouvrir l'exercice, regarder une vidéo.
+                 Corriger appartient à l'écran de modification, où chaque
+                 geste a la place qu'une ligne de série n'a pas. */
+              <Pressable
+                key={index}
+                onPress={() =>
+                  router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
+                }
+              >
+                <Card className="gap-1">
                   <Text
                     className="font-bold text-body text-ink dark:text-ink-dark"
                     numberOfLines={1}
                   >
                     {nameOf(activity.exerciseId)}
                   </Text>
-                </Pressable>
 
-                {activity.completedSets.length === 0 ? (
-                  <Text className="text-caption text-muted dark:text-muted-dark">
-                    Aucune série validée.
-                  </Text>
-                ) : (
-                  activity.completedSets.map(({ set, index: setIndex }, position) => (
-                    <View key={position} className="flex-row items-center gap-2 py-0.5">
-                      <Text
-                        className="font-mono text-small text-muted dark:text-muted-dark"
-                        style={{ fontVariant: ['tabular-nums'] }}
-                      >
-                        {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
-                      </Text>
-                      {set.videoUri && activity.performanceId && (
-                        <VideoBadge
-                          onPress={() =>
-                            setWatching({
-                              performanceId: activity.performanceId!,
-                              setIndex,
-                              name: set.videoUri!,
-                            })
-                          }
-                        />
-                      )}
-                    </View>
-                  ))
-                )}
+                  {activity.completedSets.length === 0 ? (
+                    <Text className="text-caption text-muted dark:text-muted-dark">
+                      Aucune série validée.
+                    </Text>
+                  ) : (
+                    activity.completedSets.map(({ set, index: setIndex }, position) => (
+                      <View key={position} className="flex-row items-center gap-2 py-0.5">
+                        <Text
+                          className="font-mono text-small text-muted dark:text-muted-dark"
+                          style={{ fontVariant: ['tabular-nums'] }}
+                        >
+                          {position + 1}.  {formatSetValues(set.values, (m) => unitOf(m))}
+                        </Text>
+                        {set.videoUri && activity.performanceId && (
+                          <VideoBadge
+                            onPress={() =>
+                              setWatching({
+                                performanceId: activity.performanceId!,
+                                setIndex,
+                                name: set.videoUri!,
+                              })
+                            }
+                          />
+                        )}
+                      </View>
+                    ))
+                  )}
 
-                {/* Le prévu ne se rappelle que s'il n'a pas été tenu : le
-                    dire quand tout est fait n'apprendrait rien. */}
-                {prevu !== undefined && activity.completedSets.length < prevu && (
-                  <Text className="pt-0.5 font-mono text-small text-planned dark:text-planned-dark">
-                    {activity.completedSets.length} sur {prevu} série{prevu > 1 ? 's' : ''} prévue
-                    {prevu > 1 ? 's' : ''}
-                  </Text>
-                )}
-              </Card>
+                  {/* Le prévu ne se rappelle que s'il n'a pas été tenu : le
+                      dire quand tout est fait n'apprendrait rien. */}
+                  {prevu !== undefined && activity.completedSets.length < prevu && (
+                    <Text className="pt-0.5 font-mono text-small text-planned dark:text-planned-dark">
+                      {activity.completedSets.length} sur {prevu} série{prevu > 1 ? 's' : ''} prévue
+                      {prevu > 1 ? 's' : ''}
+                    </Text>
+                  )}
+                </Card>
+              </Pressable>
             );
           })}
         </View>
