@@ -310,19 +310,17 @@ export default function SessionScreen() {
   }
 
   /**
-   * Ouvre ou referme l'ajustement d'une série.
+   * Ouvre l'ajustement d'une série, le déplace, ou le referme.
    *
-   * En refermant, on relit la performance : les valeurs ont bien été écrites
-   * à chaque ajustement, mais la copie gardée en mémoire, elle, date d'avant.
+   * On relit la performance dans TOUS les cas, et pas seulement en refermant :
+   * les valeurs ont bien été écrites à chaque pas, mais la copie gardée en
+   * mémoire date d'avant. Sans cette relecture, passer d'une série à l'autre
+   * laissait la première afficher ce qu'elle valait avant qu'on y touche.
    */
   function toggleEditing(index: number) {
     setValues({});
-    if (editing === index) {
-      setEditing(null);
-      reload().catch((e) => notify(messageOf(e)));
-    } else {
-      setEditing(index);
-    }
+    setEditing((current) => (current === index ? null : index));
+    reload().catch((e) => notify(messageOf(e)));
   }
 
   function closeEditing() {
