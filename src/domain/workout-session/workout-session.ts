@@ -114,6 +114,40 @@ export class WorkoutSession {
     );
   }
 
+  /**
+   * La même séance, DÉPLACÉE dans le temps.
+   *
+   * Tout ce qu'elle porte bouge du même écart : ses activités, ses repos, sa
+   * fin. Une séance est un bloc de temps, et déplacer son seul début en
+   * ferait une séance qui se termine avant de commencer -- ou qui dure huit
+   * heures.
+   *
+   * Elle rend une nouvelle instance : la date de départ est en lecture seule
+   * parce qu'une séance ne dérive pas, elle se corrige d'un coup.
+   */
+  movedTo(at: Date): WorkoutSession {
+    const shift = at.getTime() - this.startedAt.getTime();
+    const moved = (date: Date) => new Date(date.getTime() + shift);
+
+    return new WorkoutSession(
+      this.id,
+      this.plannedWorkoutId,
+      this.scheduledWorkoutId,
+      at,
+      this._status,
+      this._endedAt ? moved(this._endedAt) : null,
+      this._activities.map((activity) => ({
+        ...activity,
+        startedAt: moved(activity.startedAt),
+        finishedAt: activity.finishedAt ? moved(activity.finishedAt) : null,
+      })),
+      this._rests.map((rest) => ({
+        startedAt: moved(rest.startedAt),
+        endedAt: rest.endedAt ? moved(rest.endedAt) : null,
+      })),
+    );
+  }
+
   get status(): WorkoutSessionStatus {
     return this._status;
   }

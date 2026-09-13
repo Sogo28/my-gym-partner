@@ -31,7 +31,8 @@ export async function save(performance: ExercisePerformance): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO exercise_performances (id, exercise_id, started_at) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO NOTHING;`,
+       -- started_at se réécrit : une performance suit la séance qu'on déplace.
+       ON CONFLICT(id) DO UPDATE SET started_at = excluded.started_at;`,
       performance.id,
       performance.exerciseId,
       performance.startedAt.toISOString(),

@@ -131,6 +131,28 @@ export class ExercisePerformance {
     );
   }
 
+  /**
+   * La même performance, déplacée du même écart que la séance qui la porte.
+   *
+   * Ses séries bougent avec elle : leurs instants disent le repos pris entre
+   * elles, et les laisser en place ferait des repos de plusieurs jours.
+   */
+  movedBy(shift: number): ExercisePerformance {
+    const moved = (date: Date) => new Date(date.getTime() + shift);
+
+    return new ExercisePerformance(
+      this.id,
+      this.exerciseId,
+      [...this.measurementIds],
+      moved(this.startedAt),
+      this._sets.map((set) => ({
+        ...set,
+        startedAt: moved(set.startedAt),
+        endedAt: set.endedAt ? moved(set.endedAt) : null,
+      })),
+    );
+  }
+
   get sets(): readonly PerformanceSet[] {
     return [...this._sets];
   }

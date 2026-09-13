@@ -38,7 +38,12 @@ export async function save(session: WorkoutSession): Promise<void> {
       `INSERT INTO workout_sessions
          (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status)
        VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET ended_at = excluded.ended_at, status = excluded.status;`,
+       -- started_at se réécrit aussi : une séance peut être DÉPLACÉE, et
+       -- l'omettre laissait la correction sans effet.
+       ON CONFLICT(id) DO UPDATE SET
+         started_at = excluded.started_at,
+         ended_at = excluded.ended_at,
+         status = excluded.status;`,
       session.id,
       session.plannedWorkoutId,
       session.scheduledWorkoutId,

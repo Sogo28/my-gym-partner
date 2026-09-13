@@ -8,7 +8,9 @@ import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Side } from '../src/domain/performance/exercise-performance';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { Card } from '../src/ui/card';
+import { DatePickerSheet } from '../src/ui/date-picker';
 import { EmptyState } from '../src/ui/empty-state';
+import { formatDateTime } from '../src/ui/format';
 import { messageOf } from '../src/ui/message';
 import { MeasureField } from '../src/ui/measure-field';
 import { useNotifications } from '../src/ui/notifications';
@@ -17,6 +19,7 @@ import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
 import { SetVideoViewer } from '../src/ui/set-video';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
+import { moveSession } from '../src/use-cases/move-session';
 import { fileUri } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 import { detachSetVideo } from '../src/use-cases/set-video';
@@ -52,6 +55,8 @@ export default function EditSessionScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [watching, setWatching] = useState<Editing | null>(null);
+  /** Le calendrier ouvert pour corriger quand la séance a eu lieu. */
+  const [moving, setMoving] = useState(false);
 
   const reload = useCallback(async () => {
     const [found, allExercises, allMeasurements] = await Promise.all([
@@ -128,10 +133,31 @@ export default function EditSessionScreen() {
       </View>
 
       <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
+        {/* Quand la séance a eu lieu se corrige comme ce qu'elle a mesuré :
+            une séance saisie le lendemain porte la date du lendemain, et la
+            corriger, c'est dire ce qui s'est passé. */}
+        {summary && (
+          <Pressable onPress={() => setMoving(true)}>
+            <Card density="titled" className="flex-row items-center justify-between gap-3">
+              <View className="shrink">
+                <Text className="font-bold text-body text-ink dark:text-ink-dark">
+                  Date et heure
+                </Text>
+                <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                  {formatDateTime(summary.session.startedAt)}
+                </Text>
+              </View>
+              <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">
+                modifier
+              </Text>
+            </Card>
+          </Pressable>
+        )}
+
         {nothingToEdit && (
           <EmptyState
-            title="Rien à modifier"
-            description="Cette séance n a validé aucune série."
+            title="Aucune série à corriger"
+            description="Cette séance n a validé aucune série. Sa date, elle, reste modifiable."
           />
         )}
 
@@ -237,6 +263,20 @@ export default function EditSessionScreen() {
           </View>
         )}
       </Sheet>
+
+      <DatePickerSheet
+        visible={moving}
+        title="Quand cette séance a eu lieu"
+        confirmLabel="Déplacer"
+        initial={summary?.session.startedAt}
+        onConfirm={(at) => {
+          setMoving(false);
+          moveSession(id, at)
+            .then(reload)
+            .catch((e) => notify(messageOf(e)));
+        }}
+        onClose={() => setMoving(false)}
+      />
 
       <SetVideoViewer
         uri={watched?.videoUri ? fileUri(watched.videoUri) : null}
