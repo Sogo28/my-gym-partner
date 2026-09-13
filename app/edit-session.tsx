@@ -10,7 +10,7 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { Card } from '../src/ui/card';
 import { EmptyState } from '../src/ui/empty-state';
 import { messageOf } from '../src/ui/message';
-import { NumberField } from '../src/ui/number-field';
+import { MeasureField } from '../src/ui/measure-field';
 import { useNotifications } from '../src/ui/notifications';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
@@ -224,7 +224,7 @@ export default function EditSessionScreen() {
                 )}
                 <View className="flex-row gap-3">
                   {editing.measurementIds.map((measurementId) => (
-                    <NumberField
+                    <MeasureField
                       key={measurementId}
                       compact
                       unit={unitOf(measurementId)}

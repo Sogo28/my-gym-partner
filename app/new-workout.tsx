@@ -21,7 +21,7 @@ import {
   useIsActive,
   useReorderableDrag,
 } from 'react-native-reorderable-list';
-import { NumberField } from '../src/ui/number-field';
+import { MeasureField } from '../src/ui/measure-field';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -434,7 +434,7 @@ function DraftCard({
       {planned.sets.map((set, index) => (
         <View key={index} className="flex-row items-center gap-2 pt-1">
           {exercise?.measurementIds.map((measurementId) => (
-            <NumberField
+            <MeasureField
               key={measurementId}
               compact
               unit={unitOf(measurementId)}

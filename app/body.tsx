@@ -10,7 +10,7 @@ import { Fab } from '../src/ui/fab';
 import { formatDateTime } from '../src/ui/format';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { NumberField } from '../src/ui/number-field';
+import { MeasureField } from '../src/ui/measure-field';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -335,7 +335,7 @@ export default function BodyScreen() {
         {recording && (
           <View className="gap-3 pb-2">
             <View className="flex-row gap-3">
-              <NumberField
+              <MeasureField
                 unit={recording.unit}
                 value={value}
                 step={recording.unit === 'kg' ? 0.5 : 0.5}

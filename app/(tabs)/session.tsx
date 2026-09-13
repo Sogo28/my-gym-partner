@@ -42,7 +42,7 @@ import { BackHeader, SectionHeader, SessionHeader } from '../../src/ui/screen-he
 import { Sheet, type SheetAction } from '../../src/ui/sheet';
 import { SetChip } from '../../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../../src/ui/set-row';
-import { NumberField } from '../../src/ui/number-field';
+import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import {
   formatSetValues,
@@ -545,7 +545,7 @@ export default function SessionScreen() {
           {adjustingStart ? (
             <View className="flex-row gap-3">
               {pendingExercise.measurementIds.map((id) => (
-                <NumberField
+                <MeasureField
                   key={id}
                   unit={unitOf(id)}
                   value={targets[id] ?? 0}
@@ -934,7 +934,7 @@ export default function SessionScreen() {
                   ) : null}
                   <View className="flex-row gap-3">
                     {(performance?.measurementIds ?? []).map((id) => (
-                      <NumberField
+                      <MeasureField
                         key={id}
                         unit={unitOf(id)}
                         value={editedValues[side]?.[id] ?? 0}

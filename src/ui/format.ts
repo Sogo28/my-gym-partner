@@ -13,6 +13,24 @@ export function formatClock(totalSeconds: number): string {
   return `${pad(minutes)}:${pad(seconds)}`;
 }
 
+/**
+ * Une durée telle qu'on la dit : « 45 s » ou « 2:30 ».
+ *
+ * En dessous d'une minute, les secondes se lisent seules -- « 0:45 » demande
+ * une conversion mentale pour rien. Au-delà, c'est l'inverse : « 180 s » ne
+ * dit pas trois minutes tant qu'on n'a pas divisé.
+ */
+export function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(Math.round(totalSeconds), 0);
+  if (seconds < 60) return `${seconds} s`;
+  return `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
+}
+
+/** Une durée est une mesure exprimée en SECONDES : c'est l'unité qui le dit. */
+export function isDuration(unit: string): boolean {
+  return unit === 's';
+}
+
 /** L'heure du jour : « 18:42 ». */
 export function formatTime(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;

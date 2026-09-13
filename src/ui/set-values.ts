@@ -1,5 +1,6 @@
 import type { ValuesBySide } from '../domain/performance/exercise-performance';
 import type { TargetValues } from '../domain/planned-workout/planned-workout';
+import { formatDuration, isDuration } from './format';
 
 /**
  * Mise en forme des valeurs d'une série, quel que soit le nombre de côtés.
@@ -10,6 +11,15 @@ import type { TargetValues } from '../domain/planned-workout/planned-workout';
  */
 const SIDE_SUFFIX: Record<string, string> = { BOTH: '', LEFT: ' g', RIGHT: ' d' };
 
+/**
+ * Une valeur et son unité, sauf pour une durée : celle-ci porte déjà la
+ * sienne. « 150 s » ne dit pas deux minutes et demie tant qu'on n'a pas
+ * divisé, et l'app permet désormais de saisir de telles durées.
+ */
+function measure(value: number, unit: string, separator: string): string {
+  return isDuration(unit) ? formatDuration(value) : `${value}${separator}${unit}`;
+}
+
 export function formatSetValues(
   values: ValuesBySide,
   unitOf: (measurementId: string) => string,
@@ -18,7 +28,7 @@ export function formatSetValues(
     .filter(([, sideValues]) => sideValues && Object.keys(sideValues).length > 0)
     .map(([side, sideValues]) =>
       Object.entries(sideValues!)
-        .map(([id, value]) => `${value} ${unitOf(id)}${SIDE_SUFFIX[side] ?? ''}`)
+        .map(([id, value]) => `${measure(value, unitOf(id), ' ')}${SIDE_SUFFIX[side] ?? ''}`)
         .join(' · '),
     )
     .join(' · ');
@@ -33,7 +43,7 @@ export function formatSetValuesShort(
     .filter(([, sideValues]) => sideValues && Object.keys(sideValues).length > 0)
     .map(([side, sideValues]) =>
       Object.entries(sideValues!)
-        .map(([id, value]) => `${value}${unitOf(id)}${SIDE_SUFFIX[side] ?? ''}`)
+        .map(([id, value]) => `${measure(value, unitOf(id), '')}${SIDE_SUFFIX[side] ?? ''}`)
         .join('·'),
     )
     .join(' · ');

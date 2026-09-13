@@ -25,7 +25,7 @@ import { listActiveExercises } from '../src/use-cases/edit-catalogue';
 import { listMetrics } from '../src/use-cases/body-actions';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
-import { NumberField } from '../src/ui/number-field';
+import { MeasureField } from '../src/ui/measure-field';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
@@ -498,7 +498,7 @@ export default function NewGoalScreen() {
                 </Text>
                 <View className="flex-row flex-wrap gap-3">
                   {(editedCondition.qualifying ?? []).map((clause) => (
-                    <NumberField
+                    <MeasureField
                       key={clause.measurementId}
                       compact
                       unit={unitOf(clause.measurementId)}
@@ -547,7 +547,7 @@ export default function NewGoalScreen() {
 
             <View className="flex-row items-end gap-3">
               <Text className="mb-2 text-lead text-muted dark:text-muted-dark">au moins</Text>
-              <NumberField
+              <MeasureField
                 compact
                 unit={targetUnit(editedCondition, unitOf)}
                 value={editedCondition.target}
