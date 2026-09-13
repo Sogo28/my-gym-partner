@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -12,7 +13,9 @@ import { messageOf } from '../src/ui/message';
 import { NumberField } from '../src/ui/number-field';
 import { useNotifications } from '../src/ui/notifications';
 import { BackHeader } from '../src/ui/screen-header';
-import { SetVideoViewer, VideoBadge } from '../src/ui/set-video';
+import { Sheet } from '../src/ui/sheet';
+import { formatSetValues } from '../src/ui/set-values';
+import { SetVideoViewer } from '../src/ui/set-video';
 import { correctPastSet } from '../src/use-cases/correct-past-set';
 import { fileUri } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
@@ -21,15 +24,24 @@ import { detachSetVideo } from '../src/use-cases/set-video';
 /** Le pas d'ajustement dépend de la mesure : on n'ajoute pas 1 kg comme 1 rep. */
 const STEPS: Record<string, number> = { reps: 1, weight: 2.5, duration: 1, distance: 10 };
 
+/** La série qu'on règle : de quoi la retrouver, et de quoi l'afficher. */
+type Editing = {
+  performanceId: string;
+  setIndex: number;
+  exerciseName: string;
+  position: number;
+  measurementIds: readonly string[];
+};
+
 /**
  * Revenir sur une séance passée.
  *
- * Un écran à part, et non des gestes semés dans la fiche : celle-ci se LIT,
- * et trois cibles voisines -- dont une ligne de série -- s'y rataient l'une
- * pour l'autre. Ici chaque série a la place de ses champs, et rien d'autre ne
- * réclame le doigt.
+ * Une série SE LIT, et ne se règle qu'en la touchant -- le même partage que
+ * pour les conditions d'un objectif. Étaler les champs de chaque série ferait
+ * une page de réglages où la séance elle-même disparaîtrait, alors qu'on n'en
+ * corrige qu'une à la fois.
  *
- * Ce qu'on corrige reste ce qu'on DÉCLARE avoir fait : la performance est un
+ * Ce qu'on corrige reste ce qu'on DÉCLARE avoir fait : une performance est un
  * fait daté, pas une mesure d'appareil (§11).
  */
 export default function EditSessionScreen() {
@@ -40,9 +52,8 @@ export default function EditSessionScreen() {
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
-  const [watching, setWatching] = useState<{ setIndex: number; performanceId: string } | null>(
-    null,
-  );
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [watching, setWatching] = useState<Editing | null>(null);
 
   const reload = useCallback(async () => {
     const [found, allExercises, allMeasurements] = await Promise.all([
@@ -66,25 +77,44 @@ export default function EditSessionScreen() {
   const unitOf = (measurementId: string) =>
     measurements.find((m) => m.id === measurementId)?.unit ?? measurementId;
 
+  /** La série visée, relue à chaque rendu : c'est la base qui fait foi. */
+  const setOf = (target: Editing | null) =>
+    target
+      ? summary?.activities
+          .find((activity) => activity.performanceId === target.performanceId)
+          ?.completedSets.find((entry) => entry.index === target.setIndex)?.set
+      : undefined;
+
+  const edited = setOf(editing);
+  const watched = setOf(watching);
+
   /**
    * Écrit à chaque pas, comme pendant la séance : il n'y a rien à confirmer,
    * donc rien à oublier de confirmer.
    */
-  function adjust(
-    performanceId: string,
-    setIndex: number,
-    values: Record<string, Record<string, number>>,
-  ) {
-    correctPastSet({ performanceId, setIndex, values })
+  function adjust(side: Side, measurementId: string, value: number) {
+    if (!editing || !edited) return;
+    correctPastSet({
+      performanceId: editing.performanceId,
+      setIndex: editing.setIndex,
+      values: {
+        ...edited.values,
+        [side]: { ...(edited.values[side] ?? {}), [measurementId]: value },
+      },
+    })
       .then(reload)
       .catch((e) => notify(messageOf(e)));
   }
 
-  const watched = watching
-    ? summary?.activities
-        .find((activity) => activity.performanceId === watching.performanceId)
-        ?.completedSets.find((entry) => entry.index === watching.setIndex)?.set.videoUri
-    : null;
+  function removeVideo(target: Editing) {
+    detachSetVideo(target.performanceId, target.setIndex)
+      .then(reload)
+      .then(() => notify('Vidéo supprimée.', 'success'))
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  const nothingToEdit =
+    summary?.activities.every((activity) => activity.completedSets.length === 0) ?? false;
 
   return (
     <SafeAreaView
@@ -99,8 +129,8 @@ export default function EditSessionScreen() {
         />
       </View>
 
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
-        {summary?.activities.every((activity) => activity.completedSets.length === 0) && (
+      <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
+        {nothingToEdit && (
           <EmptyState
             title="Rien à modifier"
             description="Cette séance n a validé aucune série."
@@ -110,90 +140,113 @@ export default function EditSessionScreen() {
         {summary?.activities.map((activity, index) => {
           if (activity.completedSets.length === 0 || !activity.performanceId) return null;
           const performanceId = activity.performanceId;
+          const exerciseName = nameOf(activity.exerciseId);
 
           return (
-            <View key={index} className="gap-2">
-              <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                {nameOf(activity.exerciseId)}
+            <Card key={index} density="titled" className="gap-1">
+              <Text
+                className="pb-1 font-bold text-body text-ink dark:text-ink-dark"
+                numberOfLines={1}
+              >
+                {exerciseName}
               </Text>
 
+              {/* La série à gauche, ses valeurs à droite : c'est le chiffre
+                  qu'on cherche du regard en relisant une séance. Une seule
+                  cible par ligne, et elle ouvre tout ce qu'on peut en faire. */}
               {activity.completedSets.map(({ set, index: setIndex }, position) => (
-                <Card key={setIndex} density="titled" className="gap-3">
-                  <View className="flex-row items-center justify-between gap-3">
-                    <Text className="font-bold text-body text-ink dark:text-ink-dark">
+                <Pressable
+                  key={setIndex}
+                  onPress={() =>
+                    setEditing({
+                      performanceId,
+                      // Le rang RÉEL dans la performance, abandons compris :
+                      // le résumé le fournit, et le recalculer désignerait de
+                      // travers.
+                      setIndex,
+                      exerciseName,
+                      position: position + 1,
+                      measurementIds: activity.measurementIds,
+                    })
+                  }
+                  className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
+                >
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-small text-muted dark:text-muted-dark">
                       Série {position + 1}
                     </Text>
-                    {set.videoUri && (
-                      <VideoBadge
-                        onPress={() => setWatching({ performanceId, setIndex })}
-                      />
-                    )}
+                    {/* Un repère, pas une cible : il DIT qu'une vidéo existe,
+                        et c'est la ligne entière qui l'ouvre. */}
+                    {set.videoUri && <Ionicons name="videocam" size={13} color="#8B9086" />}
                   </View>
-
-                  {/* Une rangée par côté : un exercice unilatéral en a deux. */}
-                  {(Object.keys(set.values) as Side[]).map((side) => (
-                    <View key={side} className="gap-1">
-                      {side !== 'BOTH' && (
-                        <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                          {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
-                        </Text>
-                      )}
-                      <View className="flex-row gap-3">
-                        {activity.measurementIds.map((measurementId) => (
-                          <NumberField
-                            key={measurementId}
-                            compact
-                            unit={unitOf(measurementId)}
-                            value={set.values[side]?.[measurementId] ?? 0}
-                            step={STEPS[measurementId] ?? 1}
-                            onChange={(value) =>
-                              adjust(performanceId, setIndex, {
-                                ...(set.values as Record<string, Record<string, number>>),
-                                [side]: {
-                                  ...(set.values[side] ?? {}),
-                                  [measurementId]: value,
-                                },
-                              })
-                            }
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-
-                  {set.videoUri && (
-                    <Pressable
-                      className="self-end"
-                      onPress={() =>
-                        detachSetVideo(performanceId, setIndex)
-                          .then(reload)
-                          .then(() => notify('Vidéo supprimée.', 'success'))
-                          .catch((e) => notify(messageOf(e)))
-                      }
-                    >
-                      <Text className="text-caption text-danger dark:text-danger-dark">
-                        Supprimer la vidéo
-                      </Text>
-                    </Pressable>
-                  )}
-                </Card>
+                  <Text
+                    className="font-mono-bold text-lead text-ink dark:text-ink-dark"
+                    style={{ fontVariant: ['tabular-nums'] }}
+                  >
+                    {formatSetValues(set.values, unitOf)}
+                  </Text>
+                </Pressable>
               ))}
-            </View>
+            </Card>
           );
         })}
       </ScrollView>
 
+      {/* Une seule feuille pour toutes les séries : celle qu'on règle dit ce
+          qu'elle montre. */}
+      <Sheet
+        visible={editing !== null && edited !== undefined}
+        title={editing ? `Série ${editing.position}` : ''}
+        description={editing?.exerciseName}
+        actions={
+          edited?.videoUri && editing
+            ? [
+                { label: 'Voir la vidéo', onPress: () => setWatching(editing) },
+                {
+                  label: 'Supprimer la vidéo',
+                  tone: 'danger' as const,
+                  onPress: () => removeVideo(editing),
+                },
+              ]
+            : []
+        }
+        onClose={() => setEditing(null)}
+      >
+        {editing && edited && (
+          <View className="gap-4 pb-2">
+            {/* Une rangée par côté : un exercice unilatéral en a deux. */}
+            {(Object.keys(edited.values) as Side[]).map((side) => (
+              <View key={side} className="gap-1">
+                {side !== 'BOTH' && (
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    {side === 'LEFT' ? 'Côté gauche' : 'Côté droit'}
+                  </Text>
+                )}
+                <View className="flex-row gap-3">
+                  {editing.measurementIds.map((measurementId) => (
+                    <NumberField
+                      key={measurementId}
+                      compact
+                      unit={unitOf(measurementId)}
+                      value={edited.values[side]?.[measurementId] ?? 0}
+                      step={STEPS[measurementId] ?? 1}
+                      onChange={(value) => adjust(side, measurementId, value)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </Sheet>
+
       <SetVideoViewer
-        uri={watched ? fileUri(watched) : null}
+        uri={watched?.videoUri ? fileUri(watched.videoUri) : null}
         onClose={() => setWatching(null)}
         onDelete={() => {
           const target = watching;
           setWatching(null);
-          if (!target) return;
-          detachSetVideo(target.performanceId, target.setIndex)
-            .then(reload)
-            .then(() => notify('Vidéo supprimée.', 'success'))
-            .catch((e) => notify(messageOf(e)));
+          if (target) removeVideo(target);
         }}
       />
     </SafeAreaView>
