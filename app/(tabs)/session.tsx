@@ -416,13 +416,19 @@ export default function SessionScreen() {
    * première série naissent du même geste, celui du bouton.
    */
   function beginFree(exerciseId: string) {
-    run(async () => {
-      await startWorkoutSession();
-      await startActivity(exerciseId);
-      await startPerformanceSet();
-      setPending(null);
-      setAdjustingStart(false);
-    });
+    startWorkoutSession()
+      .then(() => startActivity(exerciseId))
+      .then(() => startPerformanceSet())
+      .then(reload)
+      // L'exercice choisi ne se libère qu'une fois la séance À L'ÉCRAN. Le
+      // libérer plus tôt ne laisserait plus rien pour tenir le palier, et
+      // l'écran des séances s'afficherait entre les deux, le temps d'une
+      // image.
+      .then(() => {
+        setPending(null);
+        setAdjustingStart(false);
+      })
+      .catch((e) => notify(messageOf(e)));
   }
 
   /**
@@ -474,12 +480,13 @@ export default function SessionScreen() {
    * démarrée dans le même geste.
    */
   function begin(plannedWorkoutId: string, scheduledId?: string) {
-    run(async () => {
-      await beginWorkoutSession(plannedWorkoutId, scheduledId ?? null);
+    beginWorkoutSession(plannedWorkoutId, scheduledId ?? null)
+      .then(reload)
       // Le paramètre a fait son office : le garder ramènerait sur l'écran
-      // d'attente si la séance était annulée.
-      router.setParams({ plan: '', scheduled: '' });
-    });
+      // d'attente si la séance était annulée. Mais il ne se vide qu'APRÈS
+      // le rechargement, pour la même raison que ci-dessus.
+      .then(() => router.setParams({ plan: '', scheduled: '' }))
+      .catch((e) => notify(messageOf(e)));
   }
 
   const waiting = planParam ? plans.find((candidate) => candidate.id === planParam) : undefined;
