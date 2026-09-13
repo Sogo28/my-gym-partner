@@ -1,20 +1,32 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './button';
 import { ToastHost } from './notifications';
 
 /**
- * La pastille qui dit qu'une série a été filmée, et ouvre la vidéo.
+ * Le bouton qui dit qu'une série a été filmée, et ouvre la vidéo.
  *
- * Discrète : la plupart des séries n'en ont pas, et celle qui en a ne doit
- * pas pour autant crier plus fort que ses valeurs.
+ * Une cible, pas une icône posée là : on la vise d'un pouce, debout, entre
+ * deux séries. Une pastille de la taille du texte se rate -- d'où un aplat
+ * franc, et de quoi la manquer de huit pixels sans conséquence.
+ *
+ * Elle reste discrète par la COULEUR et non par la taille : la plupart des
+ * séries n'ont pas de vidéo, et celle qui en a ne doit pas crier plus fort
+ * que ses valeurs.
  */
 export function VideoBadge({ onPress }: { onPress: () => void }) {
+  const dark = useColorScheme() === 'dark';
+
   return (
-    <Pressable onPress={onPress} hitSlop={8} className="shrink-0">
-      <Ionicons name="videocam" size={15} color="#46600F" />
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityLabel="Voir la vidéo de cette série"
+      className="h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft dark:bg-primary-soft-dark"
+    >
+      <Ionicons name="play" size={18} color={dark ? '#BFF04A' : '#46600F'} />
     </Pressable>
   );
 }
