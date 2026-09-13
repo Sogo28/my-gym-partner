@@ -11,16 +11,47 @@ export const SCHEMA_VERSION = 26;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+/**
+ * La base, ouverte une fois et gardée -- tant qu'elle vit.
+ *
+ * Le cache est une poignée vers un objet NATIF, que le JavaScript ne tient
+ * pas en vie. Un rechargement à chaud libère cet objet sans prévenir, et la
+ * poignée gardée pointe alors dans le vide : la requête suivante échoue avec
+ * « shared object that was already released », sur une base que personne
+ * n'a fermée.
+ *
+ * On vérifie donc qu'elle répond avant de la servir, et l'on rouvre sinon.
+ * Le coût est une requête minuscule par accès ; le défaut qu'elle évite
+ * coûtait un écran en erreur et une session à comprendre pourquoi.
+ */
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  const db = await open();
+  if (await answers(db)) return db;
+
+  // Libérée sous nos pieds : on rouvre, une fois. Si la neuve ne répond pas
+  // davantage, la panne n'est plus celle-là et doit se dire.
+  dbPromise = null;
+  return open();
+}
+
+function open(): Promise<SQLite.SQLiteDatabase> {
   // Une ouverture qui ÉCHOUE ne se met pas en cache. La garder condamnerait
   // toute la session à rejouer la même erreur, alors que sa cause peut être
-  // passée -- une connexion libérée sous nos pieds, par exemple : la
-  // prochaine demande rouvre au lieu de servir un échec périmé.
+  // passée : la prochaine demande rouvre au lieu de servir un échec périmé.
   dbPromise ??= openAndMigrate().catch((error: unknown) => {
     dbPromise = null;
     throw error;
   });
   return dbPromise;
+}
+
+async function answers(db: SQLite.SQLiteDatabase): Promise<boolean> {
+  try {
+    await db.getFirstAsync('SELECT 1;');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {

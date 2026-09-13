@@ -1,23 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { __failNextOpen } from '../../test/fake-expo-sqlite';
+import { useCleanDatabase } from '../../test/support';
 import { getDatabase } from './db';
 
+useCleanDatabase();
+
 /**
- * La connexion est mémorisée une fois pour toutes : c'est ce qui évite de
- * rejouer les migrations à chaque requête. Mais mémoriser un ÉCHEC condamnait
- * la session entière -- toute requête suivante rejouait la même erreur, même
- * quand sa cause était passée.
+ * La poignée gardée en cache pointe vers un objet NATIF, que le JavaScript ne
+ * tient pas en vie : un rechargement à chaud le libère sans prévenir, et la
+ * requête suivante échoue sur une base que personne n'a fermée.
  */
-describe('getDatabase', () => {
-  it('rouvre après une ouverture qui a échoué', async () => {
-    __failNextOpen();
-
-    await expect(getDatabase()).rejects.toThrow(/already released/);
-    // La demande suivante doit repartir d'une ouverture neuve.
-    await expect(getDatabase()).resolves.toBeDefined();
-  });
-
-  it('sert ensuite la même connexion', async () => {
+describe('L ouverture de la base', () => {
+  it('sert la même connexion tant qu elle répond', async () => {
     expect(await getDatabase()).toBe(await getDatabase());
   });
+
+  it('rouvre quand celle en cache ne répond plus', async () => {
+    const db = await getDatabase();
+    const answering = db.getFirstAsync;
+
+    // Ce que fait un rechargement à chaud : l'objet natif part, la poignée
+    // reste. La connexion suivante doit repartir d'une base vivante.
+    let released = true;
+    db.getFirstAsync = ((...args: Parameters<typeof answering>) => {
+      if (released) {
+        released = false;
+        throw new Error('Cannot use shared object that was already released');
+      }
+      return answering.apply(db, args);
+    }) as typeof answering;
+
+    await expect(getDatabase()).resolves.toBeDefined();
+    await expect((await getDatabase()).getFirstAsync('SELECT 1;')).resolves.toBeDefined();
+  });
+
 });
