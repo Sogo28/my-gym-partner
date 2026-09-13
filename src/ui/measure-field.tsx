@@ -50,6 +50,7 @@ export function MeasureField({
         onChange={onChange}
         label={label}
         compact={compact}
+        step={step}
         autoOpen={autoOpen}
         onDone={onDone}
       />

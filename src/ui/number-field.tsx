@@ -53,20 +53,12 @@ export function NumberField({
         </Text>
       )}
 
-      <View
-        className={cn(
-          'flex-row items-center justify-between rounded-lg border-2',
-          'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
-          compact ? 'h-[40px] px-2' : 'h-[56px]',
-        )}
-      >
-        <Pressable
+      <View className={fieldBox(compact)}>
+        <StepButton
+          icon="remove"
+          compact={compact}
           onPress={() => onChange(Math.max(0, round(value - step)))}
-          hitSlop={10}
-          className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
-        >
-          <Ionicons name="remove" size={compact ? 17 : 20} color="#8B9086" />
-        </Pressable>
+        />
 
         {/* Le nombre lui-même ouvre une roulette.
             Les flèches servent le cas courant -- la valeur arrive déjà
@@ -79,7 +71,7 @@ export function NumberField({
           disabled={ceiling === undefined}
           className={cn(
             'shrink items-center justify-center',
-            ceiling !== undefined && 'border-b border-dashed border-border-strong dark:border-border-strong-dark',
+            ceiling !== undefined && TAPPABLE,
           )}
         >
           <Text
@@ -95,13 +87,7 @@ export function NumberField({
           </Text>
         </Pressable>
 
-        <Pressable
-          onPress={() => onChange(round(value + step))}
-          hitSlop={10}
-          className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
-        >
-          <Ionicons name="add" size={compact ? 17 : 20} color="#8B9086" />
-        </Pressable>
+        <StepButton icon="add" compact={compact} onPress={() => onChange(round(value + step))} />
       </View>
 
       {ceiling !== undefined && (
@@ -124,3 +110,42 @@ export function NumberField({
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/**
+ * Le cadre d'un champ de mesure, et ses boutons de pas.
+ *
+ * Partagés avec le champ de durée : les deux sont le MÊME contrôle -- un pas
+ * de part et d'autre, une valeur au milieu qui ouvre de quoi la choisir. Seule
+ * diffère la façon dont la valeur se lit et ce qui s'ouvre en la touchant.
+ */
+export function fieldBox(compact: boolean): string {
+  return cn(
+    'flex-row items-center justify-between rounded-lg border-2',
+    'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
+    compact ? 'h-[40px] px-2' : 'h-[56px]',
+  );
+}
+
+export function StepButton({
+  icon,
+  compact,
+  onPress,
+}: {
+  icon: 'add' | 'remove';
+  compact: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
+    >
+      <Ionicons name={icon} size={compact ? 17 : 20} color="#8B9086" />
+    </Pressable>
+  );
+}
+
+/** Le trait pointillé qui dit qu'une valeur s'ouvre. */
+export const TAPPABLE =
+  'border-b border-dashed border-border-strong dark:border-border-strong-dark';

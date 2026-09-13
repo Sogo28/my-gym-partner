@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
 import { formatDuration } from './format';
+import { fieldBox, StepButton, TAPPABLE } from './number-field';
 import { Sheet } from './sheet';
 import { ladder, Wheel } from './wheel';
 
@@ -26,6 +27,7 @@ export function DurationField({
   onChange,
   label,
   compact = false,
+  step = 1,
   autoOpen = false,
   onDone,
 }: {
@@ -34,6 +36,8 @@ export function DurationField({
   onChange: (seconds: number) => void;
   label?: string;
   compact?: boolean;
+  /** Le pas des flèches, en secondes. */
+  step?: number;
   /**
    * Appelé en refermant la roulette.
    *
@@ -62,27 +66,35 @@ export function DurationField({
         </Text>
       )}
 
-      {/* La même empreinte qu'un compteur : la durée se lit en place, et la
-          roulette n'apparaît que si on la demande. Sans cela, elle
-          bousculerait toutes les rangées où les mesures voisinent. */}
-      <Pressable
-        onPress={() => setOpen(true)}
-        className={cn(
-          'flex-row items-center justify-center rounded-lg border-2',
-          'border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark',
-          compact ? 'h-[40px]' : 'h-[56px]',
-        )}
-      >
-        <Text
-          className={cn(
-            'font-mono-bold text-ink dark:text-ink-dark',
-            compact ? 'text-lead' : 'text-heading',
-          )}
-          style={{ fontVariant: ['tabular-nums'] }}
-        >
-          {formatDuration(value)}
-        </Text>
-      </Pressable>
+      {/* Le MÊME contrôle que pour les autres mesures : un pas de part et
+          d'autre, et la valeur au milieu qui ouvre de quoi la choisir. Une
+          durée n'est pas un cas à part : à côté d'un compteur de répétitions,
+          un simple cadre se serait donné pour autre chose qu'il n'est.
+
+          Ce qui lui reste en propre : elle se lit en minutes, et sa roulette
+          a deux colonnes. */}
+      <View className={fieldBox(compact)}>
+        <StepButton
+          icon="remove"
+          compact={compact}
+          onPress={() => onChange(Math.max(0, value - step))}
+        />
+
+        <Pressable onPress={() => setOpen(true)} className={cn('shrink items-center', TAPPABLE)}>
+          <Text
+            className={cn(
+              'font-mono-bold text-ink dark:text-ink-dark',
+              compact ? 'text-lead' : 'text-heading',
+            )}
+            style={{ fontVariant: ['tabular-nums'] }}
+            numberOfLines={1}
+          >
+            {formatDuration(value)}
+          </Text>
+        </Pressable>
+
+        <StepButton icon="add" compact={compact} onPress={() => onChange(value + step)} />
+      </View>
 
       <DurationSheet
         visible={open}
