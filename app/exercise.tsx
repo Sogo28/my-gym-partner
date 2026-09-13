@@ -15,6 +15,13 @@ import { LineChart } from '../src/ui/line-chart';
  * aucune mesure du catalogue.
  */
 const VOLUME = 'volume';
+
+/** Les fenêtres proposées sous la courbe, de la plus serrée à toutes. */
+const WINDOWS: { label: string; sessions: number | null }[] = [
+  { label: '12 dernières', sessions: 12 },
+  { label: '30', sessions: 30 },
+  { label: 'Tout', sessions: null },
+];
 import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
@@ -60,6 +67,8 @@ export default function ExerciseDetailScreen() {
   /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
   /** Combien de séances passées on montre sous la dernière. */
   const [shown, setShown] = useState(PAGE);
+  /** Combien de séances la courbe montre. Null : toutes. */
+  const [window, setWindow] = useState<number | null>(WINDOWS[0].sessions);
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
   // l'exercice tel qu'il est maintenant.
@@ -116,7 +125,7 @@ export default function ExerciseDetailScreen() {
 
   // Les séances arrivent de la plus récente à la plus ancienne ; une courbe
   // se lit dans l'autre sens.
-  const points = [...sessions]
+  const plotted = [...sessions]
     .reverse()
     .map((entry) => ({
       // La MOYENNE des séries de la séance, et non sa meilleure : une séance
@@ -130,6 +139,17 @@ export default function ExerciseDetailScreen() {
       at: entry.startedAt,
     }))
     .filter((point): point is { value: number; at: Date } => point.value !== null);
+
+  /**
+   * Les dernières séances seulement.
+   *
+   * Ce n'est pas l'étiquette qui gêne au bout de cinquante séances, c'est le
+   * point : sur la largeur d'un téléphone, il ne lui reste que quelques
+   * pixels et la courbe devient une tache. La fenêtre se compte en SÉANCES et
+   * non en jours, parce que c'est ce que porte l'abscisse -- une plage de
+   * dates rendrait un nombre de points variable, et parfois aucun.
+   */
+  const points = window === null ? plotted : plotted.slice(-window);
 
   async function discard() {
     try {
@@ -232,7 +252,42 @@ export default function ExerciseDetailScreen() {
               </View>
 
               {points.length > 1 ? (
-                <LineChart points={points} />
+                <>
+                  <LineChart points={points} />
+
+                  {/* Rien à choisir tant que tout tient : proposer une
+                      fenêtre sur huit séances serait proposer d'en cacher. */}
+                  {plotted.length > (WINDOWS[0].sessions ?? 0) && (
+                    <View className="flex-row gap-2 pt-1">
+                      {WINDOWS.map(({ label, sessions }) => {
+                        const on = sessions === window;
+                        return (
+                          <Pressable
+                            key={label}
+                            onPress={() => setWindow(sessions)}
+                            className={cn(
+                              'h-8 justify-center rounded-full px-3',
+                              on
+                                ? 'bg-primary-soft dark:bg-primary-soft-dark'
+                                : 'bg-surface-alt dark:bg-surface-alt-dark',
+                            )}
+                          >
+                            <Text
+                              className={cn(
+                                'font-mono text-caption',
+                                on
+                                  ? 'text-primary-ink dark:text-primary-ink-dark'
+                                  : 'text-muted dark:text-muted-dark',
+                              )}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                </>
               ) : (
                 <Text className="py-4 text-center text-small text-muted dark:text-muted-dark">
                   {points.length === 0

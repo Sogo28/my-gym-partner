@@ -33,9 +33,15 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
   const levels = floor === max ? [max] : [max, (max + floor) / 2, floor];
 
   const y = (offset: number) => (offset / 100) * HEIGHT;
-  // Un point unique se pose au milieu plutôt qu'au bord gauche.
-  const x = (index: number) =>
-    points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+  /**
+   * Le CENTRE de la colonne de cette séance.
+   *
+   * La même géométrie que les points et que les crans de l'axe, qui occupent
+   * chacun une colonne de largeur égale. La ligne, elle, allait d'un bord à
+   * l'autre : elle passait donc à côté de ses propres points, et débordait de
+   * part et d'autre du premier et du dernier.
+   */
+  const x = (index: number) => ((index + 0.5) / points.length) * 100;
 
   const line = offsets
     .map((offset, index) => `${index === 0 ? 'M' : 'L'} ${x(index)} ${y(offset)}`)
@@ -129,7 +135,10 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
       </View>
 
       {/* Ce que l'axe des abscisses porte : des séances, dites par leur date.
-          Une sur deux au-delà de six, faute de quoi elles se chevauchent. */}
+
+          Cinq au plus, réparties, la première et la dernière toujours. Une
+          date par séance tenait à trois séances et se chevauchait à dix ; les
+          espacer garde l'axe lisible quel que soit le nombre de points. */}
       <View className="flex-row">
         <View style={{ width: GUTTER }} />
         <View className="flex-1 flex-row">
@@ -139,7 +148,7 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
                 className="font-mono text-micro text-muted dark:text-muted-dark"
                 numberOfLines={1}
               >
-                {points.length <= 6 || index % 2 === 0 ? shortDate(point.at) : ''}
+                {dated(index, points.length) ? shortDate(point.at) : ''}
               </Text>
             </View>
           ))}
@@ -147,6 +156,12 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
       </View>
     </View>
   );
+}
+
+/** Cette séance porte-t-elle sa date ? Au plus cinq, dont les deux extrêmes. */
+function dated(index: number, total: number): boolean {
+  if (index === 0 || index === total - 1) return true;
+  return index % Math.ceil((total - 1) / 4) === 0;
 }
 
 function round(value: number): number {
