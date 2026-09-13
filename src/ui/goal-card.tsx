@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import type { Goal } from '../domain/goal/goal';
 import { Card } from './card';
+import { cn } from './cn';
 import { describeSourceShort, targetUnit } from './goal-labels';
 import type { GoalEvaluation } from '../use-cases/goal-actions';
 
@@ -39,9 +40,16 @@ export function GoalCard({
 
   return (
     <Pressable onPress={onPress} style={width ? { width } : undefined}>
-      <Card className="gap-2">
+      <Card className="gap-1.5">
+        {/* Deux lignes RÉSERVÉES au nom, mais seulement en rangée : c'est ce
+            qui aligne les vignettes de l'accueil, quel que soit le nom. En
+            liste, où chaque carte occupe sa propre ligne, cette réserve ne
+            cale rien -- elle ne laissait qu'un blanc sous les noms courts. */}
         <Text
-          className="h-[34px] font-bold text-body text-ink dark:text-ink-dark"
+          className={cn(
+            'font-bold text-body text-ink dark:text-ink-dark',
+            width !== undefined && 'h-[34px]',
+          )}
           numberOfLines={2}
         >
           {goal.name}
