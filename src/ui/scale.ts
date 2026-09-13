@@ -1,5 +1,5 @@
 /**
- * La hauteur de chaque barre, en pourcentage de la plus haute.
+ * La place de chaque valeur sur l'échelle, en pourcentage de la plus haute.
  *
  * Pur, et dans son propre fichier : c'est le seul calcul du graphe, donc le
  * seul endroit où il peut se tromper -- autant qu'il soit vérifiable sans
@@ -12,16 +12,27 @@ export function barHeights(values: readonly number[]): number[] {
   const min = Math.min(...values);
 
   /**
-   * La base n'est pas zéro : entre 40 s et 45 s, des barres parties de zéro
-   * se ressemblent toutes. On garde un quart de l'écart sous la plus basse,
-   * pour que la plus faible reste visible sans écraser les autres.
+   * La base n'est pas zéro : entre 40 s et 45 s, une courbe partie de zéro
+   * serait plate. On garde un quart de l'écart sous la plus basse, pour que
+   * la plus faible reste visible sans écraser les autres.
    */
   const floor = min - (max - min) * 0.25;
 
   // Toutes les valeurs égales -- un poids jamais changé, un zéro partout :
-  // il n'y a plus d'échelle à calculer, et diviser par l'écart donnerait NaN,
-  // donc des barres sans hauteur. Un plateau se dessine à plat, en haut.
+  // il n'y a plus d'échelle à calculer, et diviser par l'écart donnerait NaN.
+  // Un plateau se dessine à plat, en haut.
   if (max === floor) return values.map(() => 100);
 
   return values.map((value) => Math.max(6, ((value - floor) / (max - floor)) * 100));
+}
+
+/**
+ * La hauteur de chaque point, en pourcentage DEPUIS LE HAUT.
+ *
+ * Une courbe se dessine dans un repère dont l'origine est en haut à gauche,
+ * là où une barre pousse depuis le bas : c'est la même échelle, lue à
+ * l'envers. Le calcul reste ici, seul endroit où il peut se tromper.
+ */
+export function curveOffsets(values: readonly number[]): number[] {
+  return barHeights(values).map((height) => 100 - height);
 }

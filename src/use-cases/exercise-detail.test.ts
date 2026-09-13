@@ -57,11 +57,13 @@ describe('Détail d un exercice', () => {
     expect(detail?.sessions[0].sets).toHaveLength(1);
   });
 
-  it('ne compte pas de volume quand l exercice ne porte pas les deux mesures', async () => {
+  it('ne compte pas de volume quand l exercice ne porte qu une mesure', async () => {
     const exercise = await anExercise();
     await aSessionOf(exercise.id, [10]);
 
-    // Une tenue en secondes n'a pas un volume de zéro : elle n'en a pas.
+    // Une tenue en secondes n'a pas un volume de zéro, ni un volume de dix :
+    // elle n'en a pas. Le produit d'une seule valeur ne dirait rien que la
+    // mesure ne dise déjà, tout en se donnant pour un autre chiffre.
     expect((await getExerciseDetail(exercise.id))?.volume).toBeNull();
   });
 

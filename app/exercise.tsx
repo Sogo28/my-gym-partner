@@ -5,7 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
-import { BarChart } from '../src/ui/bar-chart';
+import { LineChart } from '../src/ui/line-chart';
+
+/**
+ * La courbe suit le volume, ou une mesure précise.
+ *
+ * Ce n'est pas un identifiant de mesure : le volume n'en est pas une, c'est
+ * le produit de toutes. D'où un nom à part, qui ne peut se confondre avec
+ * aucune mesure du catalogue.
+ */
+const VOLUME = 'volume';
 import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
@@ -20,7 +29,7 @@ import { MediaStrip } from '../src/ui/media-strip';
 import { Tag } from '../src/ui/tag';
 import { TrimmedVideo } from '../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../src/use-cases/edit-catalogue';
-import { bestValue } from '../src/domain/performance/records';
+import { bestValue, bestVolume } from '../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
@@ -94,12 +103,29 @@ export default function ExerciseDetailScreen() {
   const [last, ...previous] = sessions;
   const totalSets = sessions.reduce((total, entry) => total + entry.sets.length, 0);
 
-  const charted = tracked ?? exercise.measurementIds[0];
-  // Les séances arrivent de la plus récente à la plus ancienne ; un graphe se
-  // lit dans l'autre sens.
+  /**
+   * Ce que la courbe suit.
+   *
+   * Le VOLUME par défaut dès que l'exercice a plusieurs mesures : une mesure
+   * prise seule n'en dit qu'une moitié -- soixante kilos ne distingue pas
+   * cinq répétitions de douze, et c'est pourtant la différence qui dit si
+   * l'on progresse. Avec une seule mesure, il n'y a pas de volume, et cette
+   * mesure EST la progression.
+   */
+  const hasVolume = exercise.measurementIds.length > 1;
+  const charted = tracked ?? (hasVolume ? VOLUME : exercise.measurementIds[0]);
+
+  // Les séances arrivent de la plus récente à la plus ancienne ; une courbe
+  // se lit dans l'autre sens.
   const points = [...sessions]
     .reverse()
-    .map((entry) => ({ value: bestValue(entry.sets, charted), at: entry.startedAt }))
+    .map((entry) => ({
+      value:
+        charted === VOLUME
+          ? (bestVolume(entry.sets)?.value ?? null)
+          : bestValue(entry.sets, charted),
+      at: entry.startedAt,
+    }))
     .filter((point): point is { value: number; at: Date } => point.value !== null);
 
   async function discard() {
@@ -190,9 +216,9 @@ export default function ExerciseDetailScreen() {
                     Meilleure série par séance
                   </Text>
                   {/* Une seule mesure : rien à choisir, donc rien à afficher. */}
-                  {exercise.measurementIds.length > 1 && (
+                  {hasVolume && (
                     <View className="flex-row gap-1.5">
-                      {exercise.measurementIds.map((measurementId) => {
+                      {[VOLUME, ...exercise.measurementIds].map((measurementId) => {
                         const on = measurementId === charted;
                         return (
                           <Pressable
@@ -213,7 +239,7 @@ export default function ExerciseDetailScreen() {
                                   : 'text-muted dark:text-muted-dark',
                               )}
                             >
-                              {unitOf(measurementId)}
+                              {measurementId === VOLUME ? 'volume' : unitOf(measurementId)}
                             </Text>
                           </Pressable>
                         );
@@ -222,11 +248,19 @@ export default function ExerciseDetailScreen() {
                   )}
                 </View>
               {points.length > 1 ? (
-                <BarChart points={points} unit={unitOf(charted)} />
+                // Le volume n'a pas d'unité : des kilos par répétition ne
+                // sont une grandeur d'aucune physique. C'est un indice,
+                // comparable à lui-même d'une séance à l'autre.
+                <LineChart
+                  points={points}
+                  unit={charted === VOLUME ? undefined : unitOf(charted)}
+                />
               ) : (
                 <Text className="py-4 text-center text-small text-muted dark:text-muted-dark">
                   {points.length === 0
-                    ? `Aucune série enregistrée en ${unitOf(charted)}.`
+                    ? charted === VOLUME
+                      ? 'Aucune série ne porte les deux mesures.'
+                      : `Aucune série enregistrée en ${unitOf(charted)}.`
                     : 'Une seule séance : rien à comparer pour l instant.'}
                 </Text>
               )}

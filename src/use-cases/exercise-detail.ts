@@ -26,15 +26,11 @@ export type ExerciseDetail = {
   /** De la plus récente à la plus ancienne. */
   readonly sessions: readonly ExerciseSessionEntry[];
   readonly records: readonly PerformanceRecord[];
-  /** Null quand l'exercice ne porte pas les deux mesures du volume. */
+  /** Null quand l'exercice ne porte qu'une mesure : il n'a pas de volume. */
   readonly volume: { value: number; at: Date } | null;
   /** Les objectifs dont une étape vise cet exercice. */
   readonly goals: readonly Goal[];
 };
-
-/** Les deux mesures du catalogue de départ dont le produit fait un volume. */
-const REPS = 'reps';
-const WEIGHT = 'weight';
 
 /**
  * Tout ce que l'écran de détail affiche d'un exercice, en une lecture.
@@ -87,10 +83,7 @@ export async function getExerciseDetail(exerciseId: string): Promise<ExerciseDet
     records: measures
       .map((id) => best.find((record) => record.measurementId === id))
       .filter((record): record is PerformanceRecord => record !== undefined),
-    volume:
-      measures.includes(REPS) && measures.includes(WEIGHT)
-        ? bestVolume(allSets, REPS, WEIGHT)
-        : null,
+    volume: bestVolume(allSets),
     goals,
   };
 }

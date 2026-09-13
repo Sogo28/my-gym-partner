@@ -35,28 +35,41 @@ export function bestByMeasurement(sets: readonly PerformanceSet[]): PerformanceR
 }
 
 /**
- * Le meilleur volume d'une série : répétitions x charge.
+ * Le volume d'une SÉRIE : le produit de ce qu'elle a mesuré.
  *
- * Null dès qu'une des deux mesures manque. Un exercice au poids du corps n'a
- * pas un volume de zéro -- il n'a pas de volume, et afficher zéro serait
- * affirmer quelque chose de faux.
+ * Douze répétitions à soixante kilos valent 720 ; douze tenues de dix
+ * secondes, 120. Le produit marche parce qu'il dit la même chose dans les
+ * deux cas -- combien de travail cette série a demandé -- là où chaque mesure
+ * prise seule n'en dit qu'une moitié : soixante kilos ne distingue pas cinq
+ * répétitions de douze.
+ *
+ * Il faut AU MOINS DEUX mesures. Avec une seule, le produit vaut cette mesure
+ * : un volume qui répéterait la durée n'apprendrait rien qu'elle ne dise
+ * déjà, et se donnerait pour un autre chiffre.
+ *
+ * Ce nombre n'a pas d'unité. Des kilos par répétition ne sont une grandeur
+ * d'aucune physique : c'est un indice, comparable à lui-même d'une séance à
+ * l'autre, et à rien d'autre.
  */
+export function volumeOf(set: PerformanceSet): number | null {
+  if (set.status !== 'COMPLETED') return null;
+
+  const values = Object.values(weakestValues(set.values));
+  if (values.length < 2) return null;
+
+  return values.reduce((product, value) => product * value, 1);
+}
+
+/** Le meilleur volume atteint par une série, et le jour où il l'a été. */
 export function bestVolume(
   sets: readonly PerformanceSet[],
-  repsId: string,
-  weightId: string,
 ): { value: number; at: Date } | null {
   let best: { value: number; at: Date } | null = null;
 
   for (const set of sets) {
-    if (set.status !== 'COMPLETED') continue;
+    const value = volumeOf(set);
+    if (value === null) continue;
 
-    const values = weakestValues(set.values);
-    const reps = values[repsId];
-    const weight = values[weightId];
-    if (reps === undefined || weight === undefined) continue;
-
-    const value = reps * weight;
     if (best === null || value > best.value) best = { value, at: endOf(set) };
   }
 
