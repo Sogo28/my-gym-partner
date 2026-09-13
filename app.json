@@ -18,7 +18,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.daniel.mygympartner",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,6 +41,12 @@
       ],
       "expo-video"
     ],
-    "scheme": "mygympartner"
+    "scheme": "mygympartner",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fb4b74b8-3704-4085-99a7-0c95deb9d69b"
+      }
+    }
   }
 }
