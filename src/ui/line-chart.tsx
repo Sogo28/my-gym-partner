@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { curveOffsets } from './scale';
 
 export type ChartPoint = { value: number; at: Date };
@@ -17,13 +17,19 @@ const HEIGHT = 128;
  *
  * Les points restent marqués : sans eux, la ligne laisserait croire à un
  * continuum entre deux séances, alors qu'il ne s'est rien passé entre elles.
+ *
+ * L'unité, elle, n'est pas ici : c'est la carte qui dit ce que la courbe
+ * suit, et la répéter sous chaque point l'encombrerait.
  */
-export function LineChart({ points, unit }: { points: readonly ChartPoint[]; unit?: string }) {
+export function LineChart({ points }: { points: readonly ChartPoint[] }) {
   if (points.length === 0) return null;
 
   const values = points.map((point) => point.value);
   const max = Math.max(...values);
   const offsets = curveOffsets(values);
+  // Au-delà, les nombres se toucheraient : la courbe redevient une forme, et
+  // c'est très bien -- on n'y cherche plus des valeurs mais une tendance.
+  const labelled = points.length <= 6;
 
   // Une marge en haut et en bas : un point à l'extrême serait coupé en deux
   // par le bord.
@@ -71,20 +77,56 @@ export function LineChart({ points, unit }: { points: readonly ChartPoint[]; uni
         </View>
       </View>
 
+      {/* Les valeurs sous la courbe, une colonne par point.
+
+          En dessous et non collées aux points : une valeur posée près d'un
+          point bas déborderait du cadre, et près d'un point haut passerait
+          par-dessus la ligne. Sans elles, la courbe montrait une forme sans
+          jamais dire de quoi -- deux séances égales donnaient un trait plat
+          dont on ne pouvait rien tirer. */}
+      {labelled && (
+        <View className="flex-row">
+          {points.map((point, index) => (
+            <Text
+              key={index}
+              className="flex-1 text-center font-mono-bold text-caption text-ink dark:text-ink-dark"
+              style={{ fontVariant: ['tabular-nums'] }}
+              numberOfLines={1}
+            >
+              {round(point.value)}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {/* Les dates encadrent la courbe, sauf quand il n'y en a qu'une à
+          dire : deux séances du même jour affichaient deux fois la même date
+          de part et d'autre, ce qui donnait à lire un intervalle inexistant. */}
       <View className="flex-row items-center justify-between">
         <Text className="font-mono text-caption text-muted dark:text-muted-dark">
           {shortDate(points[0].at)}
         </Text>
-        <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-          max {round(max)}
-          {unit ? ` ${unit}` : ''}
-        </Text>
-        <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-          {shortDate(points[points.length - 1].at)}
-        </Text>
+        {sameDay(points[0].at, points[points.length - 1].at) ? (
+          <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+            {points.length} séances
+          </Text>
+        ) : (
+          <>
+            <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+              {points.length} séances
+            </Text>
+            <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+              {shortDate(points[points.length - 1].at)}
+            </Text>
+          </>
+        )}
       </View>
     </View>
   );
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return a.toDateString() === b.toDateString();
 }
 
 function round(value: number): number {

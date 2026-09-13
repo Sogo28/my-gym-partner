@@ -58,7 +58,6 @@ export default function ExerciseDetailScreen() {
   /** Faux dès qu'on quitte l'écran : les vidéos ne tournent pas derrière. */
   const [active, setActive] = useState(false);
   /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
-  const [tracked, setTracked] = useState<string | null>(null);
   /** Combien de séances passées on montre sous la dernière. */
   const [shown, setShown] = useState(PAGE);
 
@@ -113,7 +112,7 @@ export default function ExerciseDetailScreen() {
    * mesure EST la progression.
    */
   const hasVolume = exercise.measurementIds.length > 1;
-  const charted = tracked ?? (hasVolume ? VOLUME : exercise.measurementIds[0]);
+  const charted = hasVolume ? VOLUME : exercise.measurementIds[0];
 
   // Les séances arrivent de la plus récente à la plus ancienne ; une courbe
   // se lit dans l'autre sens.
@@ -207,54 +206,29 @@ export default function ExerciseDetailScreen() {
             </View>
             </Section>
 
-            {/* La carte reste là même sans courbe à tracer : les puces
-                d'unité vivent dedans, et les faire disparaître enfermerait
-                sur la mesure qu'on vient de choisir. */}
+            {/* Ce que la courbe suit se DIT, au lieu de se choisir : à
+                plusieurs mesures c'est le volume, à une seule c'est cette
+                mesure. Les puces qui laissaient isoler une mesure sont
+                parties -- une mesure seule ne dit qu'une moitié, et les
+                garder revenait à proposer de mal lire. */}
             <Card density="titled" className="gap-3">
-                <View className="flex-row items-center justify-between gap-3">
-                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                    Meilleure série par séance
-                  </Text>
-                  {/* Une seule mesure : rien à choisir, donc rien à afficher. */}
-                  {hasVolume && (
-                    <View className="flex-row gap-1.5">
-                      {[VOLUME, ...exercise.measurementIds].map((measurementId) => {
-                        const on = measurementId === charted;
-                        return (
-                          <Pressable
-                            key={measurementId}
-                            onPress={() => setTracked(measurementId)}
-                            className={cn(
-                              'h-8 justify-center rounded-full px-3',
-                              on
-                                ? 'bg-primary-soft dark:bg-primary-soft-dark'
-                                : 'bg-surface-alt dark:bg-surface-alt-dark',
-                            )}
-                          >
-                            <Text
-                              className={cn(
-                                'font-mono text-caption',
-                                on
-                                  ? 'text-primary-ink dark:text-primary-ink-dark'
-                                  : 'text-muted dark:text-muted-dark',
-                              )}
-                            >
-                              {measurementId === VOLUME ? 'volume' : unitOf(measurementId)}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
+              <View className="gap-0.5">
+                <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                  {charted === VOLUME
+                    ? 'Volume par séance'
+                    : `Meilleure série par séance · ${unitOf(charted)}`}
+                </Text>
+                <Text className="text-caption text-muted dark:text-muted-dark">
+                  {charted === VOLUME
+                    ? `Le produit de ce qu'une série mesure : ${exercise.measurementIds
+                        .map((id) => measurementNameOf(id).toLowerCase())
+                        .join(' × ')}. Sa meilleure série, séance par séance.`
+                    : 'Sa meilleure série, séance par séance.'}
+                </Text>
+              </View>
+
               {points.length > 1 ? (
-                // Le volume n'a pas d'unité : des kilos par répétition ne
-                // sont une grandeur d'aucune physique. C'est un indice,
-                // comparable à lui-même d'une séance à l'autre.
-                <LineChart
-                  points={points}
-                  unit={charted === VOLUME ? undefined : unitOf(charted)}
-                />
+                <LineChart points={points} />
               ) : (
                 <Text className="py-4 text-center text-small text-muted dark:text-muted-dark">
                   {points.length === 0
