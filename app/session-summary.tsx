@@ -266,7 +266,7 @@ export default function SessionSummaryScreen() {
                               done &&
                               done.restBefore !== null &&
                               done.restBefore > 0 && <RestLine seconds={done.restBefore} />}
-                            <View className="flex-row items-center gap-3 py-1">
+                            <View className="flex-row items-center gap-3 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
                               <Text
                                 className="flex-1 text-left font-mono text-small text-planned dark:text-planned-dark"
                                 numberOfLines={1}
@@ -303,7 +303,7 @@ export default function SessionSummaryScreen() {
                           {position > 0 && done.restBefore !== null && done.restBefore > 0 && (
                             <RestLine seconds={done.restBefore} />
                           )}
-                          <View className="flex-row items-center gap-2 py-1">
+                          <View className="flex-row items-center gap-2 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
                             <Text
                               className="font-mono text-small text-muted dark:text-muted-dark"
                               style={{ fontVariant: ['tabular-nums'] }}
@@ -398,11 +398,19 @@ export default function SessionSummaryScreen() {
 }
 
 /** Le repos pris avant la ligne qui suit -- entre deux séries, ou deux exercices. */
+/**
+ * Le repos entre deux lignes, comme une coupure sur une frise : un trait, le
+ * temps, un trait -- pas un texte au milieu des séries qu'il sépare.
+ */
 function RestLine({ seconds }: { seconds: number }) {
   return (
-    <Text className="py-1 text-center font-mono text-micro text-muted dark:text-muted-dark">
-      · repos {formatDuration(seconds)} ·
-    </Text>
+    <View className="items-center py-1.5">
+      <View className="h-2 w-px bg-border-strong dark:bg-border-strong-dark" />
+      <Text className="py-0.5 font-mono text-micro text-muted dark:text-muted-dark">
+        {formatDuration(seconds)}
+      </Text>
+      <View className="h-2 w-px bg-border-strong dark:bg-border-strong-dark" />
+    </View>
   );
 }
 
