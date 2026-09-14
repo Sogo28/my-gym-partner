@@ -1,5 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import { DomainError } from '../domain/domain-error';
 import { isRemote, type ExerciseMedia } from '../domain/exercise/media';
 import { findAll } from '../infra/exercise-repository';
@@ -76,55 +77,82 @@ export async function keepRecording(uri: string): Promise<string> {
 }
 
 /**
- * Choisit une démonstration -- image ou vidéo -- et en garde une COPIE.
+ * L'extension d'une image ou vidéo choisie dans la galerie.
+ *
+ * Le nom du fichier la porte le plus souvent ; à défaut, le type MIME.
+ * `File.pickFileAsync` la lisait sur un chemin de fichier classique -- la
+ * galerie ne rend ni l'un ni l'autre de la même façon.
+ */
+function extensionOf(asset: ImagePicker.ImagePickerAsset, fallback: string): string {
+  const fromName = asset.fileName?.split('.').pop();
+  if (fromName) return fromName.toLowerCase();
+  return asset.mimeType?.split('/').pop()?.toLowerCase() || fallback;
+}
+
+/**
+ * Copie dans l'application le fichier qu'un sélecteur vient de rendre.
+ *
+ * Une COPIE et non un déplacement : contrairement à une captation qui sort du
+ * cache de la caméra et n'appartient qu'à nous, un fichier choisi dans la
+ * galerie reste celui de l'utilisateur -- lui retirer son original serait la
+ * dernière chose à faire pour lui rendre service.
+ */
+async function copyPicked(sourceUri: string, extension: string): Promise<File> {
+  const copy = new File(ensureMediaDirectory(), `${randomUUID()}.${extension}`);
+  await new File(sourceUri).copy(copy);
+  return copy;
+}
+
+/**
+ * Choisit une démonstration -- image ou vidéo -- dans la galerie, et en
+ * garde une copie.
  *
  * Un seul geste pour les deux : celui qui ajoute une démonstration se demande
- * quoi montrer, pas de quel type de fichier il s'agit. Le sélecteur rend un
- * fichier temporaire : s'y référer suffirait aujourd'hui et échouerait demain,
- * quand le système aura fait le ménage.
+ * quoi montrer, pas de quel type de fichier il s'agit.
  */
 export async function pickDemonstration(): Promise<ExerciseMedia | null> {
-  const picked = await File.pickFileAsync({ mimeTypes: ['image/*', 'video/*'] });
+  const picked = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images', 'videos'],
+    quality: 1,
+  });
   if (picked.canceled) return null;
 
-  const source = picked.result;
-  const extension = source.extension.replace('.', '') || 'mp4';
-  const copy = new File(ensureMediaDirectory(), `${randomUUID()}.${extension}`);
+  const asset = picked.assets[0];
+  const kind = asset.type === 'video' ? 'video' : 'image';
+  const extension = extensionOf(asset, kind === 'video' ? 'mp4' : 'jpg');
 
+  let copy: File;
   try {
-    await source.copy(copy);
+    copy = await copyPicked(asset.uri, extension);
   } catch {
-    throw new DomainError("Cette vidéo n'a pas pu être copiée dans l'application.");
+    throw new DomainError("Cette démonstration n'a pas pu être copiée dans l'application.");
   }
-
-  // L'extension dit ce que c'est : le sélecteur, lui, ne le dit pas.
-  const kind = /^(mp4|mov|m4v|webm|avi|mkv)$/i.test(extension) ? 'video' : 'image';
 
   // Bornes vides : une vidéo se lit en entier tant qu'on ne l'a pas rognée.
   return { kind, uri: copy.name, label: null, trim: null };
 }
 
 /**
- * Choisit la photo de fin de séance, et en garde une copie.
+ * Choisit la photo de fin de séance dans la galerie, et en garde une copie.
  *
  * Une image seulement -- rien à rogner, rien à montrer en boucle comme une
  * démonstration : c'est un instantané, pas une captation.
  */
 export async function pickSessionPhoto(): Promise<string | null> {
-  const picked = await File.pickFileAsync({ mimeTypes: ['image/*'] });
+  const picked = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 1,
+  });
   if (picked.canceled) return null;
 
-  const source = picked.result;
-  const extension = source.extension.replace('.', '') || 'jpg';
-  const copy = new File(ensureMediaDirectory(), `${randomUUID()}.${extension}`);
+  const asset = picked.assets[0];
 
   try {
-    await source.copy(copy);
+    const copy = await copyPicked(asset.uri, extensionOf(asset, 'jpg'));
+    return copy.name;
   } catch {
     throw new DomainError("Cette photo n'a pas pu être copiée dans l'application.");
   }
-
-  return copy.name;
 }
 
 /**

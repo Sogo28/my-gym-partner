@@ -39,7 +39,13 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choisir une photo ou une vidéo depuis ta galerie."
+        }
+      ]
     ],
     "scheme": "mygympartner",
     "extra": {
