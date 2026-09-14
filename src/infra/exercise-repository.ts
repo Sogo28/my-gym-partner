@@ -37,7 +37,10 @@ export async function save(exercise: Exercise): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO exercises (id, name, is_unilateral, archived, origin) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, archived = excluded.archived;`,
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         is_unilateral = excluded.is_unilateral,
+         archived = excluded.archived;`,
       exercise.id,
       exercise.name,
       exercise.isUnilateral ? 1 : 0,

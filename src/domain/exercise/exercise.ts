@@ -45,7 +45,7 @@ export class Exercise {
   private constructor(
     readonly id: ExerciseId,
     private _name: string,
-    readonly isUnilateral: boolean,
+    private _isUnilateral: boolean,
     private _measurementIds: readonly MeasurementId[],
     private _primaryMuscleId: MuscleId | null,
     private _secondaryMuscleIds: readonly MuscleId[],
@@ -87,6 +87,10 @@ export class Exercise {
 
   get name(): string {
     return this._name;
+  }
+
+  get isUnilateral(): boolean {
+    return this._isUnilateral;
   }
 
   get measurementIds(): readonly MeasurementId[] {
@@ -154,6 +158,16 @@ export class Exercise {
    */
   changeMedia(media: readonly ExerciseMedia[]): void {
     this._media = normalizeMedia(media);
+  }
+
+  /**
+   * Corriger un exercice déclaré à tort bilatéral (ou l'inverse) : une
+   * définition mal posée au départ, pas un fait qui change. Comme pour les
+   * mesures, ça ne touche aucune performance déjà enregistrée -- une série
+   * passée garde le ou les côtés sous lesquels elle a été saisie.
+   */
+  changeLaterality(isUnilateral: boolean): void {
+    this._isUnilateral = isUnilateral;
   }
 
   /**

@@ -108,6 +108,14 @@ describe('Exercise', () => {
     expect(exercise.muscleIds).toEqual([]);
   });
 
+  it('laisse corriger la latéralité déclarée à tort', () => {
+    const exercise = Exercise.create({ ...validInput, isUnilateral: false });
+
+    exercise.changeLaterality(true);
+
+    expect(exercise.isUnilateral).toBe(true);
+  });
+
   it('s archive sans rien perdre de son identité', () => {
     const exercise = Exercise.create(validInput);
 

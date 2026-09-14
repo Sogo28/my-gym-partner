@@ -109,6 +109,7 @@ export default function NewExerciseScreen() {
         await updateExercise({
           exercise: existing,
           name,
+          isUnilateral,
           measurementIds: selected,
           primaryMuscleId: primaryMuscle,
           secondaryMuscleIds: secondaryMuscles,

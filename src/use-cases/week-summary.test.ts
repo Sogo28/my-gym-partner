@@ -30,6 +30,7 @@ describe('La semaine écoulée', () => {
     await updateExercise({
       exercise,
       name: exercise.name,
+      isUnilateral: exercise.isUnilateral,
       measurementIds: [...exercise.measurementIds],
       primaryMuscleId: 'dos',
       secondaryMuscleIds: ['biceps'],

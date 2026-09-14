@@ -69,6 +69,26 @@ describe('Retirer un entraînement', () => {
   });
 });
 
+describe('Latéralité d un exercice', () => {
+  it('corrige un exercice déclaré à tort bilatéral', async () => {
+    const exercise = await anExercise();
+    expect(exercise.isUnilateral).toBe(false);
+
+    await updateExercise({
+      exercise,
+      name: exercise.name,
+      isUnilateral: true,
+      measurementIds: [...exercise.measurementIds],
+      primaryMuscleId: null,
+      secondaryMuscleIds: [],
+      media: [],
+    });
+
+    const [reloaded] = await findAllExercises();
+    expect(reloaded.isUnilateral).toBe(true);
+  });
+});
+
 describe('Muscles d un exercice', () => {
   it('garde le principal et les secondaires distincts jusqu en base', async () => {
     const exercise = await anExercise();
@@ -76,6 +96,7 @@ describe('Muscles d un exercice', () => {
     await updateExercise({
       exercise,
       name: exercise.name,
+      isUnilateral: exercise.isUnilateral,
       measurementIds: [...exercise.measurementIds],
       primaryMuscleId: 'dos',
       secondaryMuscleIds: ['biceps', 'abdominaux'],
@@ -97,6 +118,7 @@ describe('Muscles d un exercice', () => {
       updateExercise({
         exercise,
         name: exercise.name,
+        isUnilateral: exercise.isUnilateral,
         measurementIds: [...exercise.measurementIds],
         primaryMuscleId: 'dos',
         secondaryMuscleIds: ['dos'],
@@ -113,6 +135,7 @@ describe('Démonstrations d un exercice', () => {
     await updateExercise({
       exercise,
       name: exercise.name,
+      isUnilateral: exercise.isUnilateral,
       measurementIds: [...exercise.measurementIds],
       primaryMuscleId: null,
       secondaryMuscleIds: [],
@@ -136,6 +159,7 @@ describe('Démonstrations d un exercice', () => {
       updateExercise({
         exercise,
         name: exercise.name,
+        isUnilateral: exercise.isUnilateral,
         measurementIds: [...exercise.measurementIds],
         primaryMuscleId: null,
         secondaryMuscleIds: [],

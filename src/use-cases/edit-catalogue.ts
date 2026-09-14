@@ -20,12 +20,14 @@ import type { PlannedWorkout } from '../domain/planned-workout/planned-workout';
 export async function updateExercise(input: {
   exercise: Exercise;
   name: string;
+  isUnilateral: boolean;
   measurementIds: readonly MeasurementId[];
   primaryMuscleId: string | null;
   secondaryMuscleIds: readonly string[];
   media: readonly ExerciseMedia[];
 }): Promise<Exercise> {
   input.exercise.rename(input.name);
+  input.exercise.changeLaterality(input.isUnilateral);
   input.exercise.changeMeasurements(input.measurementIds);
   input.exercise.changeMuscles(input.primaryMuscleId, input.secondaryMuscleIds);
   input.exercise.changeMedia(input.media);
