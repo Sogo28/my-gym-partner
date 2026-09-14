@@ -239,9 +239,14 @@ export default function SessionSummaryScreen() {
                     router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
                   }
                 >
-                  <Card className="gap-2">
+                  <Card>
+                    {/* Un titre appelle sa propre respiration : le confondre
+                        avec l'espace entre deux séries -- qui, lui, doit
+                        rester serré pour lire la liste d'un coup d'oeil --
+                        écrasait le nom de l'exercice contre sa première
+                        ligne. */}
                     <Text
-                      className="font-bold text-body text-ink dark:text-ink-dark"
+                      className="pb-3 font-extrabold text-lead text-ink dark:text-ink-dark"
                       numberOfLines={1}
                     >
                       {nameOf(activity.exerciseId)}
@@ -252,37 +257,74 @@ export default function SessionSummaryScreen() {
                         Aucune série validée.
                       </Text>
                     ) : plannedExercise ? (
-                      // Prévu à gauche, fait à droite : la même ligne dit les
-                      // deux, plutôt qu'une mention à part qui ne revenait que
-                      // pour signaler un manque.
-                      Array.from({ length: rows }, (_, position) => {
-                        const plannedSet = plannedExercise.sets[position];
-                        const done = activity.completedSets[position];
-                        return (
+                      <View className="gap-2">
+                        {/* Prévu à gauche, fait à droite : la même ligne dit
+                            les deux, plutôt qu'une mention à part qui ne
+                            revenait que pour signaler un manque. */}
+                        {Array.from({ length: rows }, (_, position) => {
+                          const plannedSet = plannedExercise.sets[position];
+                          const done = activity.completedSets[position];
+                          return (
+                            <View key={position}>
+                              {/* Celle d'avant l'exercice se montre déjà
+                                  au-dessus de la carte : ne pas la répéter
+                                  ici. */}
+                              {position > 0 &&
+                                done &&
+                                done.restBefore !== null &&
+                                done.restBefore > 0 && <RestLine seconds={done.restBefore} />}
+                              <View className="flex-row items-center gap-3 rounded-lg bg-surface-alt px-3 py-2.5 dark:bg-surface-alt-dark">
+                                <Text
+                                  className="flex-1 text-left font-mono text-caption text-planned dark:text-planned-dark"
+                                  numberOfLines={1}
+                                >
+                                  {plannedSet ? formatTargets(plannedSet.targets, unitOf) : '—'}
+                                </Text>
+                                <ComparisonGlyph
+                                  status={compareToPlan(plannedSet?.targets, done?.set.values)}
+                                />
+                                <Text
+                                  className="flex-1 text-right font-mono-bold text-body text-ink dark:text-ink-dark"
+                                  numberOfLines={1}
+                                >
+                                  {done ? formatSetValues(done.set.values, unitOf) : '—'}
+                                </Text>
+                                {done?.set.videoUri && activity.performanceId && (
+                                  <VideoBadge
+                                    onPress={() =>
+                                      setWatching({
+                                        performanceId: activity.performanceId!,
+                                        setIndex: done.index,
+                                        name: done.set.videoUri!,
+                                      })
+                                    }
+                                  />
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <View className="gap-2">
+                        {activity.completedSets.map((done, position) => (
                           <View key={position}>
-                            {/* Celle d'avant l'exercice se montre déjà au-dessus
-                                de la carte : ne pas la répéter ici. */}
-                            {position > 0 &&
-                              done &&
-                              done.restBefore !== null &&
-                              done.restBefore > 0 && <RestLine seconds={done.restBefore} />}
-                            <View className="flex-row items-center gap-3 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
+                            {position > 0 && done.restBefore !== null && done.restBefore > 0 && (
+                              <RestLine seconds={done.restBefore} />
+                            )}
+                            <View className="flex-row items-center gap-2 rounded-lg bg-surface-alt px-3 py-2.5 dark:bg-surface-alt-dark">
                               <Text
-                                className="flex-1 text-left font-mono text-small text-planned dark:text-planned-dark"
-                                numberOfLines={1}
+                                className="font-mono text-caption text-muted dark:text-muted-dark"
+                                style={{ fontVariant: ['tabular-nums'] }}
                               >
-                                {plannedSet ? formatTargets(plannedSet.targets, unitOf) : '—'}
+                                {position + 1}.
                               </Text>
-                              <ComparisonGlyph
-                                status={compareToPlan(plannedSet?.targets, done?.set.values)}
-                              />
                               <Text
-                                className="flex-1 text-right font-mono text-small text-ink dark:text-ink-dark"
-                                numberOfLines={1}
+                                className="flex-1 font-mono-bold text-body text-ink dark:text-ink-dark"
                               >
-                                {done ? formatSetValues(done.set.values, unitOf) : '—'}
+                                {formatSetValues(done.set.values, unitOf)}
                               </Text>
-                              {done?.set.videoUri && activity.performanceId && (
+                              {done.set.videoUri && activity.performanceId && (
                                 <VideoBadge
                                   onPress={() =>
                                     setWatching({
@@ -295,35 +337,8 @@ export default function SessionSummaryScreen() {
                               )}
                             </View>
                           </View>
-                        );
-                      })
-                    ) : (
-                      activity.completedSets.map((done, position) => (
-                        <View key={position}>
-                          {position > 0 && done.restBefore !== null && done.restBefore > 0 && (
-                            <RestLine seconds={done.restBefore} />
-                          )}
-                          <View className="flex-row items-center gap-2 rounded-lg bg-surface-alt px-3 py-2 dark:bg-surface-alt-dark">
-                            <Text
-                              className="font-mono text-small text-muted dark:text-muted-dark"
-                              style={{ fontVariant: ['tabular-nums'] }}
-                            >
-                              {position + 1}.  {formatSetValues(done.set.values, unitOf)}
-                            </Text>
-                            {done.set.videoUri && activity.performanceId && (
-                              <VideoBadge
-                                onPress={() =>
-                                  setWatching({
-                                    performanceId: activity.performanceId!,
-                                    setIndex: done.index,
-                                    name: done.set.videoUri!,
-                                  })
-                                }
-                              />
-                            )}
-                          </View>
-                        </View>
-                      ))
+                        ))}
+                      </View>
                     )}
                   </Card>
                 </Pressable>
@@ -429,7 +444,7 @@ function ComparisonGlyph({ status }: { status: PlanComparison }) {
   return (
     <Text
       className={cn(
-        'shrink-0 text-center font-mono-bold text-small',
+        'shrink-0 text-center font-mono-bold text-body',
         status === 'above' && 'text-success dark:text-success-dark',
         status === 'below' && 'text-danger dark:text-danger-dark',
         status === 'on-target' && 'text-muted dark:text-muted-dark',
