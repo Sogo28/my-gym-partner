@@ -2,7 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -19,6 +19,7 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
 import { duplicateWorkout } from '../src/use-cases/create-planned-workout';
+import { describeWorkout } from '../src/use-cases/share-workout';
 import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 
 /**
@@ -112,6 +113,14 @@ export default function WorkoutDetailScreen() {
     } catch (e) {
       notify(messageOf(e));
     }
+  }
+
+  /** Partagée en texte : aucun format à installer pour la lire de l'autre côté. */
+  function share() {
+    if (!plan) return;
+    Share.share({ message: describeWorkout(plan, nameOf, unitOf) }).catch((e) =>
+      notify(messageOf(e)),
+    );
   }
 
   /**
@@ -213,6 +222,7 @@ export default function WorkoutDetailScreen() {
                       .then(() => router.back())
                       .catch((e) => notify(messageOf(e))),
                 },
+                { label: 'Partager', onPress: share },
               ]
             : [
                 {
@@ -226,6 +236,7 @@ export default function WorkoutDetailScreen() {
                     setSheet('duplicate');
                   },
                 },
+                { label: 'Partager', onPress: share },
                 {
                   label: 'Retirer du catalogue',
                   tone: 'danger' as const,
