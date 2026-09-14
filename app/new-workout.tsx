@@ -35,6 +35,7 @@ import { findAll as findAllPlans } from '../src/infra/planned-workout-repository
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 
 import { defaultTargets } from '../src/ui/set-defaults';
+import { formatTargets } from '../src/ui/set-values';
 
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
@@ -82,6 +83,12 @@ export default function NewWorkoutScreen() {
   const [preselected, setPreselected] = useState<string[]>([]);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
+  /**
+   * En édition, une série se lit d'abord -- comme dans la fiche d'une séance
+   * passée -- et ne s'ouvre qu'au tap. À la création, on saisit en rafale
+   * plusieurs séries à la suite : les champs restent tous visibles.
+   */
+  const [editingSet, setEditingSet] = useState<{ key: string; setIndex: number } | null>(null);
 
   // Les exercices disponibles se rechargent à chaque affichage...
   useFocusEffect(
@@ -137,19 +144,24 @@ export default function NewWorkoutScreen() {
   const exerciseOf = (id: string) => available.find((e) => e.id === id);
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
 
+  const editingEntry = editingSet ? draft.find((entry) => entry.key === editingSet.key) : undefined;
+  const editingExercise = editingEntry ? exerciseOf(editingEntry.planned.exerciseId) : undefined;
+  const editingTargets = editingEntry?.planned.sets[editingSet?.setIndex ?? -1]?.targets;
+
   /**
    * Ajouter une série, c'est répéter la précédente.
    *
    * Quatre séries identiques sont le cas courant ; on les corrige ensuite là
    * où elles diffèrent, au lieu de saisir quatre fois la même chose.
    */
-  function addSet(position: number) {
-    const exercise = exerciseOf(draft[position].planned.exerciseId);
+  function addSet(key: string) {
+    const entry = draft.find((candidate) => candidate.key === key);
+    const exercise = entry && exerciseOf(entry.planned.exerciseId);
     if (!exercise) return;
 
     setDraft((current) =>
-      current.map((entry, index) => {
-        if (index !== position) return entry;
+      current.map((entry) => {
+        if (entry.key !== key) return entry;
         const sets = entry.planned.sets;
         const last = sets[sets.length - 1];
         return {
@@ -164,15 +176,10 @@ export default function NewWorkoutScreen() {
   }
 
   /** Une cible se change directement sur sa série, sans étape de validation. */
-  function changeTarget(
-    position: number,
-    setIndex: number,
-    measurementId: string,
-    value: number,
-  ) {
+  function changeTarget(key: string, setIndex: number, measurementId: string, value: number) {
     setDraft((current) =>
-      current.map((entry, index) =>
-        index === position
+      current.map((entry) =>
+        entry.key === key
           ? {
               ...entry,
               planned: {
@@ -204,14 +211,15 @@ export default function NewWorkoutScreen() {
    * pour cela qu'il en reçoit une à l'ajout. Le laisser vide obligeait à un
    * second bouton pour dire la même chose.
    */
-  function removeSet(position: number, setIndex: number) {
+  function removeSet(key: string, setIndex: number) {
     setDraft((current) => {
-      if (current[position].planned.sets.length <= 1) {
-        return current.filter((_, index) => index !== position);
+      const entry = current.find((candidate) => candidate.key === key);
+      if (!entry || entry.planned.sets.length <= 1) {
+        return current.filter((candidate) => candidate.key !== key);
       }
 
-      return current.map((entry, index) =>
-        index === position
+      return current.map((entry) =>
+        entry.key === key
           ? {
               ...entry,
               planned: {
@@ -284,18 +292,28 @@ export default function NewWorkoutScreen() {
           scrollEnabled={false}
           onReorder={({ from, to }) => setDraft((current) => reorderItems(current, from, to))}
           contentContainerStyle={{ gap: 16 }}
-          renderItem={({ item, index }) => (
-            <DraftCard
-              entry={item}
-              exercise={exerciseOf(item.planned.exerciseId)}
-              unitOf={unitOf}
-              onRemoveSet={(setIndex) => removeSet(index, setIndex)}
-              onChangeTarget={(setIndex, measurementId, value) =>
-                changeTarget(index, setIndex, measurementId, value)
-              }
-              onAddSet={() => addSet(index)}
-            />
-          )}
+          renderItem={({ item }) =>
+            existing ? (
+              <EditDraftCard
+                entry={item}
+                exercise={exerciseOf(item.planned.exerciseId)}
+                unitOf={unitOf}
+                onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
+                onAddSet={() => addSet(item.key)}
+              />
+            ) : (
+              <DraftCard
+                entry={item}
+                exercise={exerciseOf(item.planned.exerciseId)}
+                unitOf={unitOf}
+                onRemoveSet={(setIndex) => removeSet(item.key, setIndex)}
+                onChangeTarget={(setIndex, measurementId, value) =>
+                  changeTarget(item.key, setIndex, measurementId, value)
+                }
+                onAddSet={() => addSet(item.key)}
+              />
+            )
+          }
         />
 
         {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
@@ -343,6 +361,46 @@ export default function NewWorkoutScreen() {
           setPicking(false);
         }}
       />
+
+      {/* Une seule feuille pour toutes les séries en édition, comme pour une
+          séance passée : celle qu'on règle dit ce qu'elle montre. */}
+      <Sheet
+        visible={editingSet !== null && editingEntry !== undefined}
+        title={editingSet ? `Série ${editingSet.setIndex + 1}` : ''}
+        description={editingExercise?.name}
+        actions={
+          editingSet
+            ? [
+                {
+                  label: 'Retirer cette série',
+                  tone: 'danger' as const,
+                  onPress: () => {
+                    removeSet(editingSet.key, editingSet.setIndex);
+                    setEditingSet(null);
+                  },
+                },
+              ]
+            : []
+        }
+        onClose={() => setEditingSet(null)}
+      >
+        {editingSet && editingExercise && editingTargets && (
+          <View className="flex-row flex-wrap gap-3 pb-2">
+            {editingExercise.measurementIds.map((measurementId) => (
+              <MeasureField
+                key={measurementId}
+                compact
+                unit={unitOf(measurementId)}
+                measurementId={measurementId}
+                value={editingTargets[measurementId] ?? 0}
+                onChange={(value) =>
+                  changeTarget(editingSet.key, editingSet.setIndex, measurementId, value)
+                }
+              />
+            ))}
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         visible={sheet === 'menu'}
@@ -449,6 +507,74 @@ function DraftCard({
             <Ionicons name="remove" size={18} color="#B3261E" />
           </Pressable>
         </View>
+      ))}
+
+      <Button
+        label="+ Ajouter une série"
+        variant="secondary"
+        size="sm"
+        className="mt-2"
+        onPress={onAddSet}
+      />
+    </Collapsible>
+  );
+}
+
+/**
+ * La même carte, en édition : une série SE LIT, et ne se règle qu'en la
+ * touchant -- le même partage que pour une séance passée ou une condition
+ * d'objectif. On revient corriger une cible précise, pas ressaisir la série
+ * en entier.
+ */
+function EditDraftCard({
+  entry,
+  exercise,
+  unitOf,
+  onOpenSet,
+  onAddSet,
+}: {
+  entry: Planned;
+  exercise: Exercise | undefined;
+  unitOf: (measurementId: string) => string;
+  onOpenSet: (setIndex: number) => void;
+  onAddSet: () => void;
+}) {
+  const drag = useReorderableDrag();
+  const dragging = useIsActive();
+  const planned = entry.planned;
+
+  return (
+    <Collapsible
+      title={
+        <View className="flex-row items-center gap-2">
+          <Pressable onPressIn={drag} className="h-9 w-8 items-center justify-center rounded-md">
+            <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
+          </Pressable>
+          <Text
+            className="shrink font-bold text-body text-ink dark:text-ink-dark"
+            numberOfLines={1}
+          >
+            {exercise?.name ?? planned.exerciseId}
+          </Text>
+        </View>
+      }
+      summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
+      defaultOpen
+    >
+      {planned.sets.map((set, index) => (
+        <Pressable
+          key={index}
+          onPress={() => onOpenSet(index)}
+          className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
+        >
+          <Text className="text-small text-muted dark:text-muted-dark">Série {index + 1}</Text>
+          <Text
+            className="font-mono-bold text-lead text-ink dark:text-ink-dark"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            {formatTargets(set.targets, unitOf)}
+          </Text>
+        </Pressable>
       ))}
 
       <Button
