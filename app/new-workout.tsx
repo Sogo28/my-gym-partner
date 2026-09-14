@@ -292,28 +292,15 @@ export default function NewWorkoutScreen() {
           scrollEnabled={false}
           onReorder={({ from, to }) => setDraft((current) => reorderItems(current, from, to))}
           contentContainerStyle={{ gap: 16 }}
-          renderItem={({ item }) =>
-            existing ? (
-              <EditDraftCard
-                entry={item}
-                exercise={exerciseOf(item.planned.exerciseId)}
-                unitOf={unitOf}
-                onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
-                onAddSet={() => addSet(item.key)}
-              />
-            ) : (
-              <DraftCard
-                entry={item}
-                exercise={exerciseOf(item.planned.exerciseId)}
-                unitOf={unitOf}
-                onRemoveSet={(setIndex) => removeSet(item.key, setIndex)}
-                onChangeTarget={(setIndex, measurementId, value) =>
-                  changeTarget(item.key, setIndex, measurementId, value)
-                }
-                onAddSet={() => addSet(item.key)}
-              />
-            )
-          }
+          renderItem={({ item }) => (
+            <DraftCard
+              entry={item}
+              exercise={exerciseOf(item.planned.exerciseId)}
+              unitOf={unitOf}
+              onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
+              onAddSet={() => addSet(item.key)}
+            />
+          )}
         />
 
         {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
@@ -445,88 +432,12 @@ export default function NewWorkoutScreen() {
 /**
  * Une carte du brouillon.
  *
- * Composant à part parce que la poignée réclame un crochet : c'est lui qui
- * relie le geste à la liste, et un crochet ne s'appelle pas au milieu d'une
- * fonction de rendu.
+ * Une série SE LIT, et ne se règle qu'en la touchant -- le même partage que
+ * pour une séance passée ou une condition d'objectif. Composant à part parce
+ * que la poignée réclame un crochet : c'est lui qui relie le geste à la
+ * liste, et un crochet ne s'appelle pas au milieu d'une fonction de rendu.
  */
 function DraftCard({
-  entry,
-  exercise,
-  unitOf,
-  onRemoveSet,
-  onChangeTarget,
-  onAddSet,
-}: {
-  entry: Planned;
-  exercise: Exercise | undefined;
-  unitOf: (measurementId: string) => string;
-  onRemoveSet: (setIndex: number) => void;
-  onChangeTarget: (setIndex: number, measurementId: string, value: number) => void;
-  onAddSet: () => void;
-}) {
-  const drag = useReorderableDrag();
-  const dragging = useIsActive();
-  const planned = entry.planned;
-
-  return (
-    <Collapsible
-      title={
-        <View className="flex-row items-center gap-2">
-          {/* La poignée saisit dès le contact : posée sur la carte entière,
-              le geste serait capté par le premier élément tapable dedans. */}
-          <Pressable onPressIn={drag} className="h-9 w-8 items-center justify-center rounded-md">
-            <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
-          </Pressable>
-          <Text
-            className="shrink font-bold text-body text-ink dark:text-ink-dark"
-            numberOfLines={1}
-          >
-            {exercise?.name ?? planned.exerciseId}
-          </Text>
-        </View>
-      }
-      summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
-      defaultOpen
-    >
-      {planned.sets.map((set, index) => (
-        <View key={index} className="flex-row items-center gap-2 pt-1">
-          {exercise?.measurementIds.map((measurementId) => (
-            <MeasureField
-              key={measurementId}
-              compact
-              unit={unitOf(measurementId)}
-              measurementId={measurementId}
-              value={set.targets[measurementId] ?? 0}
-              onChange={(value) => onChangeTarget(index, measurementId, value)}
-            />
-          ))}
-          <Pressable
-            onPress={() => onRemoveSet(index)}
-            className="h-[40px] w-[40px] items-center justify-center rounded-lg border-2 border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
-          >
-            <Ionicons name="remove" size={18} color="#B3261E" />
-          </Pressable>
-        </View>
-      ))}
-
-      <Button
-        label="+ Ajouter une série"
-        variant="secondary"
-        size="sm"
-        className="mt-2"
-        onPress={onAddSet}
-      />
-    </Collapsible>
-  );
-}
-
-/**
- * La même carte, en édition : une série SE LIT, et ne se règle qu'en la
- * touchant -- le même partage que pour une séance passée ou une condition
- * d'objectif. On revient corriger une cible précise, pas ressaisir la série
- * en entier.
- */
-function EditDraftCard({
   entry,
   exercise,
   unitOf,
