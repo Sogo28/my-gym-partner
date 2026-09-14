@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import { DomainError } from '../domain/domain-error';
 import type { ExerciseId } from '../domain/exercise/exercise';
 import type { MeasurementId } from '../domain/exercise/measurement';
 import {
@@ -6,8 +7,9 @@ import {
   type PlannedExercise,
 } from '../domain/planned-workout/planned-workout';
 import { assertTargetsAreMeasurable } from '../domain/planned-workout/target-rules';
+import { fold } from '../text';
 import { findAll as findAllExercises } from '../infra/exercise-repository';
-import { save } from '../infra/planned-workout-repository';
+import { findAll as findAllWorkouts, save } from '../infra/planned-workout-repository';
 
 /**
  * Use case CreatePlannedWorkout (§27).
@@ -26,6 +28,7 @@ export async function createPlannedWorkout(input: {
   exercises: readonly PlannedExercise[];
 }): Promise<PlannedWorkout> {
   await assertMeasurable(input.exercises);
+  await assertUniqueName(input.name);
 
   // Les règles internes à l'agrégat (nom non vide, cibles positives...) sont
   // vérifiées par le domaine lui-même, à la construction.
@@ -33,6 +36,20 @@ export async function createPlannedWorkout(input: {
 
   await save(workout);
   return workout;
+}
+
+/**
+ * DuplicateWorkout : repartir d'un entraînement existant sous un autre nom.
+ *
+ * Une simple création dont les exercices viennent d'ailleurs -- la même règle
+ * d'unicité du nom s'applique, puisque c'est justement ce qui distingue la
+ * copie de l'original.
+ */
+export async function duplicateWorkout(input: {
+  workout: PlannedWorkout;
+  name: string;
+}): Promise<PlannedWorkout> {
+  return createPlannedWorkout({ name: input.name, exercises: input.workout.exercises });
 }
 
 /**
@@ -51,6 +68,7 @@ export async function updatePlannedWorkout(input: {
   exercises: readonly PlannedExercise[];
 }): Promise<PlannedWorkout> {
   await assertMeasurable(input.exercises);
+  await assertUniqueName(input.name, input.workout.id);
 
   input.workout.rename(input.name);
   input.workout.replaceExercises(input.exercises);
@@ -66,4 +84,18 @@ async function assertMeasurable(exercises: readonly PlannedExercise[]): Promise<
   );
 
   assertTargetsAreMeasurable(exercises, measurementsByExercise);
+}
+
+/**
+ * Deux entraînements ne peuvent pas porter le même nom : la liste et la
+ * recherche s'y perdraient, incapables de dire lequel on vise.
+ */
+async function assertUniqueName(name: string, excludeId?: string): Promise<void> {
+  const needle = fold(name.trim());
+  const taken = (await findAllWorkouts()).some(
+    (workout) => workout.id !== excludeId && fold(workout.name) === needle,
+  );
+  if (taken) {
+    throw new DomainError(`Un entraînement s'appelle déjà « ${name.trim()} ».`);
+  }
 }

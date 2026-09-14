@@ -2,7 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -18,6 +18,7 @@ import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
+import { duplicateWorkout } from '../src/use-cases/create-planned-workout';
 import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 
 /**
@@ -34,7 +35,10 @@ export default function WorkoutDetailScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
-  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard' | 'duplicate'>('none');
+  /** Le nom proposé pour la copie, modifiable avant de la créer. */
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicating, setDuplicating] = useState(false);
 
   // À chaque affichage : revenir de l'écran d'édition doit montrer
   // l'entraînement modifié, pas celui d'avant.
@@ -107,6 +111,25 @@ export default function WorkoutDetailScreen() {
       router.back();
     } catch (e) {
       notify(messageOf(e));
+    }
+  }
+
+  /**
+   * Dupliquer, c'est repartir d'un entraînement pour en varier un détail --
+   * ici, sans quitter la fiche : le nom se propose déjà différent, mais reste
+   * à confirmer, puisque deux entraînements ne peuvent pas se nommer pareil.
+   */
+  async function duplicate() {
+    if (!plan) return;
+    setDuplicating(true);
+    try {
+      const copy = await duplicateWorkout({ workout: plan, name: duplicateName });
+      setSheet('none');
+      router.push({ pathname: '/new-workout', params: { id: copy.id } });
+    } catch (e) {
+      notify(messageOf(e));
+    } finally {
+      setDuplicating(false);
     }
   }
 
@@ -197,6 +220,13 @@ export default function WorkoutDetailScreen() {
                   onPress: () => router.push({ pathname: '/new-workout', params: { id } }),
                 },
                 {
+                  label: 'Dupliquer',
+                  onPress: () => {
+                    setDuplicateName(`${plan.name} copie`);
+                    setSheet('duplicate');
+                  },
+                },
+                {
                   label: 'Retirer du catalogue',
                   tone: 'danger' as const,
                   onPress: () => setSheet('confirm-discard'),
@@ -216,6 +246,33 @@ export default function WorkoutDetailScreen() {
         actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
+
+      {/* Un nom proposé, pas imposé : la copie porte le même contenu, mais
+          deux entraînements ne peuvent pas partager un nom -- l'erreur, si le
+          nom choisi existe déjà, remonte par le toast global. */}
+      <Sheet
+        visible={sheet === 'duplicate'}
+        title="Dupliquer l'entraînement"
+        description="Le contenu est repris à l'identique ; seul le nom se choisit."
+        onClose={() => setSheet('none')}
+      >
+        <View className="gap-3 pb-2">
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Nom de la copie"
+            placeholderTextColor="#A8AD9E"
+            value={duplicateName}
+            onChangeText={setDuplicateName}
+            autoFocus
+          />
+          <Button
+            label="Dupliquer"
+            size="md"
+            disabled={duplicateName.trim() === '' || duplicating}
+            onPress={duplicate}
+          />
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 }

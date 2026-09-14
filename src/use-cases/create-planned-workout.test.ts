@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
 import { findAll as findAllPlans } from '../infra/planned-workout-repository';
-import { createPlannedWorkout, updatePlannedWorkout } from './create-planned-workout';
+import { createPlannedWorkout, duplicateWorkout, updatePlannedWorkout } from './create-planned-workout';
 import { listSessionSummaries } from './session-summary';
 import {
   completePerformanceSet,
@@ -64,6 +64,57 @@ describe('Modifier un entraînement', () => {
       }),
     ).rejects.toThrow(/ne se mesure pas/);
   });
+
+  it('accepte de garder son propre nom', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await expect(
+      updatePlannedWorkout({
+        workout: plan,
+        name: plan.name,
+        exercises: [{ exerciseId: exercise.id, sets: [{ targets: { duration: 20 } }] }],
+      }),
+    ).resolves.not.toThrow();
+  });
+
+  it('refuse le nom d un autre entraînement', async () => {
+    const exercise = await anExercise();
+    await createPlannedWorkout({
+      name: 'Push day',
+      exercises: [{ exerciseId: exercise.id, sets: [{ targets: { duration: 10 } }] }],
+    });
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await expect(
+      updatePlannedWorkout({
+        workout: plan,
+        name: 'Push day',
+        exercises: plan.exercises,
+      }),
+    ).rejects.toThrow(/s'appelle déjà/);
+  });
+});
+
+describe('Dupliquer un entraînement', () => {
+  it('reprend le contenu sous un autre nom', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 3, 'duration', 15);
+
+    const copy = await duplicateWorkout({ workout: plan, name: 'Pull day copie' });
+
+    expect(copy.name).toBe('Pull day copie');
+    expect(copy.exercises).toEqual(plan.exercises);
+  });
+
+  it('refuse un nom déjà pris', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await expect(duplicateWorkout({ workout: plan, name: plan.name })).rejects.toThrow(
+      /s'appelle déjà/,
+    );
+  });
 });
 
 describe('Créer un entraînement', () => {
@@ -76,5 +127,17 @@ describe('Créer un entraînement', () => {
         exercises: [{ exerciseId: exercise.id, sets: [{ targets: { weight: 20 } }] }],
       }),
     ).rejects.toThrow(/ne se mesure pas/);
+  });
+
+  it('refuse un nom déjà pris, insensible à la casse et aux accents', async () => {
+    const exercise = await anExercise();
+    await aWorkoutOf(exercise.id, 1);
+
+    await expect(
+      createPlannedWorkout({
+        name: 'PULL DAY',
+        exercises: [{ exerciseId: exercise.id, sets: [{ targets: { duration: 10 } }] }],
+      }),
+    ).rejects.toThrow(/s'appelle déjà/);
   });
 });
