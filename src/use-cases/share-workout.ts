@@ -2,10 +2,21 @@ import type { PlannedWorkout } from '../domain/planned-workout/planned-workout';
 import { formatTargets } from '../ui/set-values';
 
 /**
+ * Une espace INSÉCABLE, pas une espace ordinaire.
+ *
+ * SMS, mail, notes... la plupart des destinataires rendent le texte comme du
+ * HTML, qui réduit toute suite d'espaces normales à une seule : l'indentation
+ * disparaissait purement et simplement à l'arrivée. Une insécable n'est
+ * jamais fondue de cette façon.
+ */
+const INDENT = '   ';
+
+/**
  * Un entraînement en texte brut, pour le partager hors de l'app.
  *
  * Un exercice sans série prévue le dit plutôt que de laisser un titre seul :
- * la fiche elle-même l'affiche ainsi.
+ * la fiche elle-même l'affiche ainsi. Une ligne vide sépare les exercices :
+ * même sans l'indentation, la liste reste lisible.
  */
 export function describeWorkout(
   workout: PlannedWorkout,
@@ -17,16 +28,16 @@ export function describeWorkout(
   const lines = [
     workout.name,
     `${workout.exercises.length} exercice${workout.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''}`,
-    '',
   ];
 
   workout.exercises.forEach((exercise, index) => {
+    lines.push('');
     lines.push(`${index + 1}. ${nameOf(exercise.exerciseId)}`);
     if (exercise.sets.length === 0) {
-      lines.push('   aucune série prévue');
+      lines.push(`${INDENT}aucune série prévue`);
     } else {
       exercise.sets.forEach((set, setIndex) => {
-        lines.push(`   ${setIndex + 1}. ${formatTargets(set.targets, unitOf)}`);
+        lines.push(`${INDENT}${setIndex + 1}. ${formatTargets(set.targets, unitOf)}`);
       });
     }
   });

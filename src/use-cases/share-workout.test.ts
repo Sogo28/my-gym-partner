@@ -23,8 +23,11 @@ describe('Décrire un entraînement en texte', () => {
     expect(text).toContain('Pull day');
     expect(text).toContain('1 exercice · 2 séries');
     expect(text).toContain('1. Tractions');
-    expect(text).toContain('1. 8 reps');
-    expect(text).toContain('2. 6 reps');
+    // Insécable, pas une espace ordinaire : la plupart des destinataires
+    // rendent le texte comme du HTML, qui fond toute suite d'espaces
+    // normales en une seule.
+    expect(text).toContain('   1. 8 reps');
+    expect(text).toContain('   2. 6 reps');
   });
 
   it('dit qu un exercice sans série n en a aucune', () => {
