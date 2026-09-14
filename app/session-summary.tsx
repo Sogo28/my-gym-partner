@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -25,8 +26,9 @@ import {
   type PlanComparison,
 } from '../src/ui/set-values';
 import { SetVideoViewer, VideoBadge } from '../src/ui/set-video';
-import { fileUri, forgetUnusedMedia } from '../src/use-cases/media-actions';
+import { fileUri, forgetUnusedMedia, pickSessionPhoto } from '../src/use-cases/media-actions';
 import { detachSetVideo } from '../src/use-cases/set-video';
+import { attachSessionPhoto, detachSessionPhoto } from '../src/use-cases/session-photo';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
 import { eraseSession } from '../src/use-cases/erase-history';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
@@ -80,6 +82,23 @@ export default function SessionSummaryScreen() {
       reload().catch((e) => notify(messageOf(e)));
     }, [reload]),
   );
+
+  /**
+   * Optionnelle, et jamais imposée au moment où l'on ferme l'écran : on peut
+   * y penser une fois douché, bien après avoir quitté la séance.
+   */
+  function addPhoto() {
+    pickSessionPhoto()
+      .then((name) => (name ? attachSessionPhoto(id, name) : undefined))
+      .then(reload)
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  function removePhoto() {
+    detachSessionPhoto(id)
+      .then(reload)
+      .catch((e) => notify(messageOf(e)));
+  }
 
   const exerciseOf = (exerciseId: string) => exercises.find((e) => e.id === exerciseId);
   const nameOf = (exerciseId: string) => exerciseOf(exerciseId)?.name ?? exerciseId;
@@ -154,6 +173,33 @@ export default function SessionSummaryScreen() {
             label={plannedSets > 0 ? 'séries prévues' : 'séries'}
           />
         </View>
+
+        {/* Un instantané, pas une mesure : optionnelle, elle ne vient jamais
+            s'imposer entre les chiffres qu'on retient d'une séance. */}
+        {summary.session.photoUri ? (
+          <View>
+            <Pressable onPress={addPhoto}>
+              <Image
+                source={{ uri: fileUri(summary.session.photoUri) }}
+                className="h-52 w-full rounded-2xl"
+                resizeMode="cover"
+              />
+            </Pressable>
+            <Pressable
+              onPress={removePhoto}
+              hitSlop={8}
+              className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-full bg-black/60"
+            >
+              <Ionicons name="close" size={16} color="#F2F4EF" />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable onPress={addPhoto} className="py-1">
+            <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
+              + Ajouter une photo
+            </Text>
+          </Pressable>
+        )}
 
         {/* Ce qu'on a travaillé, sans avoir à relire la liste des exercices. */}
         {worked.length > 0 && (

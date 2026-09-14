@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -736,6 +736,16 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // d'adresse d'une installation à l'autre.
   if (version < 26) {
     await db.execAsync('ALTER TABLE performance_sets ADD COLUMN video_uri TEXT;');
+  }
+
+  // Migration 27 : la photo de fin de séance.
+  //
+  // Sur la séance et non sur une performance : elle montre l'état à la fin
+  // de l'entraînement entier, pas l'exécution d'un exercice précis.
+  // Optionnelle et sans effet sur rien d'autre -- le nom du fichier
+  // seulement, comme toute captation gardée par l'application.
+  if (version < 27) {
+    await db.execAsync('ALTER TABLE workout_sessions ADD COLUMN photo_uri TEXT;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

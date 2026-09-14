@@ -13,6 +13,7 @@ type SessionRow = {
   started_at: string;
   ended_at: string | null;
   status: WorkoutSessionStatus;
+  photo_uri: string | null;
 };
 
 type ActivityRow = {
@@ -36,20 +37,23 @@ export async function save(session: WorkoutSession): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO workout_sessions
-         (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status)
-       VALUES (?, ?, ?, ?, ?, ?)
+         (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        -- started_at se réécrit aussi : une séance peut être DÉPLACÉE, et
-       -- l'omettre laissait la correction sans effet.
+       -- l'omettre laissait la correction sans effet. Chaque champ mutable
+       -- doit figurer ici -- is_unilateral en a payé le prix avant lui.
        ON CONFLICT(id) DO UPDATE SET
          started_at = excluded.started_at,
          ended_at = excluded.ended_at,
-         status = excluded.status;`,
+         status = excluded.status,
+         photo_uri = excluded.photo_uri;`,
       session.id,
       session.plannedWorkoutId,
       session.scheduledWorkoutId,
       session.startedAt.toISOString(),
       session.endedAt?.toISOString() ?? null,
       session.status,
+      session.photoUri,
     );
 
     await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', session.id);
@@ -81,6 +85,15 @@ export async function save(session: WorkoutSession): Promise<void> {
       );
     }
   });
+}
+
+/** Les photos que des séances réclament encore, par leur nom de fichier. */
+export async function findAllSessionPhotos(): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ photo_uri: string }>(
+    'SELECT photo_uri FROM workout_sessions WHERE photo_uri IS NOT NULL;',
+  );
+  return rows.map((row) => row.photo_uri);
 }
 
 /** La séance en cours, s'il y en a une. */
@@ -169,6 +182,7 @@ function restore(row: SessionRow, activities: Activity[], rests: Rest[]): Workou
     endedAt: row.ended_at ? new Date(row.ended_at) : null,
     activities,
     rests,
+    photoUri: row.photo_uri,
   });
 }
 

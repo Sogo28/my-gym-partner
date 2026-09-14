@@ -158,4 +158,18 @@ describe('WorkoutSession', () => {
     session.startActivity('pull-up', 'perf-pull-up', t(2));
     expect(() => session.undoCurrentActivity()).toThrow(/Aucun exercice précédent/);
   });
+
+  it('n a pas de photo à sa création', () => {
+    expect(startSession().photoUri).toBeNull();
+  });
+
+  it('attache puis retire la photo de fin de séance', () => {
+    const session = startSession();
+
+    session.attachPhoto('summer-shred.jpg');
+    expect(session.photoUri).toBe('summer-shred.jpg');
+
+    session.attachPhoto(null);
+    expect(session.photoUri).toBeNull();
+  });
 });

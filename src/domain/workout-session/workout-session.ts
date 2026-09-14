@@ -71,6 +71,7 @@ export class WorkoutSession {
     private _endedAt: Date | null,
     private _activities: Activity[],
     private _rests: Rest[],
+    private _photoUri: string | null,
   ) {}
 
   static start(input: {
@@ -88,6 +89,7 @@ export class WorkoutSession {
       null,
       [],
       [],
+      null,
     );
   }
 
@@ -101,6 +103,7 @@ export class WorkoutSession {
     endedAt: Date | null;
     activities: readonly Activity[];
     rests?: readonly Rest[];
+    photoUri?: string | null;
   }): WorkoutSession {
     return new WorkoutSession(
       input.id,
@@ -111,6 +114,7 @@ export class WorkoutSession {
       input.endedAt,
       [...input.activities],
       [...(input.rests ?? [])],
+      input.photoUri ?? null,
     );
   }
 
@@ -145,6 +149,7 @@ export class WorkoutSession {
         startedAt: moved(rest.startedAt),
         endedAt: rest.endedAt ? moved(rest.endedAt) : null,
       })),
+      this._photoUri,
     );
   }
 
@@ -154,6 +159,21 @@ export class WorkoutSession {
 
   get endedAt(): Date | null {
     return this._endedAt;
+  }
+
+  get photoUri(): string | null {
+    return this._photoUri;
+  }
+
+  /**
+   * Attacher ou retirer la photo de fin de séance.
+   *
+   * Optionnelle et sans effet sur rien d'autre : elle ne mesure rien, elle
+   * montre juste où on en était. Autorisée même après COMPLETED -- on y
+   * pense parfois une fois douché, pas au moment de fermer l'écran.
+   */
+  attachPhoto(uri: string | null): void {
+    this._photoUri = uri;
   }
 
   get activities(): readonly Activity[] {

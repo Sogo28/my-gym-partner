@@ -4,6 +4,7 @@ import { DomainError } from '../domain/domain-error';
 import { isRemote, type ExerciseMedia } from '../domain/exercise/media';
 import { findAll } from '../infra/exercise-repository';
 import { findAllSetVideos } from '../infra/performance-repository';
+import { findAllSessionPhotos } from '../infra/workout-session-repository';
 
 /** Où vivent les vidéos importées, à côté de la base et jamais dans le cache. */
 const FOLDER = 'media';
@@ -104,6 +105,29 @@ export async function pickDemonstration(): Promise<ExerciseMedia | null> {
 }
 
 /**
+ * Choisit la photo de fin de séance, et en garde une copie.
+ *
+ * Une image seulement -- rien à rogner, rien à montrer en boucle comme une
+ * démonstration : c'est un instantané, pas une captation.
+ */
+export async function pickSessionPhoto(): Promise<string | null> {
+  const picked = await File.pickFileAsync({ mimeTypes: ['image/*'] });
+  if (picked.canceled) return null;
+
+  const source = picked.result;
+  const extension = source.extension.replace('.', '') || 'jpg';
+  const copy = new File(ensureMediaDirectory(), `${randomUUID()}.${extension}`);
+
+  try {
+    await source.copy(copy);
+  } catch {
+    throw new DomainError("Cette photo n'a pas pu être copiée dans l'application.");
+  }
+
+  return copy.name;
+}
+
+/**
  * Le fichier où se cache une image distante, qu'elle soit déjà là ou non.
  *
  * Le nom vient de l'ADRESSE : deux exercices qui partagent une illustration
@@ -149,6 +173,7 @@ export async function forgetUnusedMedia(): Promise<void> {
       exercise.media.map((media) => (isRemote(media) ? cacheOf(media.uri).name : media.uri)),
     ),
     ...(await findAllSetVideos()),
+    ...(await findAllSessionPhotos()),
   ]);
 
   for (const entry of directory.list()) {
