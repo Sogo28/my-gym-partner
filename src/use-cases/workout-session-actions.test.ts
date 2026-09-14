@@ -11,6 +11,7 @@ import {
   finishActivity,
   finishWorkoutSession,
   goToNextExercise,
+  goToPreviousExercise,
   startActivity,
   startPerformanceSet,
   beginWorkoutSession,
@@ -195,6 +196,73 @@ describe('Passer à l exercice suivant', () => {
 
     // Le calcul de position ne doit pas retomber sur le premier exercice.
     expect(session.currentActivity).toBeNull();
+  });
+});
+
+describe('Revenir à l exercice précédent', () => {
+  it('rattrape un passage au suivant fait par erreur', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    const plan = await createPlannedWorkout({
+      name: 'Pull day',
+      exercises: [
+        { exerciseId: first.id, sets: [{ targets: { duration: 10 } }] },
+        { exerciseId: second.id, sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+    await startWorkoutSession(plan.id);
+    await goToNextExercise();
+
+    const session = await goToPreviousExercise();
+
+    expect(session.currentActivity?.exerciseId).toBe(first.id);
+    expect(session.currentActivity?.finishedAt).toBeNull();
+    expect(session.activities).toHaveLength(1);
+  });
+
+  it('efface la performance vide laissée par l exercice annulé', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    const plan = await createPlannedWorkout({
+      name: 'Pull day',
+      exercises: [
+        { exerciseId: first.id, sets: [{ targets: { duration: 10 } }] },
+        { exerciseId: second.id, sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+    await startWorkoutSession(plan.id);
+    await goToNextExercise();
+    const abandoned = (await findActive())!.currentActivity!.performanceId!;
+
+    await goToPreviousExercise();
+
+    expect(await findPerformanceById(abandoned)).toBeNull();
+  });
+
+  it('refuse si une série a déjà été faite sur l exercice en cours', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    const plan = await createPlannedWorkout({
+      name: 'Pull day',
+      exercises: [
+        { exerciseId: first.id, sets: [{ targets: { duration: 10 } }] },
+        { exerciseId: second.id, sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+    await startWorkoutSession(plan.id);
+    await goToNextExercise();
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { reps: 8 } });
+
+    await expect(goToPreviousExercise()).rejects.toThrow(/impossible de revenir/);
+  });
+
+  it('refuse sans exercice précédent', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+    await startWorkoutSession(plan.id);
+
+    await expect(goToPreviousExercise()).rejects.toThrow(/Aucun exercice précédent/);
   });
 });
 

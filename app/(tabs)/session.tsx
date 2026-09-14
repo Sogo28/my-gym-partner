@@ -59,6 +59,7 @@ import {
   correctSet,
   finishWorkoutSession,
   goToNextExercise,
+  goToPreviousExercise,
   startActivity,
   startPerformanceSet,
   startRest,
@@ -376,6 +377,17 @@ export default function SessionScreen() {
   }
 
   /**
+   * Rattrape un "Suivant" pressé par erreur : tant qu'aucune série n'a été
+   * faite sur l'exercice en cours, revenir en arrière ne perd rien.
+   */
+  function previousExercise() {
+    run(async () => {
+      closeEditing();
+      await goToPreviousExercise();
+    });
+  }
+
+  /**
    * Démarre un exercice hors programme. Comme pour l'exercice suivant, la
    * première série reste un geste explicite.
    */
@@ -481,6 +493,12 @@ export default function SessionScreen() {
       ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
       : []),
     ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: nextExercise }] : []),
+    // Uniquement tant que rien n'a encore été fait sur l'exercice en cours :
+    // passé la première série, revenir en arrière perdrait ce qui vient
+    // d'être fait plutôt que de simplement rattraper le clic de trop.
+    ...(activity && session?.previousActivity && performance?.sets.length === 0
+      ? [{ label: "Revenir à l'exercice précédent", onPress: previousExercise }]
+      : []),
     // Le repos s'enchaîne tout seul après une série ; ici on le commande à
     // la main, pour souffler avant d'attaquer ou pour couper court.
     ...(session?.currentRest

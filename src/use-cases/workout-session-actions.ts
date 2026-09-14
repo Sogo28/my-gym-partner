@@ -9,6 +9,7 @@ import { WorkoutSession } from '../domain/workout-session/workout-session';
 import { findAll as findAllExercises } from '../infra/exercise-repository';
 import { findAll as findAllPlans } from '../infra/planned-workout-repository';
 import {
+  deleteIfEmpty,
   findById as findPerformanceById,
   save as savePerformance,
 } from '../infra/performance-repository';
@@ -175,6 +176,39 @@ export async function goToNextExercise(): Promise<WorkoutSession> {
   return next && nextPosition !== null
     ? startActivity(next.exerciseId, nextPosition)
     : updated;
+}
+
+/**
+ * "Revenir à l'exercice précédent" : rattrape un "Suivant" pressé par erreur.
+ *
+ * Réservé au cas où rien n'a encore été fait sur l'exercice en cours -- une
+ * seule série suffirait à rendre l'annulation destructrice, et il faudrait
+ * alors la corriger comme n'importe quelle autre, pas revenir en arrière.
+ */
+export async function goToPreviousExercise(): Promise<WorkoutSession> {
+  const session = await findActive();
+  if (!session) {
+    throw new DomainError("Aucune séance n'est en cours.");
+  }
+
+  const current = session.currentActivity;
+  const performance = current?.performanceId
+    ? await findPerformanceById(current.performanceId)
+    : null;
+  if (performance && performance.sets.length > 0) {
+    throw new DomainError(
+      "Une série a déjà été faite sur cet exercice : impossible de revenir en arrière.",
+    );
+  }
+
+  session.undoCurrentActivity();
+  await save(session);
+
+  // Après, et non avant : tant que la séance référence encore cette
+  // performance, la retirer violerait la contrainte qui les relie.
+  if (performance) await deleteIfEmpty(performance.id);
+
+  return session;
 }
 
 /** Corriger une série déjà validée, typiquement pendant le repos. */

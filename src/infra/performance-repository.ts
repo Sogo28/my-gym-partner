@@ -191,6 +191,21 @@ export async function findRecentExerciseIds(limit = 5): Promise<string[]> {
   return rows.map((row) => row.exercise_id);
 }
 
+/**
+ * Retire une performance qui n'a jamais reçu de série.
+ *
+ * Sert à annuler un exercice lancé par erreur : rien à garder, et une
+ * performance vide restée en base fausserait "les exercices récemment
+ * travaillés" avec un exercice qui n'a en réalité jamais eu de série.
+ */
+export async function deleteIfEmpty(id: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'DELETE FROM exercise_performances WHERE id = ? AND id NOT IN (SELECT performance_id FROM performance_sets);',
+    id,
+  );
+}
+
 /** Les captations que des séries réclament encore, par leur nom de fichier. */
 export async function findAllSetVideos(): Promise<string[]> {
   const db = await getDatabase();

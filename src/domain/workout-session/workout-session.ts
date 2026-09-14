@@ -195,6 +195,38 @@ export class WorkoutSession {
   }
 
   /**
+   * Celle qui précède l'exercice en cours, si elle existe -- candidate à une
+   * reprise quand le passage au suivant s'est fait par erreur.
+   *
+   * Toujours terminée quand elle existe : on ne peut pas avoir démarré
+   * l'exercice en cours sans avoir clos le précédent (voir startActivity).
+   */
+  get previousActivity(): Activity | null {
+    if (!this.currentActivity || this._activities.length < 2) return null;
+    return this._activities[this._activities.length - 2];
+  }
+
+  /**
+   * Revenir sur l'exercice tout juste lancé, et rouvrir le précédent.
+   *
+   * Réservé au use case, qui seul sait si des séries ont déjà été faites sur
+   * l'exercice qu'on annule -- le domaine ne connaît pas les performances, et
+   * ne peut donc pas juger seul si l'annulation perd quelque chose.
+   */
+  undoCurrentActivity(): void {
+    this.requireActive();
+    if (!this.currentActivity) {
+      throw new DomainError("Aucun exercice n'est en cours.");
+    }
+    const previous = this.previousActivity;
+    if (!previous) {
+      throw new DomainError("Aucun exercice précédent à reprendre.");
+    }
+    this._activities.pop();
+    this._activities[this._activities.length - 1] = { ...previous, finishedAt: null };
+  }
+
+  /**
    * L'exercice peut être planifié ou ajouté librement (§30) : la séance ne
    * consulte pas le plan pour l'autoriser. Dévier fait partie du métier.
    */

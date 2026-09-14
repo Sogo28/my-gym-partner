@@ -127,4 +127,35 @@ describe('WorkoutSession', () => {
 
     expect(() => session.finishCurrentActivity(t(5))).toThrow(/Aucun exercice/);
   });
+
+  it('n a pas d exercice précédent tant qu un seul a été lancé', () => {
+    const session = startSession();
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
+
+    expect(session.previousActivity).toBeNull();
+  });
+
+  it('rouvre l exercice précédent, et retire celui lancé par erreur', () => {
+    const session = startSession();
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
+    session.finishCurrentActivity(t(15));
+    session.startActivity('dip', 'perf-dip', t(16));
+
+    expect(session.previousActivity?.exerciseId).toBe('pull-up');
+
+    session.undoCurrentActivity();
+
+    expect(session.activities).toHaveLength(1);
+    expect(session.currentActivity?.exerciseId).toBe('pull-up');
+    expect(session.currentActivity?.finishedAt).toBeNull();
+  });
+
+  it('refuse de revenir en arrière sans exercice en cours ou précédent', () => {
+    const session = startSession();
+
+    expect(() => session.undoCurrentActivity()).toThrow(/Aucun exercice n'est en cours/);
+
+    session.startActivity('pull-up', 'perf-pull-up', t(2));
+    expect(() => session.undoCurrentActivity()).toThrow(/Aucun exercice précédent/);
+  });
 });
