@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -203,7 +203,7 @@ export default function SessionSummaryScreen() {
         )}
 
         {/* Le détail, en texte : c'est un bilan qu'on relit, pas une saisie. */}
-        <View className="gap-2">
+        <View className="gap-3">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Ce que tu as fait
           </Text>
@@ -216,60 +216,101 @@ export default function SessionSummaryScreen() {
               plannedExercise?.sets.length ?? 0,
               activity.completedSets.length,
             );
+            // Celui pris en quittant l'exercice précédent : montré à part,
+            // entre les cartes, plutôt que confondu avec les repos internes.
+            const restBeforeActivity = activity.completedSets[0]?.restBefore ?? null;
 
             return (
-              /* La CARTE entière ouvre l'exercice, et pas son seul titre : on
-                 vise une carte, pas une ligne de texte de treize pixels. La
-                 pastille vidéo garde son tap -- un Pressable posé dans un
-                 autre reçoit ce qui le touche.
+              <Fragment key={index}>
+                {index > 0 && restBeforeActivity !== null && restBeforeActivity > 0 && (
+                  <RestLine seconds={restBeforeActivity} />
+                )}
 
-                 La fiche se LIT : ouvrir l'exercice, regarder une vidéo.
-                 Corriger appartient à l'écran de modification, où chaque
-                 geste a la place qu'une ligne de série n'a pas. */
-              <Pressable
-                key={index}
-                onPress={() =>
-                  router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
-                }
-              >
-                <Card className="gap-1">
-                  <Text
-                    className="font-bold text-body text-ink dark:text-ink-dark"
-                    numberOfLines={1}
-                  >
-                    {nameOf(activity.exerciseId)}
-                  </Text>
+                {/* La CARTE entière ouvre l'exercice, et pas son seul titre : on
+                   vise une carte, pas une ligne de texte de treize pixels. La
+                   pastille vidéo garde son tap -- un Pressable posé dans un
+                   autre reçoit ce qui le touche.
 
-                  {rows === 0 ? (
-                    <Text className="text-caption text-muted dark:text-muted-dark">
-                      Aucune série validée.
+                   La fiche se LIT : ouvrir l'exercice, regarder une vidéo.
+                   Corriger appartient à l'écran de modification, où chaque
+                   geste a la place qu'une ligne de série n'a pas. */}
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/exercise', params: { id: activity.exerciseId } })
+                  }
+                >
+                  <Card className="gap-2">
+                    <Text
+                      className="font-bold text-body text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {nameOf(activity.exerciseId)}
                     </Text>
-                  ) : plannedExercise ? (
-                    // Prévu à gauche, fait à droite : la même ligne dit les
-                    // deux, plutôt qu'une mention à part qui ne revenait que
-                    // pour signaler un manque.
-                    Array.from({ length: rows }, (_, position) => {
-                      const plannedSet = plannedExercise.sets[position];
-                      const done = activity.completedSets[position];
-                      return (
+
+                    {rows === 0 ? (
+                      <Text className="text-caption text-muted dark:text-muted-dark">
+                        Aucune série validée.
+                      </Text>
+                    ) : plannedExercise ? (
+                      // Prévu à gauche, fait à droite : la même ligne dit les
+                      // deux, plutôt qu'une mention à part qui ne revenait que
+                      // pour signaler un manque.
+                      Array.from({ length: rows }, (_, position) => {
+                        const plannedSet = plannedExercise.sets[position];
+                        const done = activity.completedSets[position];
+                        return (
+                          <View key={position}>
+                            {/* Celle d'avant l'exercice se montre déjà au-dessus
+                                de la carte : ne pas la répéter ici. */}
+                            {position > 0 &&
+                              done &&
+                              done.restBefore !== null &&
+                              done.restBefore > 0 && <RestLine seconds={done.restBefore} />}
+                            <View className="flex-row items-center gap-3 py-1">
+                              <Text
+                                className="flex-1 font-mono text-small text-planned dark:text-planned-dark"
+                                numberOfLines={1}
+                              >
+                                {plannedSet ? formatTargets(plannedSet.targets, unitOf) : '—'}
+                              </Text>
+                              <ComparisonGlyph
+                                status={compareToPlan(plannedSet?.targets, done?.set.values)}
+                              />
+                              <Text
+                                className="flex-1 font-mono text-small text-ink dark:text-ink-dark"
+                                numberOfLines={1}
+                              >
+                                {done ? formatSetValues(done.set.values, unitOf) : '—'}
+                              </Text>
+                              {done?.set.videoUri && activity.performanceId && (
+                                <VideoBadge
+                                  onPress={() =>
+                                    setWatching({
+                                      performanceId: activity.performanceId!,
+                                      setIndex: done.index,
+                                      name: done.set.videoUri!,
+                                    })
+                                  }
+                                />
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })
+                    ) : (
+                      activity.completedSets.map((done, position) => (
                         <View key={position}>
-                          {done && done.restBefore !== null && done.restBefore > 0 && (
+                          {position > 0 && done.restBefore !== null && done.restBefore > 0 && (
                             <RestLine seconds={done.restBefore} />
                           )}
-                          <View className="flex-row items-center gap-2 py-0.5">
+                          <View className="flex-row items-center gap-2 py-1">
                             <Text
-                              className="flex-1 font-mono text-small text-planned dark:text-planned-dark"
-                              numberOfLines={1}
+                              className="font-mono text-small text-muted dark:text-muted-dark"
+                              style={{ fontVariant: ['tabular-nums'] }}
                             >
-                              {plannedSet ? formatTargets(plannedSet.targets, unitOf) : '—'}
+                              {position + 1}.  {formatSetValues(done.set.values, unitOf)}
                             </Text>
-                            <Text
-                              className="flex-1 font-mono text-small text-ink dark:text-ink-dark"
-                              numberOfLines={1}
-                            >
-                              {done ? formatSetValues(done.set.values, unitOf) : '—'}
-                            </Text>
-                            {done?.set.videoUri && activity.performanceId && (
+                            {done.set.videoUri && activity.performanceId && (
                               <VideoBadge
                                 onPress={() =>
                                   setWatching({
@@ -280,43 +321,13 @@ export default function SessionSummaryScreen() {
                                 }
                               />
                             )}
-                            <ComparisonPill
-                              status={compareToPlan(plannedSet?.targets, done?.set.values)}
-                            />
                           </View>
                         </View>
-                      );
-                    })
-                  ) : (
-                    activity.completedSets.map((done, position) => (
-                      <View key={position}>
-                        {done.restBefore !== null && done.restBefore > 0 && (
-                          <RestLine seconds={done.restBefore} />
-                        )}
-                        <View className="flex-row items-center gap-2 py-0.5">
-                          <Text
-                            className="font-mono text-small text-muted dark:text-muted-dark"
-                            style={{ fontVariant: ['tabular-nums'] }}
-                          >
-                            {position + 1}.  {formatSetValues(done.set.values, unitOf)}
-                          </Text>
-                          {done.set.videoUri && activity.performanceId && (
-                            <VideoBadge
-                              onPress={() =>
-                                setWatching({
-                                  performanceId: activity.performanceId!,
-                                  setIndex: done.index,
-                                  name: done.set.videoUri!,
-                                })
-                              }
-                            />
-                          )}
-                        </View>
-                      </View>
-                    ))
-                  )}
-                </Card>
-              </Pressable>
+                      ))
+                    )}
+                  </Card>
+                </Pressable>
+              </Fragment>
             );
           })}
         </View>
@@ -389,40 +400,36 @@ export default function SessionSummaryScreen() {
 /** Le repos pris avant la ligne qui suit -- entre deux séries, ou deux exercices. */
 function RestLine({ seconds }: { seconds: number }) {
   return (
-    <Text className="py-0.5 text-center font-mono text-micro text-muted dark:text-muted-dark">
+    <Text className="py-1 text-center font-mono text-micro text-muted dark:text-muted-dark">
       · repos {formatDuration(seconds)} ·
     </Text>
   );
 }
 
-const COMPARISON_LABELS: Record<PlanComparison, string> = {
-  above: 'plus',
-  'on-target': 'prévu',
-  below: 'moins',
+const COMPARISON_GLYPHS: Record<PlanComparison, string> = {
+  above: '↑',
+  'on-target': '=',
+  below: '↓',
 };
 
-/** Ce qu'une série dit par rapport à ce qui était prévu, en un mot. */
-function ComparisonPill({ status }: { status: PlanComparison }) {
+/**
+ * Ce qu'une série dit par rapport à ce qui était prévu, entre les deux
+ * colonnes qu'elle compare : un symbole suffit à sa place, une étiquette n'y
+ * apprendrait rien de plus.
+ */
+function ComparisonGlyph({ status }: { status: PlanComparison }) {
   return (
-    <View
+    <Text
       className={cn(
-        'shrink-0 rounded-full px-2 py-0.5',
-        status === 'above' && 'bg-[#E3F2E8] dark:bg-[#16261C]',
-        status === 'below' && 'bg-[#FDF1F0] dark:bg-[#2A1A16]',
-        status === 'on-target' && 'bg-surface-alt dark:bg-surface-alt-dark',
+        'shrink-0 text-center font-mono-bold text-small',
+        status === 'above' && 'text-success dark:text-success-dark',
+        status === 'below' && 'text-danger dark:text-danger-dark',
+        status === 'on-target' && 'text-muted dark:text-muted-dark',
       )}
+      style={{ width: 16 }}
     >
-      <Text
-        className={cn(
-          'font-bold text-micro',
-          status === 'above' && 'text-success dark:text-success-dark',
-          status === 'below' && 'text-danger dark:text-danger-dark',
-          status === 'on-target' && 'text-muted dark:text-muted-dark',
-        )}
-      >
-        {COMPARISON_LABELS[status]}
-      </Text>
-    </View>
+      {COMPARISON_GLYPHS[status]}
+    </Text>
   );
 }
 
