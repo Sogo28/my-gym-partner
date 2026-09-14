@@ -6,7 +6,7 @@ import {
 } from '../src/ui/goal-labels';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -90,6 +90,12 @@ export default function NewGoalScreen() {
    */
   const [justCreated, setJustCreated] = useState<string | null>(null);
   /**
+   * Ce qui était déjà coché dans le sélecteur quand on est parti créer une
+   * variante -- sans quoi cocher un exercice puis en créer un second
+   * désélectionnait le premier.
+   */
+  const pendingSelection = useRef<string[]>([]);
+  /**
    * La condition qu'on règle, ou aucune.
    *
    * Les réglages vivent dans une feuille et non dans la page : une condition
@@ -142,7 +148,11 @@ export default function NewGoalScreen() {
     if (!exercise) return;
 
     setJustCreated(null);
-    addExerciseEntry(exercise);
+    const alsoChecked = pendingSelection.current
+      .map((id) => exercises.find((candidate) => candidate.id === id))
+      .filter((candidate): candidate is Exercise => candidate !== undefined);
+    pendingSelection.current = [];
+    addExerciseEntries([...alsoChecked, exercise]);
   }, [justCreated, exercises]);
 
   const catalogue = useMemo(
@@ -174,13 +184,13 @@ export default function NewGoalScreen() {
    * Ajouter un exercice à partir de l'exercice LUI-MÊME, sans le rechercher
    * dans la liste en état : celui qui vient d'être créé n'y est pas encore.
    */
-  function addExerciseEntry(exercise: Exercise) {
-    add([
-      {
+  function addExerciseEntries(exercises: readonly Exercise[]) {
+    add(
+      exercises.map((exercise) => ({
         subject: { kind: 'exercise', exerciseId: exercise.id },
         measurementIds: exercise.measurementIds,
-      },
-    ]);
+      })),
+    );
   }
 
   function addEntry(subject: GoalSubject) {
@@ -460,9 +470,10 @@ export default function NewGoalScreen() {
           qu'un, et se referme dès qu'on l'a touché. */}
       <ExercisePicker
         catalogue={catalogue}
-        onCreate={(name) =>
-          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } })
-        }
+        onCreate={(name, currentlySelected) => {
+          pendingSelection.current = [...currentlySelected];
+          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } });
+        }}
         onOpenSettings={() => {
           setPicking('none');
           router.push('/settings');

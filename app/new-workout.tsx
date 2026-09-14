@@ -81,6 +81,8 @@ export default function NewWorkoutScreen() {
   );
   /** L'exercice qu'on vient de créer, coché d'avance à la réouverture. */
   const [preselected, setPreselected] = useState<string[]>([]);
+  /** Ce qui était déjà coché quand on est parti créer une variante. */
+  const pendingSelection = useRef<string[]>([]);
   /** Le menu de l'écran, et la confirmation qu'il peut demander. */
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
   /**
@@ -109,11 +111,14 @@ export default function NewWorkoutScreen() {
 
       /**
        * Revenir du formulaire d'exercice reprend le geste interrompu : le
-       * sélecteur se rouvre avec ce qu'on vient de créer, déjà retenu.
+       * sélecteur se rouvre avec ce qu'on vient de créer, ET ce qui était
+       * déjà coché avant le détour -- sans quoi choisir un exercice puis en
+       * créer un second désélectionnait le premier.
        */
       const created = takeCreated();
       if (created) {
-        setPreselected([created]);
+        setPreselected([...pendingSelection.current, created]);
+        pendingSelection.current = [];
         setPicking(true);
       }
     }, []),
@@ -318,9 +323,10 @@ export default function NewWorkoutScreen() {
           ajoute ce qu'on vient de choisir. */}
       <ExercisePicker
         catalogue={catalogue}
-        onCreate={(name) =>
-          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } })
-        }
+        onCreate={(name, currentlySelected) => {
+          pendingSelection.current = [...currentlySelected];
+          router.push({ pathname: '/new-exercise', params: { name, announce: '1' } });
+        }}
         onOpenSettings={() => {
           setPicking(false);
           router.push('/settings');

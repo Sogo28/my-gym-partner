@@ -69,7 +69,7 @@ export type ExercisePickerProps = {
    * toi ne l'avez. Le sélecteur se referme : on part le définir, et l'écran
    * appelant le rouvrira quand l'exercice existera.
    */
-  onCreate?: (name: string) => void;
+  onCreate?: (name: string, currentlySelected: readonly string[]) => void;
 };
 
 type CataloguesuggestionList = readonly CatalogueSuggestion[];
@@ -177,12 +177,18 @@ export function ExercisePicker({
    * Aller définir ce qu'on cherchait : la callisthénie vit de variantes
    * qu'aucun catalogue ne connaît -- « Front lever tuck » n'existe que chez
    * toi, et se décrit avec ses mesures et ses muscles, pas d'un tap.
+   *
+   * Coché AVANT de partir créer une variante, un exercice ne doit pas se
+   * décocher pendant le détour : on transmet la sélection en cours pour que
+   * l'appelant la retrouve à la réouverture, plutôt que de la laisser
+   * disparaître avec la fermeture du sélecteur.
    */
   function create() {
     if (!onCreate) return;
     const wanted = query.trim();
+    const kept = selected;
     onClose();
-    onCreate(wanted);
+    onCreate(wanted, kept);
   }
 
   /**
