@@ -57,4 +57,13 @@ describe('métriques de séance', () => {
 
     expect(restBeforeEachSet(sets, rests)).toEqual([null, 0]);
   });
+
+  it('rattache le repos pris en changeant d exercice à la première série qui suit', () => {
+    // Deux exercices, appelée sur leur séquence chronologique complète : le
+    // repos entre les deux doit se retrouver sur la première série du second.
+    const sets = [set(t(5), t(6)), set(t(20), t(21))];
+    const rests = [{ startedAt: t(6), endedAt: t(18) }];
+
+    expect(restBeforeEachSet(sets, rests)).toEqual([null, 720]);
+  });
 });

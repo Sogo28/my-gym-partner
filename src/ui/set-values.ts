@@ -1,4 +1,4 @@
-import type { ValuesBySide } from '../domain/performance/exercise-performance';
+import { weakestValues, type ValuesBySide } from '../domain/performance/exercise-performance';
 import type { TargetValues } from '../domain/planned-workout/planned-workout';
 import { formatDuration, isDuration } from './format';
 
@@ -70,4 +70,39 @@ export function formatTargetsShort(
   unitOf: (measurementId: string) => string,
 ): string {
   return formatSetValuesShort({ BOTH: targets }, unitOf);
+}
+
+/** Ce qu'une série dit par rapport à ce qui était prévu. */
+export type PlanComparison = 'above' | 'on-target' | 'below';
+
+/**
+ * Compare une série faite à sa cible.
+ *
+ * Le côté le plus faible compte (décidé le 2026-09-06, comme pour les
+ * objectifs) : une série unilatérale ne se juge pas sur son meilleur côté.
+ * Sans cible (série faite en plus, hors plan) : dépassée. Sans série faite
+ * (cible jamais atteinte) : en dessous. Entre plusieurs mesures qui
+ * divergent -- plus de répétitions mais moins de poids --, la moindre reçoit
+ * le dernier mot : mieux vaut sous-déclarer une séance que la surclasser.
+ */
+export function compareToPlan(
+  planned: TargetValues | undefined,
+  values: ValuesBySide | undefined,
+): PlanComparison {
+  if (!values) return 'below';
+  if (!planned) return 'above';
+
+  const done = weakestValues(values);
+  const measurementIds = new Set([...Object.keys(planned), ...Object.keys(done)]);
+  let above = false;
+  let below = false;
+  for (const measurementId of measurementIds) {
+    const target = planned[measurementId] ?? 0;
+    const actual = done[measurementId] ?? 0;
+    if (actual > target) above = true;
+    if (actual < target) below = true;
+  }
+  if (below) return 'below';
+  if (above) return 'above';
+  return 'on-target';
 }

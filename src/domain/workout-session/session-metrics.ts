@@ -34,25 +34,28 @@ export function totalRest(session: WorkoutSession): number {
  *
  * La première série n'a pas de repos avant elle : null.
  */
+/**
+ * Appelée sur la séquence CHRONOLOGIQUE complète d'une séance -- toutes
+ * activités confondues, dans l'ordre où les séries ont eu lieu -- elle
+ * rattache du même geste le repos pris EN CHANGEANT d'exercice : c'est
+ * exactement le repos pris avant la première série de l'exercice suivant.
+ * Restreindre l'appel à une seule performance, comme le faisait
+ * l'implémentation précédente, perdait ce repos-là.
+ */
 export function restBeforeEachSet(
   sets: readonly PerformanceSet[],
   rests: readonly Rest[],
 ): (number | null)[] {
   return sets.map((set, index) => {
     const previousEnd = index === 0 ? null : sets[index - 1].endedAt;
-    if (!previousEnd) return null;
-
-    const total = rests
-      .filter(
-        (rest) =>
-          rest.endedAt !== null &&
-          rest.startedAt >= previousEnd &&
-          rest.endedAt <= set.startedAt,
-      )
-      .reduce((sum, rest) => sum + seconds(rest.startedAt, rest.endedAt!), 0);
-
-    return total;
+    return previousEnd ? restBetween(previousEnd, set.startedAt, rests) : null;
   });
+}
+
+function restBetween(from: Date, to: Date, rests: readonly Rest[]): number {
+  return rests
+    .filter((rest) => rest.endedAt !== null && rest.startedAt >= from && rest.endedAt <= to)
+    .reduce((sum, rest) => sum + seconds(rest.startedAt, rest.endedAt!), 0);
 }
 
 function seconds(from: Date, to: Date): number {

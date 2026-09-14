@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatSetValues, formatTargets } from './set-values';
+import { compareToPlan, formatSetValues, formatTargets } from './set-values';
 
 const unitOf = (id: string) => ({ reps: 'reps', weight: 'kg' })[id] ?? id;
 
@@ -43,5 +43,33 @@ describe('Les durées', () => {
 
   it('ne touchent pas aux mesures qui ne sont pas des durées', () => {
     expect(formatSetValues({ BOTH: { reps: 150 } }, unitOf)).toBe('150 reps');
+  });
+});
+
+describe('Comparer une série à sa cible', () => {
+  it('est atteinte quand les valeurs correspondent', () => {
+    expect(compareToPlan({ reps: 8 }, { BOTH: { reps: 8 } })).toBe('on-target');
+  });
+
+  it('est dépassée quand une valeur va au delà, sans qu aucune ne manque', () => {
+    expect(compareToPlan({ reps: 8 }, { BOTH: { reps: 10 } })).toBe('above');
+  });
+
+  it('est en dessous dès qu une seule valeur manque', () => {
+    expect(compareToPlan({ reps: 8, weight: 20 }, { BOTH: { reps: 10, weight: 15 } })).toBe(
+      'below',
+    );
+  });
+
+  it('juge un exercice unilatéral sur son côté le plus faible', () => {
+    expect(compareToPlan({ reps: 8 }, { LEFT: { reps: 10 }, RIGHT: { reps: 6 } })).toBe('below');
+  });
+
+  it('est dépassée quand la série n était pas prévue', () => {
+    expect(compareToPlan(undefined, { BOTH: { reps: 8 } })).toBe('above');
+  });
+
+  it('est en dessous quand la série prévue n a jamais été faite', () => {
+    expect(compareToPlan({ reps: 8 }, undefined)).toBe('below');
   });
 });

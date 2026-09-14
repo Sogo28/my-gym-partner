@@ -5,6 +5,7 @@ import {
   abandonPerformanceSet,
   cancelWorkoutSession,
   completePerformanceSet,
+  finishActivity,
   finishWorkoutSession,
   startActivity,
   startPerformanceSet,
@@ -50,6 +51,29 @@ describe('Résumé de séance', () => {
 
     expect(summary.completedSetCount).toBe(1);
     expect(summary.activities[0].completedSets).toHaveLength(1);
+  });
+
+  it('rattache le repos pris en changeant d exercice à la première série du suivant', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    await startWorkoutSession();
+    await startActivity(first.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration: 10 } });
+    // Le repos démarré par la série précédente se poursuit ici : changer
+    // d'exercice ne l'interrompt pas, seule une nouvelle série le fait.
+    await finishActivity();
+    await startActivity(second.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { reps: 8 } });
+    await finishWorkoutSession();
+
+    const [summary] = await listSessionSummaries();
+
+    // La première série du premier exercice n'a rien avant elle ; celle du
+    // second, si -- c'est justement le repos pris en changeant d'exercice.
+    expect(summary.activities[0].completedSets[0].restBefore).toBeNull();
+    expect(summary.activities[1].completedSets[0].restBefore).not.toBeNull();
   });
 
   it('donne une durée une fois la séance terminée', async () => {

@@ -86,24 +86,38 @@ function summarize(
   session: WorkoutSession,
   performances: Awaited<ReturnType<typeof findByIds>>,
 ): SessionSummary {
+  // Sur la séquence CHRONOLOGIQUE complète de la séance, toutes activités
+  // confondues : une seule activité peut être en cours à la fois (le domaine
+  // l'impose), donc les concaténer dans l'ordre de la séance suffit à
+  // retrouver l'ordre réel. Restreindre le calcul à une seule performance
+  // perdait le repos pris en changeant d'exercice -- il tombe précisément
+  // entre deux performances distinctes.
+  const bySession = session.activities.flatMap((activity) => {
+    const performance = activity.performanceId
+      ? performances.get(activity.performanceId)
+      : undefined;
+    return performance?.completedSets ?? [];
+  });
+  const restBefore = restBeforeEachSet(bySession, session.rests);
+
+  let cursor = 0;
   const activities = session.activities.map((activity): ActivitySummary => {
     const performance = activity.performanceId
       ? performances.get(activity.performanceId)
       : undefined;
     const completed = performance?.completedSets ?? [];
-    // Repos et séries n'ont aucun lien direct : on les rapproche par les
-    // instants (voir session-metrics).
-    const rests = restBeforeEachSet(completed, session.rests);
+    const completedSets = completed.map((set, position) => ({
+      set,
+      index: performance?.sets.indexOf(set) ?? position,
+      restBefore: restBefore[cursor + position],
+    }));
+    cursor += completed.length;
 
     return {
       exerciseId: activity.exerciseId,
       performanceId: activity.performanceId,
       measurementIds: performance?.measurementIds ?? [],
-      completedSets: completed.map((set, position) => ({
-        set,
-        index: performance?.sets.indexOf(set) ?? position,
-        restBefore: rests[position],
-      })),
+      completedSets,
     };
   });
 
