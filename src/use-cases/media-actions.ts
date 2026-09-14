@@ -156,6 +156,32 @@ export async function pickSessionPhoto(): Promise<string | null> {
 }
 
 /**
+ * Choisit dans la galerie la captation d'une série déjà faite, et en garde
+ * une copie.
+ *
+ * Complète l'enregistrement en direct (§ record.tsx, expo-camera) : une
+ * série filmée avec l'appareil photo du téléphone plutôt que depuis l'app,
+ * ou une captation ratée qu'on veut remplacer après coup, doit pouvoir
+ * s'attacher sans être passée par le compte à rebours de la caméra intégrée.
+ */
+export async function pickSetVideo(): Promise<string | null> {
+  const picked = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['videos'],
+    quality: 1,
+  });
+  if (picked.canceled) return null;
+
+  const asset = picked.assets[0];
+
+  try {
+    const copy = await copyPicked(asset.uri, extensionOf(asset, 'mp4'));
+    return copy.name;
+  } catch {
+    throw new DomainError("Cette vidéo n'a pas pu être copiée dans l'application.");
+  }
+}
+
+/**
  * Le fichier où se cache une image distante, qu'elle soit déjà là ou non.
  *
  * Le nom vient de l'ADRESSE : deux exercices qui partagent une illustration

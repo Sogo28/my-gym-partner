@@ -20,9 +20,9 @@ import { formatSetValues } from '../src/ui/set-values';
 import { SetVideoViewer } from '../src/ui/set-video';
 import { correctPastSet, removePastSet } from '../src/use-cases/correct-past-set';
 import { moveSession } from '../src/use-cases/move-session';
-import { fileUri } from '../src/use-cases/media-actions';
+import { fileUri, pickSetVideo } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
-import { detachSetVideo } from '../src/use-cases/set-video';
+import { attachSetVideo, detachSetVideo } from '../src/use-cases/set-video';
 
 
 /** La série qu'on règle : de quoi la retrouver, et de quoi l'afficher. */
@@ -113,6 +113,18 @@ export default function EditSessionScreen() {
     detachSetVideo(target.performanceId, target.setIndex)
       .then(reload)
       .then(() => notify('Vidéo supprimée.', 'success'))
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  /**
+   * Attacher après coup une captation prise hors de l'app -- avec l'appareil
+   * photo du téléphone, par exemple -- sans passer par l'enregistrement en
+   * direct d'une séance.
+   */
+  function addVideo(target: Editing) {
+    pickSetVideo()
+      .then((name) => (name ? attachSetVideo(target.performanceId, target.setIndex, name) : undefined))
+      .then(reload)
       .catch((e) => notify(messageOf(e)));
   }
 
@@ -246,7 +258,7 @@ export default function EditSessionScreen() {
                         onPress: () => removeVideo(editing),
                       },
                     ]
-                  : []),
+                  : [{ label: 'Ajouter une vidéo', onPress: () => addVideo(editing) }]),
                 {
                   label: 'Retirer cette série',
                   tone: 'danger' as const,
