@@ -267,9 +267,6 @@ export default function NewExerciseScreen() {
           </View>
           <Switch
             value={isUnilateral}
-            // Le caractère unilatéral n'est pas modifiable : il changerait le
-            // sens des performances déjà enregistrées.
-            disabled={existing !== null}
             onValueChange={setIsUnilateral}
             trackColor={{ true: '#BFF04A', false: '#C3C8B8' }}
             thumbColor="#FFFFFF"
