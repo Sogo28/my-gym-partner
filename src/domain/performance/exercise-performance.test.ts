@@ -234,6 +234,37 @@ describe('ExercisePerformance', () => {
     expect(() => performance.correctSetValues(0, { BOTH: { duration: 30 } })).toThrow(/ne se mesure pas/);
   });
 
+  it('retire une série validée', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.completeCurrentSet({ BOTH: { reps: 8 } }, t(2));
+    performance.startSet(t(3));
+    performance.completeCurrentSet({ BOTH: { reps: 6 } }, t(4));
+
+    performance.removeSet(0);
+
+    expect(performance.sets).toHaveLength(1);
+    expect(performance.completedSets[0].values).toEqual({ BOTH: { reps: 6 } });
+  });
+
+  it('retire une série abandonnée', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+    performance.abandonCurrentSet(t(2));
+
+    performance.removeSet(0);
+
+    expect(performance.sets).toHaveLength(0);
+  });
+
+  it('refuse de retirer une série encore en cours ou inexistante', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+
+    expect(() => performance.removeSet(0)).toThrow(/encore en cours/);
+    expect(() => performance.removeSet(9)).toThrow(/n'existe pas/);
+  });
+
   it('enchaîne plusieurs séries avec des valeurs différentes', () => {
     const performance = pullUp();
     performance.startSet(t(1));

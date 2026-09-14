@@ -299,7 +299,6 @@ export default function NewWorkoutScreen() {
               unitOf={unitOf}
               onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
               onAddSet={() => addSet(item.key)}
-              onRemoveSet={existing ? undefined : (setIndex) => removeSet(item.key, setIndex)}
             />
           )}
         />
@@ -444,20 +443,12 @@ function DraftCard({
   unitOf,
   onOpenSet,
   onAddSet,
-  onRemoveSet,
 }: {
   entry: Planned;
   exercise: Exercise | undefined;
   unitOf: (measurementId: string) => string;
   onOpenSet: (setIndex: number) => void;
   onAddSet: () => void;
-  /**
-   * Fourni seulement à la création : une croix en bout de ligne, pour retirer
-   * d'un geste une série tapée en trop pendant une saisie en rafale. En
-   * édition, tout passe par le panneau -- retirer y est un choix réfléchi,
-   * pas un correctif de frappe.
-   */
-  onRemoveSet?: (setIndex: number) => void;
 }) {
   const drag = useReorderableDrag();
   const dragging = useIsActive();
@@ -482,31 +473,19 @@ function DraftCard({
       defaultOpen
     >
       {planned.sets.map((set, index) => (
-        <View
+        <Pressable
           key={index}
-          className="flex-row items-center gap-2 border-b border-border py-1.5 dark:border-border-dark"
+          onPress={() => onOpenSet(index)}
+          className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
         >
-          <Pressable
-            onPress={() => onOpenSet(index)}
-            className="flex-1 flex-row items-baseline justify-between gap-3 py-1"
+          <Text className="text-small text-muted dark:text-muted-dark">Série {index + 1}</Text>
+          <Text
+            className="font-mono-bold text-lead text-ink dark:text-ink-dark"
+            style={{ fontVariant: ['tabular-nums'] }}
           >
-            <Text className="text-small text-muted dark:text-muted-dark">Série {index + 1}</Text>
-            <Text
-              className="font-mono-bold text-lead text-ink dark:text-ink-dark"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {formatTargets(set.targets, unitOf)}
-            </Text>
-          </Pressable>
-          {onRemoveSet && (
-            <Pressable
-              onPress={() => onRemoveSet(index)}
-              className="h-9 w-9 items-center justify-center rounded-lg"
-            >
-              <Ionicons name="trash-outline" size={17} color="#B3261E" />
-            </Pressable>
-          )}
-        </View>
+            {formatTargets(set.targets, unitOf)}
+          </Text>
+        </Pressable>
       ))}
 
       <Button

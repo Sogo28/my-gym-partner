@@ -18,7 +18,7 @@ import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
 import { SetVideoViewer } from '../src/ui/set-video';
-import { correctPastSet } from '../src/use-cases/correct-past-set';
+import { correctPastSet, removePastSet } from '../src/use-cases/correct-past-set';
 import { moveSession } from '../src/use-cases/move-session';
 import { fileUri } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
@@ -113,6 +113,18 @@ export default function EditSessionScreen() {
     detachSetVideo(target.performanceId, target.setIndex)
       .then(reload)
       .then(() => notify('Vidéo supprimée.', 'success'))
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  /**
+   * Fermer la feuille avant de recharger : après suppression, l'index visé
+   * ne désigne plus la même série -- ou plus aucune -- et la garder ouverte
+   * la ferait rouvrir sur autre chose que ce qu'on a retiré.
+   */
+  function removeSet(target: Editing) {
+    setEditing(null);
+    removePastSet({ performanceId: target.performanceId, setIndex: target.setIndex })
+      .then(reload)
       .catch((e) => notify(messageOf(e)));
   }
 
@@ -223,13 +235,22 @@ export default function EditSessionScreen() {
         title={editing ? `Série ${editing.position}` : ''}
         description={editing?.exerciseName}
         actions={
-          edited?.videoUri && editing
+          editing
             ? [
-                { label: 'Voir la vidéo', onPress: () => setWatching(editing) },
+                ...(edited?.videoUri
+                  ? [
+                      { label: 'Voir la vidéo', onPress: () => setWatching(editing) },
+                      {
+                        label: 'Supprimer la vidéo',
+                        tone: 'danger' as const,
+                        onPress: () => removeVideo(editing),
+                      },
+                    ]
+                  : []),
                 {
-                  label: 'Supprimer la vidéo',
+                  label: 'Retirer cette série',
                   tone: 'danger' as const,
-                  onPress: () => removeVideo(editing),
+                  onPress: () => removeSet(editing),
                 },
               ]
             : []

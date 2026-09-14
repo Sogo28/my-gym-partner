@@ -23,3 +23,20 @@ export async function correctPastSet(input: {
   performance.correctSetValues(input.setIndex, input.values);
   await save(performance);
 }
+
+/**
+ * Retirer une série d'une séance passée -- un doublon, un exercice tapé par
+ * erreur, que corriger les valeurs ne rattrape pas.
+ */
+export async function removePastSet(input: {
+  performanceId: string;
+  setIndex: number;
+}): Promise<void> {
+  const performance = await findById(input.performanceId);
+  if (!performance) {
+    throw new DomainError('Performance introuvable.');
+  }
+
+  performance.removeSet(input.setIndex);
+  await save(performance);
+}

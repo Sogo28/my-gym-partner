@@ -231,6 +231,26 @@ export class ExercisePerformance {
   }
 
   /**
+   * Retirer une série déjà terminée ou abandonnée.
+   *
+   * Distinct de corriger : une valeur fausse se répare, mais une série
+   * saisie en trop -- doublon, mauvais exercice -- n'a jamais eu lieu, et la
+   * corriger ne dirait pas ça. Refusée sur une série en cours, pour la même
+   * raison qu'on ne la corrige pas encore en cours : elle n'est pas encore
+   * un fait.
+   */
+  removeSet(setIndex: number): void {
+    const set = this._sets[setIndex];
+    if (!set) {
+      throw new DomainError("Cette série n'existe pas.");
+    }
+    if (set.status === 'IN_PROGRESS') {
+      throw new DomainError("Cette série est encore en cours : termine-la d'abord.");
+    }
+    this._sets.splice(setIndex, 1);
+  }
+
+  /**
    * Attacher ou retirer la captation d'une série.
    *
    * Autorisé sur une série TERMINÉE comme sur celle en cours : on filme
