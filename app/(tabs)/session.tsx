@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
@@ -44,6 +44,8 @@ import { SetChip } from '../../src/ui/set-chip';
 import { SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
+import { CountdownRing } from '../../src/ui/countdown-ring';
+import { emomStatus } from '../../src/domain/workout-session/emom';
 import {
   formatSetValues,
   formatSetValuesShort,
@@ -138,6 +140,18 @@ export default function SessionScreen() {
   const [sheet, setSheet] = useState<
     'none' | 'menu' | 'pending-menu' | 'confirm-cancel' | 'end-of-plan' | 'pick-exercise'
   >('none');
+  /**
+   * L'exercice en cours tourne sur un rythme imposé, pas au tien : un round
+   * toutes les `intervalSeconds`, pendant `totalRounds` rounds. Ad-hoc et
+   * jamais persisté -- rien dans le plan ne le sait, et ça ne survit pas à
+   * un changement d'exercice.
+   */
+  const [emom, setEmom] = useState<{ intervalSeconds: number; totalRounds: number } | null>(null);
+  /** La feuille qui règle durée totale et cible avant de démarrer en EMOM. */
+  const [configuringEmom, setConfiguringEmom] = useState(false);
+  const [emomTotalSeconds, setEmomTotalSeconds] = useState(600);
+  /** Empêche l'avance automatique de se déclencher deux fois pour le même round. */
+  const advancingEmomRound = useRef(false);
 
   const reload = useCallback(async () => {
     const [active, allExercises, allPlans, allMeasurements, allSchedule, allMuscles, recent] =
@@ -179,6 +193,7 @@ export default function SessionScreen() {
       return () => {
         setPending(null);
         setAdjustingStart(false);
+        setConfiguringEmom(false);
       };
     }, [reload]),
   );
@@ -225,10 +240,10 @@ export default function SessionScreen() {
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (restStartedAt === null) return;
+    if (restStartedAt === null && !emom) return;
     const interval = setInterval(() => setTick((value) => value + 1), 1000);
     return () => clearInterval(interval);
-  }, [restStartedAt]);
+  }, [restStartedAt, emom]);
   const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -277,6 +292,46 @@ export default function SessionScreen() {
   // La série en cours n'est plus recouverte par la saisie locale : celle-ci
   // appartient désormais à la série ouverte à l'ajustement, qui est une autre.
   const shown = baseline();
+
+  /**
+   * Le round EN COURS -- IN_PROGRESS ou déjà noté -- compte pour le rang :
+   * `sets` inclut toujours la série ouverte, comme le veut la performance.
+   */
+  const emomRoundStartedAt = performance?.currentSet?.startedAt ?? lastSet?.startedAt ?? null;
+  const emomState =
+    emom && emomRoundStartedAt
+      ? emomStatus({
+          intervalSeconds: emom.intervalSeconds,
+          totalRounds: emom.totalRounds,
+          round: sets.length,
+          roundStartedAt: emomRoundStartedAt,
+          now: new Date(),
+        })
+      : null;
+
+  /**
+   * L'avance automatique : l'horloge décide, jamais l'utilisateur (§ décision
+   * prise en conversation). Si le round est encore en cours quand le temps
+   * est écoulé, il est noté avec ce qui s'affiche à l'écran -- jamais
+   * bloquant -- puis le suivant démarre aussitôt.
+   */
+  useEffect(() => {
+    if (!emom || !emomState?.roundElapsed || advancingEmomRound.current) return;
+    advancingEmomRound.current = true;
+    const isLastRound = emomState.round >= emom.totalRounds;
+
+    run(async () => {
+      if (performance?.currentSet) await completePerformanceSet(shown);
+      if (!isLastRound) await startPerformanceSet();
+    })
+      .then(() => {
+        if (isLastRound) setEmom(null);
+      })
+      .finally(() => {
+        advancingEmomRound.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emom, emomState?.roundElapsed]);
 
   /**
    * La série n'a-t-elle qu'une durée à régler ?
@@ -370,6 +425,7 @@ export default function SessionScreen() {
       setSheet('end-of-plan');
       return;
     }
+    setEmom(null);
     run(async () => {
       closeEditing();
       await goToNextExercise();
@@ -381,6 +437,7 @@ export default function SessionScreen() {
    * faite sur l'exercice en cours, revenir en arrière ne perd rien.
    */
   function previousExercise() {
+    setEmom(null);
     run(async () => {
       closeEditing();
       await goToPreviousExercise();
@@ -395,6 +452,7 @@ export default function SessionScreen() {
     // Un autre exercice, d'autres mesures : les valeurs réglées pour le
     // précédent ne veulent plus rien dire.
     setFreeTargets(null);
+    setEmom(null);
     run(async () => {
       closeEditing();
       if (activity) await finishActivity();
@@ -415,6 +473,7 @@ export default function SessionScreen() {
   function choose(exerciseId: string) {
     setFreeTargets(null);
     setAdjustingStart(false);
+    setConfiguringEmom(false);
     reload()
       .then(() => setPending(exerciseId))
       .catch((e) => notify(messageOf(e)));
@@ -431,6 +490,7 @@ export default function SessionScreen() {
     // L'identifiant se lit AVANT de terminer : après, il n'y a plus de séance
     // active à interroger.
     const finished = session?.id;
+    setEmom(null);
     run(async () => {
       await finishWorkoutSession();
       if (finished) router.replace({ pathname: '/session-summary', params: { id: finished, fresh: '1' } });
@@ -453,6 +513,28 @@ export default function SessionScreen() {
       .then(() => {
         setPending(null);
         setAdjustingStart(false);
+      })
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  /** Un round toutes les minutes -- c'est ce que dit le nom. */
+  const EMOM_INTERVAL_SECONDS = 60;
+
+  /**
+   * Démarrer en EMOM : la même naissance qu'une séance libre, mais le nombre
+   * de rounds se déduit de la durée totale plutôt que de rester ouvert.
+   */
+  function beginFreeEmom(exerciseId: string, totalSeconds: number) {
+    const totalRounds = Math.max(1, Math.round(totalSeconds / EMOM_INTERVAL_SECONDS));
+    startWorkoutSession()
+      .then(() => startActivity(exerciseId))
+      .then(() => startPerformanceSet())
+      .then(reload)
+      .then(() => {
+        setPending(null);
+        setAdjustingStart(false);
+        setConfiguringEmom(false);
+        setEmom({ intervalSeconds: EMOM_INTERVAL_SECONDS, totalRounds });
       })
       .catch((e) => notify(messageOf(e)));
   }
@@ -595,9 +677,42 @@ export default function SessionScreen() {
             // Pendant qu'on règle, « Let's go » occupe la place où la main va
             // et partirait pour tout autre chose que ce qu'on est en train de
             // faire.
-            <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
+            <>
+              <Button label="Let s go" size="xl" onPress={() => beginFree(pendingExercise.id)} />
+              {/* La cible réglée juste au-dessus vaut pour chaque round : rien
+                  d'autre à répéter ici. */}
+              <Pressable onPress={() => setConfiguringEmom(true)} className="py-2">
+                <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
+                  Démarrer en EMOM
+                </Text>
+              </Pressable>
+            </>
           )}
         </View>
+
+        {/* Un rythme imposé plutôt qu'un chrono : la cible ci-dessus vaut
+            pour chaque round, seule la durée totale se règle ici -- le
+            nombre de rounds s'en déduit (une minute chacun). */}
+        <Sheet
+          visible={configuringEmom}
+          title="Démarrer en EMOM"
+          description={`${pendingExercise.name} · cible ${formatPlanned(targets)}`}
+          onClose={() => setConfiguringEmom(false)}
+        >
+          <View className="gap-4 pb-2">
+            <MeasureField
+              unit="s"
+              measurementId="duration"
+              value={emomTotalSeconds}
+              onChange={setEmomTotalSeconds}
+            />
+            <Button
+              label="Démarrer"
+              size="lg"
+              onPress={() => beginFreeEmom(pendingExercise.id, emomTotalSeconds)}
+            />
+          </View>
+        </Sheet>
 
         {/* Le menu ne propose que ce qui existe à ce stade : rien n'a été
             écrit, donc rien à abandonner ni à terminer. */}
@@ -944,110 +1059,143 @@ export default function SessionScreen() {
             </ScrollView>
           )}
 
-          {/* Le chrono occupe le centre de l'écran pendant la récupération.
-
-              Et c'est le VIDE de l'écran : y taper referme l'ajustement en
-              cours, comme retaper la série elle-même. Rien à apprendre, et
-              donc pas de bouton pour le dire. */}
-          <Pressable
-            className="flex-1 items-center justify-center"
-            onPress={() => editing !== null && toggleEditing(editing)}
-          >
-            {resting && <Timer seconds={restElapsed} large />}
-          </Pressable>
-
-          <View className="gap-3 pb-2">
-
-            {/* Les champs n'apparaissent que pour la série qu'on a ouverte.
-                Un exercice unilatéral en montre une rangée par côté. */}
-            {editing !== null &&
-              editedSet &&
-              sides.map((side) => (
-                <View key={side} className="gap-1">
-                  {SIDE_LABELS[side] ? (
-                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                      {SIDE_LABELS[side]}
-                    </Text>
-                  ) : null}
-                  <View className="flex-row gap-3">
-                    {(performance?.measurementIds ?? []).map((id) => (
-                      <MeasureField
-                        key={id}
-                        unit={unitOf(id)}
-                        measurementId={id}
-                        value={editedValues[side]?.[id] ?? 0}
-                        onChange={(value) => adjust(side, id, value)}
-                        // Les deux suivent la MÊME condition : la roulette
-                        // n'est tout le réglage que si elle est le seul. À
-                        // plusieurs mesures, elle en est une parmi d'autres,
-                        // et la refermer ramène aux autres au lieu de tout
-                        // relâcher.
-                        autoOpen={durationOnly}
-                        onDone={
-                          durationOnly
-                            ? () => editing !== null && toggleEditing(editing)
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </View>
-                </View>
-              ))}
-
-            {/* Ajuster une série passe AVANT tout le reste : les valeurs
-                s'écrivent à chaque pas, et les boutons qui occupent cette
-                place d'habitude -- terminer, enchaîner -- feraient tout autre
-                chose que ce qu'on est en train de faire. */}
-            {editing === null && performance?.currentSet && (
-              <View className="flex-row gap-3">
-                <Button
-                  label="Terminer"
-                  size="lg"
-                  className="flex-1"
-                  onPress={() => run(() => completePerformanceSet(shown))}
+          {emom ? (
+            <>
+              {/* L'anneau ne demande rien : il montre juste ce qu'il reste.
+                  Le round avance à l'horloge, jamais au tap (voir l'effet
+                  d'avance automatique plus haut). */}
+              <View className="flex-1 items-center justify-center">
+                <CountdownRing
+                  remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
+                  totalSeconds={emom.intervalSeconds}
                 />
-                {/* Filmer appartient à la série EN COURS : c'est celle qu'on
-                    est en train de faire, et la seule qu'on puisse encore
-                    montrer. */}
-                <Button
-                  label={lastSet?.videoUri ? 'Refilmer' : 'Filmer'}
-                  variant="secondary"
-                  size="lg"
-                  onPress={() =>
-                    router.push({
-                      pathname: '/record',
-                      params: { performance: activity!.performanceId!, set: String(lastSetIndex) },
-                    })
-                  }
-                />
+                <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
+                  Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}
+                </Text>
               </View>
-            )}
 
-            {/* Hors série en cours : lancer la série suivante. Passer à
-                l'exercice suivant ne s'offre qu'une fois le programme de
-                celui-ci épuisé -- au milieu des séries prévues, ce serait
-                proposer d'abandonner ce qu'on est en train de faire. Le menu
-                garde l'échappatoire pour les jours où l'on écourte. */}
-            {editing === null && !performance?.currentSet && (
-              <View className="flex-row gap-3">
-                <Button
-                  label={plannedDone ? 'Nouvelle série' : 'Démarrer'}
-                  variant={plannedDone ? 'secondary' : 'primary'}
-                  size="lg"
-                  className="flex-1"
-                  onPress={beginSet}
-                />
-                {plannedDone && (
+              <View className="gap-3 pb-2">
+                {performance?.currentSet ? (
                   <Button
-                    label="Suivant"
+                    label="Fini"
                     size="lg"
-                    className="flex-1"
-                    onPress={nextExercise}
+                    onPress={() => run(() => completePerformanceSet(shown))}
                   />
+                ) : (
+                  <Text className="py-4 text-center text-body text-muted dark:text-muted-dark">
+                    Round noté -- le suivant démarre tout seul.
+                  </Text>
                 )}
               </View>
-            )}
-          </View>
+            </>
+          ) : (
+            <>
+              {/* Le chrono occupe le centre de l'écran pendant la récupération.
+
+                  Et c'est le VIDE de l'écran : y taper referme l'ajustement en
+                  cours, comme retaper la série elle-même. Rien à apprendre, et
+                  donc pas de bouton pour le dire. */}
+              <Pressable
+                className="flex-1 items-center justify-center"
+                onPress={() => editing !== null && toggleEditing(editing)}
+              >
+                {resting && <Timer seconds={restElapsed} large />}
+              </Pressable>
+
+              <View className="gap-3 pb-2">
+
+                {/* Les champs n'apparaissent que pour la série qu'on a ouverte.
+                    Un exercice unilatéral en montre une rangée par côté. */}
+                {editing !== null &&
+                  editedSet &&
+                  sides.map((side) => (
+                    <View key={side} className="gap-1">
+                      {SIDE_LABELS[side] ? (
+                        <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                          {SIDE_LABELS[side]}
+                        </Text>
+                      ) : null}
+                      <View className="flex-row gap-3">
+                        {(performance?.measurementIds ?? []).map((id) => (
+                          <MeasureField
+                            key={id}
+                            unit={unitOf(id)}
+                            measurementId={id}
+                            value={editedValues[side]?.[id] ?? 0}
+                            onChange={(value) => adjust(side, id, value)}
+                            // Les deux suivent la MÊME condition : la roulette
+                            // n'est tout le réglage que si elle est le seul. À
+                            // plusieurs mesures, elle en est une parmi d'autres,
+                            // et la refermer ramène aux autres au lieu de tout
+                            // relâcher.
+                            autoOpen={durationOnly}
+                            onDone={
+                              durationOnly
+                                ? () => editing !== null && toggleEditing(editing)
+                                : undefined
+                            }
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+
+                {/* Ajuster une série passe AVANT tout le reste : les valeurs
+                    s'écrivent à chaque pas, et les boutons qui occupent cette
+                    place d'habitude -- terminer, enchaîner -- feraient tout autre
+                    chose que ce qu'on est en train de faire. */}
+                {editing === null && performance?.currentSet && (
+                  <View className="flex-row gap-3">
+                    <Button
+                      label="Terminer"
+                      size="lg"
+                      className="flex-1"
+                      onPress={() => run(() => completePerformanceSet(shown))}
+                    />
+                    {/* Filmer appartient à la série EN COURS : c'est celle qu'on
+                        est en train de faire, et la seule qu'on puisse encore
+                        montrer. */}
+                    <Button
+                      label={lastSet?.videoUri ? 'Refilmer' : 'Filmer'}
+                      variant="secondary"
+                      size="lg"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/record',
+                          params: { performance: activity!.performanceId!, set: String(lastSetIndex) },
+                        })
+                      }
+                    />
+                  </View>
+                )}
+
+                {/* Hors série en cours : lancer la série suivante. Passer à
+                    l'exercice suivant ne s'offre qu'une fois le programme de
+                    celui-ci épuisé -- au milieu des séries prévues, ce serait
+                    proposer d'abandonner ce qu'on est en train de faire. Le menu
+                    garde l'échappatoire pour les jours où l'on écourte. */}
+                {editing === null && !performance?.currentSet && (
+                  <View className="flex-row gap-3">
+                    <Button
+                      label={plannedDone ? 'Nouvelle série' : 'Démarrer'}
+                      variant={plannedDone ? 'secondary' : 'primary'}
+                      size="lg"
+                      className="flex-1"
+                      onPress={beginSet}
+                    />
+                    {plannedDone && (
+                      <Button
+                        label="Suivant"
+                        size="lg"
+                        className="flex-1"
+                        onPress={nextExercise}
+                      />
+                    )}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </>
       ) : (
         <View className="mt-auto gap-3">
