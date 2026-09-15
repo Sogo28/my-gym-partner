@@ -40,7 +40,7 @@ const WINDOWS: { label: string; sessions: number | null }[] = [
 import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
-import { formatDateTime } from '../src/ui/format';
+import { formatDateTime, formatDuration, isDuration } from '../src/ui/format';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { BackHeader } from '../src/ui/screen-header';
@@ -202,6 +202,23 @@ export default function ExerciseDetailScreen() {
    */
   const hasVolume = exercise.measurementIds.length > 1;
   const charted = hasVolume ? VOLUME : exercise.measurementIds[0];
+
+  /**
+   * Le temps d'exécution d'une série -- utile pour juger si un rythme
+   * imposé (EMOM) est tenable, la vitesse d'exécution étant un signal
+   * qu'aucune mesure déclarée ne porte.
+   *
+   * Pas affiché quand l'exercice mesure déjà une durée : la valeur saisie
+   * EST alors ce temps, le répéter n'apprendrait rien de plus.
+   */
+  const showExecutionTime = !exercise.measurementIds.some((measurementId) =>
+    isDuration(unitOf(measurementId)),
+  );
+
+  function executionLabel(set: { startedAt: Date; endedAt: Date | null }): string | null {
+    if (!showExecutionTime || !set.endedAt) return null;
+    return formatDuration((set.endedAt.getTime() - set.startedAt.getTime()) / 1000);
+  }
 
   // Les séances arrivent de la plus récente à la plus ancienne ; une courbe
   // se lit dans l'autre sens.
@@ -416,6 +433,7 @@ export default function ExerciseDetailScreen() {
                 open
                 at={last.startedAt}
                 lines={last.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
+                durations={last.sets.map(executionLabel)}
               />
             </Section>
 
@@ -434,6 +452,7 @@ export default function ExerciseDetailScreen() {
                       key={entry.sessionId}
                       at={entry.startedAt}
                       lines={entry.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
+                      durations={entry.sets.map(executionLabel)}
                     />
                   ))}
                   {previous.length > shown && (
@@ -572,7 +591,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * Dépliable dans l'historique, ouverte pour la dernière séance : là, ses
  * séries sont ce qu'on est venu voir.
  */
-function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; open?: boolean }) {
+function SessionCard({
+  at,
+  lines,
+  durations,
+  open = false,
+}: {
+  at: Date;
+  lines: string[];
+  /** Le temps d'exécution de chaque série, ou null quand il ne se montre pas. */
+  durations?: (string | null)[];
+  open?: boolean;
+}) {
   return (
     <Collapsible
       defaultOpen={open}
@@ -584,13 +614,19 @@ function SessionCard({ at, lines, open = false }: { at: Date; lines: string[]; o
       summary={`${lines.length} série${lines.length > 1 ? 's' : ''}`}
     >
       {lines.map((line, index) => (
-        <Text
-          key={index}
-          className="font-mono text-small text-ink dark:text-ink-dark"
-          style={{ fontVariant: ['tabular-nums'] }}
-        >
-          {index + 1}.  {line}
-        </Text>
+        <View key={index} className="flex-row items-baseline justify-between gap-2">
+          <Text
+            className="font-mono text-small text-ink dark:text-ink-dark"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            {index + 1}.  {line}
+          </Text>
+          {durations?.[index] && (
+            <Text className="font-mono text-micro text-muted dark:text-muted-dark">
+              {durations[index]}
+            </Text>
+          )}
+        </View>
       ))}
     </Collapsible>
   );
