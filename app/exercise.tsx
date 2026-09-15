@@ -9,8 +9,10 @@ import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repos
 import { findActive } from '../src/infra/workout-session-repository';
 import { LineChart } from '../src/ui/line-chart';
 import { Button } from '../src/ui/button';
+import { DatePickerSheet } from '../src/ui/date-picker';
 import { MeasureField } from '../src/ui/measure-field';
 import { defaultTargets } from '../src/ui/set-defaults';
+import { moveSession } from '../src/use-cases/move-session';
 import {
   completePerformanceSet,
   finishActivity,
@@ -90,6 +92,9 @@ export default function ExerciseDetailScreen() {
   /** La feuille de saisie rapide, et les valeurs qu'elle règle. */
   const [logging, setLogging] = useState(false);
   const [quickValues, setQuickValues] = useState<ValuesBySide>({});
+  /** Quand la série a réellement eu lieu -- maintenant par défaut. */
+  const [quickAt, setQuickAt] = useState(new Date());
+  const [pickingDate, setPickingDate] = useState(false);
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
   // l'exercice tel qu'il est maintenant.
@@ -153,6 +158,7 @@ export default function ExerciseDetailScreen() {
     setQuickValues(
       last?.sets.at(-1)?.values ?? Object.fromEntries(sides.map((side) => [side, targets])),
     );
+    setQuickAt(new Date());
     setLogging(true);
   }
 
@@ -161,15 +167,22 @@ export default function ExerciseDetailScreen() {
    * une série, refermer -- en un seul geste pour l'utilisateur : le "Grease
    * the Groove" ne connaît ni plan ni repos, juste une série de temps en
    * temps dans la journée.
+   *
+   * La séance naît à l'instant présent -- une séance date de sa première
+   * série (§30) -- puis se DÉPLACE si la date choisie diffère, comme on
+   * corrige quand une séance a eu lieu depuis sa fiche d'édition.
    */
   async function logQuickSet() {
     try {
-      await startWorkoutSession();
+      const session = await startWorkoutSession();
       await startActivity(exercise.id);
       await startPerformanceSet();
       await completePerformanceSet(quickValues);
       await finishActivity();
       await finishWorkoutSession();
+      if (Math.abs(quickAt.getTime() - session.startedAt.getTime()) > 1000) {
+        await moveSession(session.id, quickAt);
+      }
       setLogging(false);
       notify('Série enregistrée.', 'success');
       await reload();
@@ -448,6 +461,25 @@ export default function ExerciseDetailScreen() {
         onClose={() => setLogging(false)}
       >
         <View className="gap-4 pb-2">
+          {/* Modifiable : une série de Grease the Groove se logge parfois
+              après coup, et le moment où elle a EU LIEU compte plus que celui
+              où on l'enregistre. */}
+          <Pressable onPress={() => setPickingDate(true)}>
+            <Card density="titled" className="flex-row items-center justify-between gap-3">
+              <View className="shrink">
+                <Text className="font-bold text-body text-ink dark:text-ink-dark">
+                  Date et heure
+                </Text>
+                <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                  {formatDateTime(quickAt)}
+                </Text>
+              </View>
+              <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">
+                modifier
+              </Text>
+            </Card>
+          </Pressable>
+
           {sides.map((side) => (
             <View key={side} className="gap-1">
               {SIDE_LABELS[side] ? (
@@ -477,6 +509,17 @@ export default function ExerciseDetailScreen() {
           <Button label="Enregistrer" size="lg" onPress={logQuickSet} />
         </View>
       </Sheet>
+
+      <DatePickerSheet
+        visible={pickingDate}
+        title="Quand cette série a eu lieu"
+        initial={quickAt}
+        onConfirm={(at) => {
+          setQuickAt(at);
+          setPickingDate(false);
+        }}
+        onClose={() => setPickingDate(false)}
+      />
 
       <Sheet
         visible={sheet === 'menu'}
