@@ -2,10 +2,23 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAllMeasurements, findAllMuscles } from '../src/infra/exercise-repository';
+import { findActive } from '../src/infra/workout-session-repository';
 import { LineChart } from '../src/ui/line-chart';
+import { Button } from '../src/ui/button';
+import { MeasureField } from '../src/ui/measure-field';
+import { defaultTargets } from '../src/ui/set-defaults';
+import {
+  completePerformanceSet,
+  finishActivity,
+  finishWorkoutSession,
+  startActivity,
+  startPerformanceSet,
+  startWorkoutSession,
+} from '../src/use-cases/workout-session-actions';
 
 /**
  * La courbe suit le volume, ou une mesure précise.
@@ -69,6 +82,14 @@ export default function ExerciseDetailScreen() {
   const [shown, setShown] = useState(PAGE);
   /** Combien de séances la courbe montre. Null : toutes. */
   const [window, setWindow] = useState<number | null>(WINDOWS[0].sessions);
+  /**
+   * Faux tant qu'une séance tourne déjà : le domaine n'en admet qu'une à la
+   * fois, et logger une série isolée par-dessus n'aurait pas de sens.
+   */
+  const [canLogQuickSet, setCanLogQuickSet] = useState(false);
+  /** La feuille de saisie rapide, et les valeurs qu'elle règle. */
+  const [logging, setLogging] = useState(false);
+  const [quickValues, setQuickValues] = useState<ValuesBySide>({});
 
   // À chaque affichage : revenir du formulaire, ou d'une séance, doit montrer
   // l'exercice tel qu'il est maintenant.
@@ -79,16 +100,24 @@ export default function ExerciseDetailScreen() {
     }, []),
   );
 
+  const reload = useCallback(() => {
+    return Promise.all([
+      getExerciseDetail(id),
+      findAllMeasurements(),
+      findAllMuscles(),
+      findActive(),
+    ]).then(([found, allMeasurements, allMuscles, activeSession]) => {
+      setDetail(found);
+      setMeasurements(allMeasurements);
+      setMuscles(allMuscles);
+      setCanLogQuickSet(activeSession === null);
+    });
+  }, [id]);
+
   useFocusEffect(
     useCallback(() => {
-      Promise.all([getExerciseDetail(id), findAllMeasurements(), findAllMuscles()])
-        .then(([found, allMeasurements, allMuscles]) => {
-          setDetail(found);
-          setMeasurements(allMeasurements);
-          setMuscles(allMuscles);
-        })
-        .catch((e) => notify(messageOf(e)));
-    }, [id]),
+      reload().catch((e) => notify(messageOf(e)));
+    }, [reload]),
   );
 
   const unitOf = (measurementId: string) =>
@@ -110,6 +139,44 @@ export default function ExerciseDetailScreen() {
   const { exercise, sessions, records, volume, goals } = detail;
   const [last, ...previous] = sessions;
   const totalSets = sessions.reduce((total, entry) => total + entry.sets.length, 0);
+
+  /** Un exercice unilatéral porte deux côtés dans UNE série, jamais deux (§4). */
+  const sides: Side[] = exercise.isUnilateral ? ['LEFT', 'RIGHT'] : ['BOTH'];
+  const SIDE_LABELS: Record<string, string> = { BOTH: '', LEFT: 'Côté gauche', RIGHT: 'Côté droit' };
+
+  /**
+   * Ouvrir la saisie rapide reprend la dernière série faite -- sinon un
+   * point de départ raisonnable -- plutôt que de partir d'un formulaire vide.
+   */
+  function openQuickLog() {
+    const targets = defaultTargets(exercise.measurementIds);
+    setQuickValues(
+      last?.sets.at(-1)?.values ?? Object.fromEntries(sides.map((side) => [side, targets])),
+    );
+    setLogging(true);
+  }
+
+  /**
+   * Toute la cérémonie d'une séance -- démarrer, lancer l'exercice, valider
+   * une série, refermer -- en un seul geste pour l'utilisateur : le "Grease
+   * the Groove" ne connaît ni plan ni repos, juste une série de temps en
+   * temps dans la journée.
+   */
+  async function logQuickSet() {
+    try {
+      await startWorkoutSession();
+      await startActivity(exercise.id);
+      await startPerformanceSet();
+      await completePerformanceSet(quickValues);
+      await finishActivity();
+      await finishWorkoutSession();
+      setLogging(false);
+      notify('Série enregistrée.', 'success');
+      await reload();
+    } catch (e) {
+      notify(messageOf(e));
+    }
+  }
 
   /**
    * Ce que la courbe suit.
@@ -197,11 +264,16 @@ export default function ExerciseDetailScreen() {
         <MediaStrip media={exercise.media} active={active} />
 
         {sessions.length === 0 ? (
-          <EmptyState
-            inline
-            title="Aucune performance"
-            description="Cet exercice n'a encore été travaillé dans aucune séance."
-          />
+          <>
+            <EmptyState
+              inline
+              title="Aucune performance"
+              description="Cet exercice n'a encore été travaillé dans aucune séance."
+            />
+            {canLogQuickSet && (
+              <Button label="Enregistrer une série" variant="secondary" onPress={openQuickLog} />
+            )}
+          </>
         ) : (
           <>
             {/* Les records en bandeau : trois nombres qui se lisent d'un coup
@@ -302,6 +374,10 @@ export default function ExerciseDetailScreen() {
               )}
             </Card>
 
+            {canLogQuickSet && (
+              <Button label="Enregistrer une série" variant="secondary" onPress={openQuickLog} />
+            )}
+
             {goals.length > 0 && (
               <Section title="Objectifs">
                 <View className="gap-2">
@@ -361,6 +437,46 @@ export default function ExerciseDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Une série isolée, hors de toute séance -- le "Grease the Groove" ne
+          connaît ni plan ni repos, juste une série de temps en temps dans la
+          journée. */}
+      <Sheet
+        visible={logging}
+        title="Enregistrer une série"
+        description={exercise.name}
+        onClose={() => setLogging(false)}
+      >
+        <View className="gap-4 pb-2">
+          {sides.map((side) => (
+            <View key={side} className="gap-1">
+              {SIDE_LABELS[side] ? (
+                <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                  {SIDE_LABELS[side]}
+                </Text>
+              ) : null}
+              <View className="flex-row gap-3">
+                {exercise.measurementIds.map((measurementId) => (
+                  <MeasureField
+                    key={measurementId}
+                    unit={unitOf(measurementId)}
+                    measurementId={measurementId}
+                    value={quickValues[side]?.[measurementId] ?? 0}
+                    onChange={(value) =>
+                      setQuickValues((current) => ({
+                        ...current,
+                        [side]: { ...(current[side] ?? {}), [measurementId]: value },
+                      }))
+                    }
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
+
+          <Button label="Enregistrer" size="lg" onPress={logQuickSet} />
+        </View>
+      </Sheet>
 
       <Sheet
         visible={sheet === 'menu'}
