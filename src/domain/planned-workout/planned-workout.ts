@@ -27,6 +27,22 @@ export type PlannedSet = {
 export type PlannedExercise = {
   readonly exerciseId: ExerciseId;
   readonly sets: readonly PlannedSet[];
+  /**
+   * L'exercice se fait au rythme de l'horloge : un round toutes les
+   * `intervalSeconds`, et non quand on se sent prêt (EMOM). `null` : les
+   * séries s'enchaînent librement, séparées par le repos qu'on prend.
+   *
+   * L'intervalle est porté par l'exercice PLANIFIÉ et non par l'Exercise :
+   * les tractions se font en EMOM dans un entraînement et en séries libres
+   * dans un autre, c'est une décision d'entraînement (§6).
+   *
+   * Le nombre de rounds n'est PAS un champ de plus : c'est le nombre de
+   * séries prévues. Un round est une série -- la slice 1 l'a déjà établi
+   * côté séance -- et deux compteurs pour la même chose finiraient par se
+   * contredire. Rien n'impose non plus que les rounds visent tous la même
+   * cible : l'intervalle dit comment ils s'enchaînent, pas ce qu'ils valent.
+   */
+  readonly intervalSeconds?: number | null;
 };
 
 /**
@@ -111,7 +127,7 @@ export class PlannedWorkout {
   }
 
   addExercise(exerciseId: ExerciseId): void {
-    this._exercises.push({ exerciseId, sets: [] });
+    this._exercises.push({ exerciseId, sets: [], intervalSeconds: null });
   }
 
   removeExerciseAt(position: number): void {
@@ -158,7 +174,24 @@ function normalizeExercise(exercise: PlannedExercise): PlannedExercise {
   return {
     exerciseId: exercise.exerciseId,
     sets: exercise.sets.map((set) => ({ targets: normalizeTargets(set.targets) })),
+    intervalSeconds: normalizeInterval(exercise.intervalSeconds),
   };
+}
+
+/**
+ * Un intervalle est un nombre entier de secondes, et il en faut au moins
+ * une : un round de zéro seconde serait déjà fini en commençant.
+ *
+ * Absent et `null` disent la même chose -- pas d'EMOM --, mais on ressort
+ * toujours `null` : l'agrégat répond, il ne laisse pas l'appelant deviner si
+ * le champ a été oublié ou refusé.
+ */
+function normalizeInterval(intervalSeconds: number | null | undefined): number | null {
+  if (intervalSeconds === null || intervalSeconds === undefined) return null;
+  if (!Number.isInteger(intervalSeconds) || intervalSeconds < 1) {
+    throw new DomainError("L'intervalle d'un EMOM doit être d'au moins une seconde.");
+  }
+  return intervalSeconds;
 }
 
 function normalizeTargets(targets: TargetValues): TargetValues {

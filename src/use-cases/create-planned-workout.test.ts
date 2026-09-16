@@ -29,6 +29,54 @@ describe('Modifier un entraînement', () => {
     expect(reloaded.exercises[0].sets[0].targets).toEqual({ duration: 15 });
   });
 
+  it('garde le rythme imposé d un exercice d un enregistrement à l autre', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await updatePlannedWorkout({
+      workout: plan,
+      name: 'Grease the groove',
+      exercises: [
+        {
+          exerciseId: exercise.id,
+          // Trois rounds d'une minute : le nombre de rounds est le nombre de
+          // séries, seul l'intervalle s'ajoute.
+          sets: [
+            { targets: { duration: 15 } },
+            { targets: { duration: 15 } },
+            { targets: { duration: 15 } },
+          ],
+          intervalSeconds: 60,
+        },
+      ],
+    });
+
+    const [reloaded] = await findAllPlans();
+    expect(reloaded.exercises[0].intervalSeconds).toBe(60);
+    expect(reloaded.exercises[0].sets).toHaveLength(3);
+  });
+
+  it('revient aux séries libres quand le rythme imposé est retiré', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await updatePlannedWorkout({
+      workout: plan,
+      name: 'En EMOM',
+      exercises: [
+        { exerciseId: exercise.id, sets: [{ targets: { duration: 15 } }], intervalSeconds: 60 },
+      ],
+    });
+    await updatePlannedWorkout({
+      workout: plan,
+      name: 'En séries',
+      exercises: [{ exerciseId: exercise.id, sets: [{ targets: { duration: 15 } }] }],
+    });
+
+    const [reloaded] = await findAllPlans();
+    expect(reloaded.exercises[0].intervalSeconds).toBeNull();
+  });
+
   it('ne touche à aucune séance déjà enregistrée', async () => {
     const exercise = await anExercise();
     const plan = await aWorkoutOf(exercise.id, 2);

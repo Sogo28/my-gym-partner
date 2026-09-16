@@ -86,6 +86,48 @@ describe('PlannedWorkout', () => {
     ).toThrow(/au moins une mesure/);
   });
 
+  it('garde le rythme imposé d un exercice, et le sépare des séries libres', () => {
+    const workout = PlannedWorkout.create({
+      id: 'pw-1',
+      name: 'Grease the groove',
+      exercises: [
+        { exerciseId: 'pull-up', sets: [{ targets: { reps: 5 } }], intervalSeconds: 60 },
+        { exerciseId: 'row', sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+
+    expect(workout.exercises[0].intervalSeconds).toBe(60);
+    // Sans intervalle, l'exercice répond null plutôt que rien : l'appelant
+    // n'a pas à distinguer "pas d'EMOM" de "champ oublié".
+    expect(workout.exercises[1].intervalSeconds).toBeNull();
+  });
+
+  it('garde le rythme imposé quand on ajoute une série à l exercice', () => {
+    const workout = PlannedWorkout.create({
+      id: 'pw-1',
+      name: 'Grease the groove',
+      exercises: [{ exerciseId: 'pull-up', sets: [{ targets: { reps: 5 } }], intervalSeconds: 60 }],
+    });
+
+    workout.addSet(0, { reps: 5 });
+
+    // Un round de plus, au même rythme : le nombre de rounds EST le nombre
+    // de séries, il n'y a rien d'autre à mettre à jour.
+    expect(workout.exercises[0].sets).toHaveLength(2);
+    expect(workout.exercises[0].intervalSeconds).toBe(60);
+  });
+
+  it('refuse un intervalle nul ou fractionnaire', () => {
+    const workout = emptyWorkout();
+
+    expect(() =>
+      workout.replaceExercises([{ exerciseId: 'pull-up', sets: [], intervalSeconds: 0 }]),
+    ).toThrow(/au moins une seconde/);
+    expect(() =>
+      workout.replaceExercises([{ exerciseId: 'pull-up', sets: [], intervalSeconds: 1.5 }]),
+    ).toThrow(/au moins une seconde/);
+  });
+
   it('s archive sans toucher à son contenu', () => {
     const workout = emptyWorkout();
     workout.addExercise('pull-up');

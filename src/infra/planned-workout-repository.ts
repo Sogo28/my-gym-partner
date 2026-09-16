@@ -6,7 +6,12 @@ import {
 import { getDatabase } from './db';
 
 type WorkoutRow = { id: string; name: string; archived: number };
-type ExerciseRow = { workout_id: string; position: number; exercise_id: string };
+type ExerciseRow = {
+  workout_id: string;
+  position: number;
+  exercise_id: string;
+  interval_seconds: number | null;
+};
 type SetRow = {
   workout_id: string;
   position: number;
@@ -34,10 +39,12 @@ export async function save(workout: PlannedWorkout): Promise<void> {
 
     for (const [position, exercise] of workout.exercises.entries()) {
       await db.runAsync(
-        'INSERT INTO planned_workout_exercises (workout_id, position, exercise_id) VALUES (?, ?, ?);',
+        `INSERT INTO planned_workout_exercises (workout_id, position, exercise_id, interval_seconds)
+         VALUES (?, ?, ?, ?);`,
         workout.id,
         position,
         exercise.exerciseId,
+        exercise.intervalSeconds ?? null,
       );
 
       for (const [setIndex, set] of exercise.sets.entries()) {
@@ -86,7 +93,8 @@ export async function findAll(): Promise<PlannedWorkout[]> {
     'SELECT id, name, archived FROM planned_workouts ORDER BY name;',
   );
   const exerciseRows = await db.getAllAsync<ExerciseRow>(
-    'SELECT workout_id, position, exercise_id FROM planned_workout_exercises ORDER BY workout_id, position;',
+    `SELECT workout_id, position, exercise_id, interval_seconds
+     FROM planned_workout_exercises ORDER BY workout_id, position;`,
   );
   const setRows = await db.getAllAsync<SetRow>(
     `SELECT workout_id, position, set_index, measurement_id, target_value
@@ -116,6 +124,7 @@ export async function findAll(): Promise<PlannedWorkout[]> {
     list.push({
       exerciseId: row.exercise_id,
       sets: setsOf(`${row.workout_id}|${row.position}`),
+      intervalSeconds: row.interval_seconds,
     });
     exercisesByWorkout.set(row.workout_id, list);
   }
