@@ -12,6 +12,13 @@ export { ladder } from './set-defaults';
 /** La hauteur d'un cran. Trois tiennent dans la fenêtre : le choisi, et ses voisins. */
 const ITEM = 44;
 const VISIBLE = 3;
+/**
+ * Le nombre de copies posées bout à bout pour une colonne en boucle : assez
+ * de marge de part et d'autre de la copie du milieu pour qu'un défilement,
+ * même vif, n'atteigne jamais le bord d'une copie -- ce qui trahirait la
+ * boucle en la faisant buter.
+ */
+const LOOP_COPIES = 5;
 
 /**
  * Une colonne de valeurs qui s'arrête sur un cran.
@@ -32,6 +39,7 @@ export function Wheel({
   onChange,
   unit,
   width = 76,
+  loop = false,
 }: {
   readonly values: readonly number[];
   value: number;
@@ -39,17 +47,33 @@ export function Wheel({
   /** Affiché sous la colonne. Absent pour une colonne qui se lit seule. */
   unit?: string;
   width?: number;
+  /**
+   * Une colonne qui reprend à zéro après le dernier cran, et inversement --
+   * les secondes d'une durée n'ont pas de bord, contrairement à des
+   * répétitions ou un poids, qui s'arrêtent bien quelque part.
+   */
+  loop?: boolean;
 }) {
   const list = useRef<ScrollView>(null);
   // Le cran le plus PROCHE, et non l'égal : une valeur saisie autrement peut
   // tomber entre deux crans -- 61 kg sur une colonne de deux kilos et demi.
   const selected = nearest(values, value);
+  const count = values.length;
+
+  // En boucle, la colonne est posée en plusieurs copies bout à bout : le
+  // défilement continue visuellement au-delà d'une copie, jamais contre un
+  // bord. La copie du milieu sert de référence pour rester loin des bords
+  // des copies voisines, jamais visitées par un geste normal.
+  const displayed = loop
+    ? Array.from({ length: count * LOOP_COPIES }, (_, i) => values[i % count])
+    : values;
+  const middleCopyStart = loop ? count * Math.floor(LOOP_COPIES / 2) : 0;
 
   // La position de départ, posée sans animation : la roulette doit s'ouvrir
   // DÉJÀ sur la valeur courante, pas défiler jusqu'à elle sous les yeux.
   useEffect(() => {
     const timer = setTimeout(
-      () => list.current?.scrollTo({ y: selected * ITEM, animated: false }),
+      () => list.current?.scrollTo({ y: (middleCopyStart + selected) * ITEM, animated: false }),
       0,
     );
     return () => clearTimeout(timer);
@@ -58,8 +82,18 @@ export function Wheel({
 
   const settle = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const landed = Math.round(event.nativeEvent.contentOffset.y / ITEM);
-    const index = Math.min(Math.max(landed, 0), values.length - 1);
+    const index = loop
+      ? ((landed % count) + count) % count
+      : Math.min(Math.max(landed, 0), count - 1);
     if (values[index] !== value) onChange(values[index]);
+
+    // Ramène silencieusement vers la copie du milieu : le cran affiché ne
+    // change pas -- même valeur, même position à l'écran --, seule la copie
+    // sous le doigt change, pour regagner la marge dont un futur défilement
+    // aura besoin.
+    if (loop && landed !== middleCopyStart + index) {
+      list.current?.scrollTo({ y: (middleCopyStart + index) * ITEM, animated: false });
+    }
   };
 
   return (
@@ -86,12 +120,12 @@ export function Wheel({
           // suivrait pas.
           onScrollEndDrag={settle}
         >
-          {values.map((entry, index) => (
-            <View key={entry} style={{ height: ITEM }} className="items-center justify-center">
+          {displayed.map((entry, index) => (
+            <View key={index} style={{ height: ITEM }} className="items-center justify-center">
               <Text
                 className={cn(
                   'font-mono-bold',
-                  index === selected
+                  index % count === selected
                     ? 'text-heading text-ink dark:text-ink-dark'
                     : 'text-lead text-planned dark:text-planned-dark',
                 )}

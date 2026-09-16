@@ -308,30 +308,47 @@ export default function SessionScreen() {
           now: new Date(),
         })
       : null;
+  // Celui prévu au départ, pas un maximum : "Ajouter un round" le recule.
+  const isFinalEmomRound = Boolean(emom && sets.length >= emom.totalRounds);
 
   /**
    * L'avance automatique : l'horloge décide, jamais l'utilisateur (§ décision
    * prise en conversation). Si le round est encore en cours quand le temps
    * est écoulé, il est noté avec ce qui s'affiche à l'écran -- jamais
    * bloquant -- puis le suivant démarre aussitôt.
+   *
+   * SAUF sur le dernier round prévu : le laisser trancher tout seul, une
+   * fois la minute écoulée, redonnait l'impression que l'EMOM "redémarrait"
+   * sans prévenir. Le choix -- ajouter un round ou arrêter -- se fait donc
+   * au tap sur "Fini", pas en silence à la fin du minuteur.
    */
   useEffect(() => {
-    if (!emom || !emomState?.roundElapsed || advancingEmomRound.current) return;
+    if (!emom || !emomState?.roundElapsed || isFinalEmomRound || advancingEmomRound.current) {
+      return;
+    }
     advancingEmomRound.current = true;
-    const isLastRound = emomState.round >= emom.totalRounds;
 
     run(async () => {
       if (performance?.currentSet) await completePerformanceSet(shown);
-      if (!isLastRound) await startPerformanceSet();
-    })
-      .then(() => {
-        if (isLastRound) setEmom(null);
-      })
-      .finally(() => {
-        advancingEmomRound.current = false;
-      });
+      await startPerformanceSet();
+    }).finally(() => {
+      advancingEmomRound.current = false;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emom, emomState?.roundElapsed]);
+  }, [emom, emomState?.roundElapsed, isFinalEmomRound]);
+
+  /**
+   * Un round de plus que prévu : le dernier round ne l'était donc pas.
+   *
+   * Ne démarre RIEN tout de suite : on est dans la pause du round qui vient
+   * de se terminer, et cette pause continue jusqu'à la minute pleine --
+   * l'avance automatique (déjà en place pour tout round non-final) prendra
+   * le relais au bon moment, maintenant que celui-ci n'est plus le dernier.
+   */
+  function addEmomRound() {
+    if (!emom) return;
+    setEmom({ ...emom, totalRounds: emom.totalRounds + 1 });
+  }
 
   /**
    * La série n'a-t-elle qu'une durée à régler ?
@@ -700,12 +717,18 @@ export default function SessionScreen() {
           onClose={() => setConfiguringEmom(false)}
         >
           <View className="gap-4 pb-2">
-            <MeasureField
-              unit="s"
-              measurementId="duration"
-              value={emomTotalSeconds}
-              onChange={setEmomTotalSeconds}
-            />
+            {/* flex-row : MeasureField (et sa variante durée) porte flex-1
+                pour se PARTAGER une ligne avec d'autres champs -- posé seul
+                dans une colonne, il s'étirait en hauteur et écrasait le
+                bouton en dessous. */}
+            <View className="flex-row gap-3">
+              <MeasureField
+                unit="s"
+                measurementId="duration"
+                value={emomTotalSeconds}
+                onChange={setEmomTotalSeconds}
+              />
+            </View>
             <Button
               label="Démarrer"
               size="lg"
@@ -1060,142 +1083,165 @@ export default function SessionScreen() {
           )}
 
           {emom ? (
-            <>
-              {/* L'anneau ne demande rien : il montre juste ce qu'il reste.
-                  Le round avance à l'horloge, jamais au tap (voir l'effet
-                  d'avance automatique plus haut). */}
-              <View className="flex-1 items-center justify-center">
-                <CountdownRing
-                  remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
-                  totalSeconds={emom.intervalSeconds}
-                />
-                <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
-                  Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}
-                </Text>
-              </View>
+            /* L'anneau ne demande rien : il montre juste ce qu'il reste. Le
+               round avance à l'horloge, jamais au tap (voir l'effet
+               d'avance automatique plus haut). */
+            <Pressable
+              className="flex-1 items-center justify-center"
+              onPress={() => editing !== null && toggleEditing(editing)}
+            >
+              <CountdownRing
+                remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
+                totalSeconds={emom.intervalSeconds}
+              />
+              <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
+                Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}
+              </Text>
+            </Pressable>
+          ) : (
+            /* Le chrono occupe le centre de l'écran pendant la récupération.
 
-              <View className="gap-3 pb-2">
-                {performance?.currentSet ? (
+               Et c'est le VIDE de l'écran : y taper referme l'ajustement en
+               cours, comme retaper la série elle-même. Rien à apprendre, et
+               donc pas de bouton pour le dire. */
+            <Pressable
+              className="flex-1 items-center justify-center"
+              onPress={() => editing !== null && toggleEditing(editing)}
+            >
+              {resting && <Timer seconds={restElapsed} large />}
+            </Pressable>
+          )}
+
+          <View className="gap-3 pb-2">
+            {/* Corriger une série déjà validée reste possible pendant un
+                EMOM comme en dehors : le motif est le même partout, la
+                feuille de contrôle en dessous seule change. */}
+            {editing !== null &&
+              editedSet &&
+              sides.map((side) => (
+                <View key={side} className="gap-1">
+                  {SIDE_LABELS[side] ? (
+                    <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                      {SIDE_LABELS[side]}
+                    </Text>
+                  ) : null}
+                  <View className="flex-row gap-3">
+                    {(performance?.measurementIds ?? []).map((id) => (
+                      <MeasureField
+                        key={id}
+                        unit={unitOf(id)}
+                        measurementId={id}
+                        value={editedValues[side]?.[id] ?? 0}
+                        onChange={(value) => adjust(side, id, value)}
+                        // Les deux suivent la MÊME condition : la roulette
+                        // n'est tout le réglage que si elle est le seul. À
+                        // plusieurs mesures, elle en est une parmi d'autres,
+                        // et la refermer ramène aux autres au lieu de tout
+                        // relâcher.
+                        autoOpen={durationOnly}
+                        onDone={
+                          durationOnly
+                            ? () => editing !== null && toggleEditing(editing)
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+
+            {editing === null &&
+              (emom ? (
+                performance?.currentSet ? (
                   <Button
                     label="Fini"
                     size="lg"
                     onPress={() => run(() => completePerformanceSet(shown))}
                   />
-                ) : (
-                  <Text className="py-4 text-center text-body text-muted dark:text-muted-dark">
-                    Round noté -- le suivant démarre tout seul.
-                  </Text>
-                )}
-              </View>
-            </>
-          ) : (
-            <>
-              {/* Le chrono occupe le centre de l'écran pendant la récupération.
-
-                  Et c'est le VIDE de l'écran : y taper referme l'ajustement en
-                  cours, comme retaper la série elle-même. Rien à apprendre, et
-                  donc pas de bouton pour le dire. */}
-              <Pressable
-                className="flex-1 items-center justify-center"
-                onPress={() => editing !== null && toggleEditing(editing)}
-              >
-                {resting && <Timer seconds={restElapsed} large />}
-              </Pressable>
-
-              <View className="gap-3 pb-2">
-
-                {/* Les champs n'apparaissent que pour la série qu'on a ouverte.
-                    Un exercice unilatéral en montre une rangée par côté. */}
-                {editing !== null &&
-                  editedSet &&
-                  sides.map((side) => (
-                    <View key={side} className="gap-1">
-                      {SIDE_LABELS[side] ? (
-                        <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                          {SIDE_LABELS[side]}
-                        </Text>
-                      ) : null}
-                      <View className="flex-row gap-3">
-                        {(performance?.measurementIds ?? []).map((id) => (
-                          <MeasureField
-                            key={id}
-                            unit={unitOf(id)}
-                            measurementId={id}
-                            value={editedValues[side]?.[id] ?? 0}
-                            onChange={(value) => adjust(side, id, value)}
-                            // Les deux suivent la MÊME condition : la roulette
-                            // n'est tout le réglage que si elle est le seul. À
-                            // plusieurs mesures, elle en est une parmi d'autres,
-                            // et la refermer ramène aux autres au lieu de tout
-                            // relâcher.
-                            autoOpen={durationOnly}
-                            onDone={
-                              durationOnly
-                                ? () => editing !== null && toggleEditing(editing)
-                                : undefined
-                            }
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-
-                {/* Ajuster une série passe AVANT tout le reste : les valeurs
-                    s'écrivent à chaque pas, et les boutons qui occupent cette
-                    place d'habitude -- terminer, enchaîner -- feraient tout autre
-                    chose que ce qu'on est en train de faire. */}
-                {editing === null && performance?.currentSet && (
-                  <View className="flex-row gap-3">
-                    <Button
-                      label="Terminer"
-                      size="lg"
-                      className="flex-1"
-                      onPress={() => run(() => completePerformanceSet(shown))}
-                    />
-                    {/* Filmer appartient à la série EN COURS : c'est celle qu'on
-                        est en train de faire, et la seule qu'on puisse encore
-                        montrer. */}
-                    <Button
-                      label={lastSet?.videoUri ? 'Refilmer' : 'Filmer'}
-                      variant="secondary"
-                      size="lg"
-                      onPress={() =>
-                        router.push({
-                          pathname: '/record',
-                          params: { performance: activity!.performanceId!, set: String(lastSetIndex) },
-                        })
-                      }
-                    />
-                  </View>
-                )}
-
-                {/* Hors série en cours : lancer la série suivante. Passer à
-                    l'exercice suivant ne s'offre qu'une fois le programme de
-                    celui-ci épuisé -- au milieu des séries prévues, ce serait
-                    proposer d'abandonner ce qu'on est en train de faire. Le menu
-                    garde l'échappatoire pour les jours où l'on écourte. */}
-                {editing === null && !performance?.currentSet && (
-                  <View className="flex-row gap-3">
-                    <Button
-                      label={plannedDone ? 'Nouvelle série' : 'Démarrer'}
-                      variant={plannedDone ? 'secondary' : 'primary'}
-                      size="lg"
-                      className="flex-1"
-                      onPress={beginSet}
-                    />
-                    {plannedDone && (
+                ) : isFinalEmomRound ? (
+                  // Le dernier round prévu vient d'être noté : le choix se
+                  // fait ICI, pas en silence à la fin du minuteur -- sinon
+                  // rien ne distingue "encore un peu de repos" de "c'est
+                  // reparti pour un round de plus".
+                  <View className="gap-3">
+                    <Text className="text-center text-body text-muted dark:text-muted-dark">
+                      Dernier round noté.
+                    </Text>
+                    <View className="flex-row gap-3">
                       <Button
-                        label="Suivant"
+                        label="Ajouter un round"
+                        variant="secondary"
                         size="lg"
                         className="flex-1"
-                        onPress={nextExercise}
+                        onPress={addEmomRound}
                       />
-                    )}
+                      <Button
+                        label="Arrêter l EMOM"
+                        size="lg"
+                        className="flex-1"
+                        onPress={() => setEmom(null)}
+                      />
+                    </View>
                   </View>
-                )}
-              </View>
-            </>
-          )}
+                ) : (
+                  // Proposée seulement ENTRE deux rounds : au milieu de l'un,
+                  // l'horloge continue même sans toi -- l'interrompre n'a de
+                  // sens qu'une fois la série notée.
+                  <View className="gap-3">
+                    <Text className="text-center text-body text-muted dark:text-muted-dark">
+                      Round noté -- le suivant démarre tout seul.
+                    </Text>
+                    <Button
+                      label="Arrêter l EMOM"
+                      variant="secondary"
+                      size="lg"
+                      onPress={() => setEmom(null)}
+                    />
+                  </View>
+                )
+              ) : performance?.currentSet ? (
+                <View className="flex-row gap-3">
+                  <Button
+                    label="Terminer"
+                    size="lg"
+                    className="flex-1"
+                    onPress={() => run(() => completePerformanceSet(shown))}
+                  />
+                  {/* Filmer appartient à la série EN COURS : c'est celle qu'on
+                      est en train de faire, et la seule qu'on puisse encore
+                      montrer. */}
+                  <Button
+                    label={lastSet?.videoUri ? 'Refilmer' : 'Filmer'}
+                    variant="secondary"
+                    size="lg"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/record',
+                        params: { performance: activity!.performanceId!, set: String(lastSetIndex) },
+                      })
+                    }
+                  />
+                </View>
+              ) : (
+                // Hors série en cours : lancer la série suivante. Passer à
+                // l'exercice suivant ne s'offre qu'une fois le programme de
+                // celui-ci épuisé -- au milieu des séries prévues, ce serait
+                // proposer d'abandonner ce qu'on est en train de faire. Le
+                // menu garde l'échappatoire pour les jours où l'on écourte.
+                <View className="flex-row gap-3">
+                  <Button
+                    label={plannedDone ? 'Nouvelle série' : 'Démarrer'}
+                    variant={plannedDone ? 'secondary' : 'primary'}
+                    size="lg"
+                    className="flex-1"
+                    onPress={beginSet}
+                  />
+                  {plannedDone && (
+                    <Button label="Suivant" size="lg" className="flex-1" onPress={nextExercise} />
+                  )}
+                </View>
+              ))}
+          </View>
         </>
       ) : (
         <View className="mt-auto gap-3">

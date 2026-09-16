@@ -128,7 +128,13 @@ function DurationSheet({
       <View className="flex-row items-center justify-center gap-2 pb-2">
         <Wheel values={SIXTY} unit="min" value={minutes} onChange={(m) => onChange(m * 60 + seconds)} />
         <Text className="font-mono-bold text-heading text-muted dark:text-muted-dark">:</Text>
-        <Wheel values={SIXTY} unit="s" value={seconds} onChange={(s) => onChange(minutes * 60 + s)} />
+        <Wheel
+          values={SIXTY}
+          unit="s"
+          value={seconds}
+          onChange={(s) => onChange(minutes * 60 + s)}
+          loop
+        />
       </View>
     </Sheet>
   );
