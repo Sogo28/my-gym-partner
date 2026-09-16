@@ -12,7 +12,7 @@ import { BodyMap } from '../src/ui/body-map';
 import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
-import { formatClock, formatDateTime, formatDuration } from '../src/ui/format';
+import { formatClock, formatDateTime, formatDuration, isDuration } from '../src/ui/format';
 import { GoalCard } from '../src/ui/goal-card';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
@@ -266,6 +266,26 @@ export default function SessionSummaryScreen() {
             // entre les cartes, plutôt que confondu avec les repos internes.
             const restBeforeActivity = activity.completedSets[0]?.restBefore ?? null;
 
+            /**
+             * Le temps d'exécution d'une série -- utile pour juger si un
+             * rythme imposé (EMOM) est tenable, la vitesse d'exécution étant
+             * un signal qu'aucune mesure déclarée ne porte.
+             *
+             * Pas affiché quand l'exercice mesure déjà une durée : la valeur
+             * saisie EST alors ce temps, le répéter n'apprendrait rien de
+             * plus. Même règle que sur la fiche de l'exercice.
+             */
+            const activityExercise = exerciseOf(activity.exerciseId);
+            const showExecutionTime = activityExercise
+              ? !activityExercise.measurementIds.some((measurementId) =>
+                  isDuration(unitOf(measurementId)),
+                )
+              : false;
+            const executionLabel = (set: { startedAt: Date; endedAt: Date | null }) =>
+              showExecutionTime && set.endedAt
+                ? formatDuration((set.endedAt.getTime() - set.startedAt.getTime()) / 1000)
+                : null;
+
             return (
               <Fragment key={index}>
                 {index > 0 && restBeforeActivity !== null && restBeforeActivity > 0 && (
@@ -335,6 +355,11 @@ export default function SessionSummaryScreen() {
                                 >
                                   {done ? formatSetValues(done.set.values, unitOf) : '—'}
                                 </Text>
+                                {done && executionLabel(done.set) && (
+                                  <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
+                                    {executionLabel(done.set)}
+                                  </Text>
+                                )}
                                 {done?.set.videoUri && activity.performanceId && (
                                   <VideoBadge
                                     onPress={() =>
@@ -370,6 +395,11 @@ export default function SessionSummaryScreen() {
                               >
                                 {formatSetValues(done.set.values, unitOf)}
                               </Text>
+                              {executionLabel(done.set) && (
+                                <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
+                                  {executionLabel(done.set)}
+                                </Text>
+                              )}
                               {done.set.videoUri && activity.performanceId && (
                                 <VideoBadge
                                   onPress={() =>
