@@ -52,11 +52,18 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: dark ? '#141613' : '#EDEFE8',
           borderTopColor: dark ? '#2A2D28' : '#DDE0D6',
-          // Plus de rembourrage haut : il compensait le libellé posé sous
-          // l'icône. Seule, elle se centre dans la hauteur qui reste -- dont
-          // la barre retranche d'elle-même la marge du bas de l'écran.
+          // Hauteur TOTALE : la barre en retranche elle-même la marge du bas
+          // de l'écran. Le rembourrage haut, lui, est parti avec le libellé
+          // qu'il compensait.
           height: 84,
         },
+        // Un onglet empile son icône PUIS son libellé, alignés en haut. Le
+        // libellé retiré, l'icône restait collée au plafond de la barre et
+        // le vide tombait sous elle. Deux marges automatiques lui font
+        // absorber ce vide des deux côtés : c'est le seul endroit d'où
+        // recentrer, l'alignement vivant dans un style interne à la barre
+        // qu'aucune option n'expose.
+        tabBarIconStyle: { marginVertical: 'auto' },
       }}
     >
       {/* `title` n'est plus affiché nulle part, mais reste le nom que les
