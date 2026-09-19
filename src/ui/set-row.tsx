@@ -6,6 +6,17 @@ import { VideoBadge } from './set-video';
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
 
 /**
+ * La hauteur d'une ligne et l'écart entre deux.
+ *
+ * Exportés parce qu'une liste qui veut n'en montrer que quatre -- l'écran de
+ * séance, où l'anneau et les boutons réclament le reste de la place -- a
+ * besoin de les connaître pour se donner sa borne. Une hauteur en pourcentage
+ * coupait une cinquième ligne au hasard, différemment sur chaque téléphone.
+ */
+export const SET_ROW_HEIGHT = 52;
+export const SET_ROW_GAP = 8;
+
+/**
  * La couleur du contour et de la pastille, par état et par thème.
  *
  * Elle ne peut pas venir de la feuille de styles : le contour est posé en
@@ -91,7 +102,7 @@ export function SetRow({
     <Row
       onPress={onPress}
       className={cn(
-        'min-h-[60px] flex-row items-center gap-3 rounded-xl px-4',
+        'min-h-[52px] flex-row items-center gap-3 rounded-xl px-4',
         status === 'completed' && 'bg-surface dark:bg-surface-dark',
         status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
         status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
