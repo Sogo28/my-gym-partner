@@ -10,6 +10,16 @@
  * qui le rend testable en Node, comme session-metrics.ts.
  */
 
+/**
+ * Un round par minute -- c'est ce que dit le nom.
+ *
+ * L'intervalle STANDARD, pas le seul possible : un entraînement en garde le
+ * sien (`PlannedExercise.intervalSeconds`), et `emomStatus` accepte n'importe
+ * quelle valeur. C'est ce que proposent les écrans, réuni ici pour que la
+ * séance libre et la création d'un entraînement ne puissent pas diverger.
+ */
+export const EMOM_INTERVAL_SECONDS = 60;
+
 export type EmomStatus = {
   /** Le round en cours, 1-indexé. */
   round: number;

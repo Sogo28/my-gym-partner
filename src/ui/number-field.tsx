@@ -26,6 +26,16 @@ type NumberFieldProps = {
    * kilos -- et non le champ, qui ne connaît qu'un pas et une unité.
    */
   ceiling?: number;
+  /**
+   * La roulette vient de se refermer.
+   *
+   * Quand elle est TOUT le réglage -- une seule mesure sur cette série --,
+   * l'écran qui la tenait ouverte peut relâcher la série du même geste, au
+   * lieu d'attendre un second tap qui ne dirait rien de plus. À plusieurs
+   * mesures, l'appelant ne le passe pas : refermer les répétitions ramène au
+   * poids, qui reste à régler.
+   */
+  onDone?: () => void;
 };
 
 /**
@@ -43,6 +53,7 @@ export function NumberField({
   step = 1,
   compact = false,
   ceiling,
+  onDone,
 }: NumberFieldProps) {
   const [picking, setPicking] = useState(false);
   return (
@@ -95,7 +106,10 @@ export function NumberField({
           visible={picking}
           title={label ?? 'Choisir'}
           description={`${value} ${unit}`}
-          onClose={() => setPicking(false)}
+          onClose={() => {
+            setPicking(false);
+            onDone?.();
+          }}
         >
           <View className="items-center pb-2">
             <Wheel values={ladder(step, ceiling)} unit={unit} value={value} onChange={onChange} width={110} />

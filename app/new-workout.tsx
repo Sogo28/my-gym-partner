@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -26,6 +26,7 @@ import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
 import { BackHeader } from '../src/ui/screen-header';
+import { Fab } from '../src/ui/fab';
 import { Sheet } from '../src/ui/sheet';
 import {
   createPlannedWorkout,
@@ -36,6 +37,7 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 
 import { defaultTargets } from '../src/ui/set-defaults';
 import { formatTargets } from '../src/ui/set-values';
+import { EMOM_INTERVAL_SECONDS } from '../src/domain/workout-session/emom';
 
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
@@ -152,6 +154,16 @@ export default function NewWorkoutScreen() {
   const editingEntry = editingSet ? draft.find((entry) => entry.key === editingSet.key) : undefined;
   const editingExercise = editingEntry ? exerciseOf(editingEntry.planned.exerciseId) : undefined;
   const editingTargets = editingEntry?.planned.sets[editingSet?.setIndex ?? -1]?.targets;
+  /**
+   * L'exercice ne se mesure-t-il que d'une façon ?
+   *
+   * Alors la roulette EST tout le réglage de la série : une fois la valeur
+   * choisie, il ne reste rien à faire dans la feuille, et la refermer à la
+   * main demanderait un geste qui ne dit rien de plus. Dès qu'une seconde
+   * mesure existe, la roulette n'en règle qu'une part et la feuille reste --
+   * même partage que pendant la séance.
+   */
+  const soleMeasure = editingExercise?.measurementIds.length === 1;
 
   /**
    * Ajouter une série, c'est répéter la précédente.
@@ -192,6 +204,30 @@ export default function NewWorkoutScreen() {
                 sets: entry.planned.sets.map((set, i) =>
                   i === setIndex ? { targets: { ...set.targets, [measurementId]: value } } : set,
                 ),
+              },
+            }
+          : entry,
+      ),
+    );
+  }
+
+  /**
+   * Basculer un exercice entre séries libres et EMOM.
+   *
+   * Le rythme, et RIEN d'autre : les séries ne bougent pas, elles deviennent
+   * des rounds. Quatre séries de cinq tractions font quatre rounds de cinq
+   * tractions -- ce qui change est la façon dont ils s'enchaînent, pas ce
+   * qu'ils contiennent.
+   */
+  function toggleEmom(key: string) {
+    setDraft((current) =>
+      current.map((entry) =>
+        entry.key === key
+          ? {
+              ...entry,
+              planned: {
+                ...entry.planned,
+                intervalSeconds: entry.planned.intervalSeconds ? null : EMOM_INTERVAL_SECONDS,
               },
             }
           : entry,
@@ -276,47 +312,53 @@ export default function NewWorkoutScreen() {
         />
       </View>
 
-      <ScrollViewContainer
-        contentContainerClassName="gap-4 px-5 pb-8"
-        keyboardShouldPersistTaps="handled"
-      >
-        <TextInput
-          className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
-          placeholder="Nom de l'entraînement"
-          placeholderTextColor="#A8AD9E"
-          value={name}
-          onChangeText={setName}
-        />
+      {/* La pastille est posée DANS la zone qui défile, et non sur l'écran :
+          son `bottom-6` se compte alors depuis le haut de la barre du bas,
+          exactement comme il se compte depuis le haut de la barre d'onglets
+          sur les catalogues. Aucune hauteur à deviner, et rien à rattraper
+          sur les téléphones à barre gestuelle.
 
-        {/* L'ordre des exercices EST une décision d'entraînement : on ne met
-            pas le gainage avant les tractions. La liste imbriquée gère le
-            glissement ET le défilement, que la page porte pour elle. */}
-        <NestedReorderableList
-          data={draft}
-          keyExtractor={(entry) => entry.key}
-          scrollEnabled={false}
-          onReorder={({ from, to }) => setDraft((current) => reorderItems(current, from, to))}
-          contentContainerStyle={{ gap: 16 }}
-          renderItem={({ item }) => (
-            <DraftCard
-              entry={item}
-              exercise={exerciseOf(item.planned.exerciseId)}
-              unitOf={unitOf}
-              onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
-              onAddSet={() => addSet(item.key)}
-            />
-          )}
-        />
+          La liste, elle, défile DESSOUS : son rembourrage bas lui laisse de
+          quoi finir sans être recouverte. */}
+      <View className="flex-1">
+        <ScrollViewContainer
+          contentContainerClassName="gap-4 px-5 pb-28"
+          keyboardShouldPersistTaps="handled"
+        >
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Nom de l'entraînement"
+            placeholderTextColor="#A8AD9E"
+            value={name}
+            onChangeText={setName}
+          />
 
-        {/* Un texte, pas un bouton : ajouter un exercice est un geste parmi
-            d'autres sur cette page, pas ce qu'elle demande. */}
-        <Pressable onPress={() => setPicking(true)} className="py-2">
-          <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
-            + Ajouter des exercices
-          </Text>
-        </Pressable>
+          {/* L'ordre des exercices EST une décision d'entraînement : on ne met
+              pas le gainage avant les tractions. La liste imbriquée gère le
+              glissement ET le défilement, que la page porte pour elle. */}
+          <NestedReorderableList
+            data={draft}
+            keyExtractor={(entry) => entry.key}
+            scrollEnabled={false}
+            onReorder={({ from, to }) => setDraft((current) => reorderItems(current, from, to))}
+            contentContainerStyle={{ gap: 16 }}
+            renderItem={({ item }) => (
+              <DraftCard
+                entry={item}
+                exercise={exerciseOf(item.planned.exerciseId)}
+                unitOf={unitOf}
+                onOpenSet={(setIndex) => setEditingSet({ key: item.key, setIndex })}
+                onAddSet={() => addSet(item.key)}
+                onRemoveSet={(setIndex) => removeSet(item.key, setIndex)}
+                onToggleEmom={() => toggleEmom(item.key)}
+              />
+            )}
+          />
 
-      </ScrollViewContainer>
+        </ScrollViewContainer>
+
+        <Fab accessibilityLabel="Ajouter des exercices" onPress={() => setPicking(true)} />
+      </View>
 
       {/* Un même exercice peut revenir dans un entraînement -- un finisher en
           fin de séance --, donc rien n'est coché d'avance et chaque passage
@@ -359,22 +401,15 @@ export default function NewWorkoutScreen() {
           séance passée : celle qu'on règle dit ce qu'elle montre. */}
       <Sheet
         visible={editingSet !== null && editingEntry !== undefined}
-        title={editingSet ? `Série ${editingSet.setIndex + 1}` : ''}
-        description={editingExercise?.name}
-        actions={
+        title={
           editingSet
-            ? [
-                {
-                  label: 'Retirer cette série',
-                  tone: 'danger' as const,
-                  onPress: () => {
-                    removeSet(editingSet.key, editingSet.setIndex);
-                    setEditingSet(null);
-                  },
-                },
-              ]
-            : []
+            ? `${editingEntry?.planned.intervalSeconds ? 'Round' : 'Série'} ${editingSet.setIndex + 1}`
+            : ''
         }
+        description={editingExercise?.name}
+        // Plus de retrait ici : le « − » rouge de chaque ligne le fait d'un
+        // seul geste, sans ouvrir la feuille de celle qu'on veut justement
+        // faire disparaître.
         onClose={() => setEditingSet(null)}
       >
         {editingSet && editingExercise && editingTargets && (
@@ -389,6 +424,7 @@ export default function NewWorkoutScreen() {
                 onChange={(value) =>
                   changeTarget(editingSet.key, editingSet.setIndex, measurementId, value)
                 }
+                onDone={soleMeasure ? () => setEditingSet(null) : undefined}
               />
             ))}
           </View>
@@ -421,7 +457,7 @@ export default function NewWorkoutScreen() {
 
       <View className="p-5 pt-2">
         <Button
-          label={existing ? 'Enregistrer les modifications' : 'Créer l entraînement'}
+          label={existing ? 'Enregistrer les modifications' : "Créer l'entraînement"}
           size="lg"
           // Le domaine accepte un entraînement vide -- il n'a pas à juger d'une
           // intention -- mais l'écran, lui, sait qu'on n'a pas fini : un
@@ -449,16 +485,30 @@ function DraftCard({
   unitOf,
   onOpenSet,
   onAddSet,
+  onRemoveSet,
+  onToggleEmom,
 }: {
   entry: Planned;
   exercise: Exercise | undefined;
   unitOf: (measurementId: string) => string;
   onOpenSet: (setIndex: number) => void;
   onAddSet: () => void;
+  onRemoveSet: (setIndex: number) => void;
+  onToggleEmom: () => void;
 }) {
   const drag = useReorderableDrag();
   const dragging = useIsActive();
+  // Les icônes reçoivent leur couleur en propriété : la variante dark: ne
+  // s'applique qu'aux composants stylés par la feuille.
+  const danger = useColorScheme() === 'dark' ? '#FF7A66' : '#B3261E';
   const planned = entry.planned;
+  /**
+   * Un round EST une série : même ligne, même réglage, même retrait. Seul le
+   * mot change, parce que ce qui change est la façon dont ils s'enchaînent --
+   * l'horloge plutôt que le souffle.
+   */
+  const emom = Boolean(planned.intervalSeconds);
+  const unit = emom ? 'round' : 'série';
 
   return (
     <Collapsible
@@ -475,7 +525,7 @@ function DraftCard({
           </Text>
         </View>
       }
-      summary={`${planned.sets.length} série${planned.sets.length > 1 ? 's' : ''}`}
+      summary={`${planned.sets.length} ${unit}${planned.sets.length > 1 ? 's' : ''}`}
       defaultOpen
     >
       {planned.sets.map((set, index) => (
@@ -484,7 +534,18 @@ function DraftCard({
           onPress={() => onOpenSet(index)}
           className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
         >
-          <Text className="text-small text-muted dark:text-muted-dark">Série {index + 1}</Text>
+          <View className="flex-row items-baseline gap-2">
+            {/* Le raccourci du geste le plus courant : on se trompe d'une
+                série plus souvent qu'on ne veut ouvrir sa feuille pour la
+                retirer. Celle-ci garde le même retrait, pour la main qui
+                était déjà en train de régler la cible. */}
+            <Pressable onPress={() => onRemoveSet(index)} hitSlop={12}>
+              <Ionicons name="remove-circle-outline" size={17} color={danger} />
+            </Pressable>
+            <Text className="text-small text-muted dark:text-muted-dark">
+              {emom ? 'Round' : 'Série'} {index + 1}
+            </Text>
+          </View>
           <Text
             className="font-mono-bold text-lead text-ink dark:text-ink-dark"
             style={{ fontVariant: ['tabular-nums'] }}
@@ -495,12 +556,27 @@ function DraftCard({
       ))}
 
       <Button
-        label="+ Ajouter une série"
+        label={`+ Ajouter un${emom ? ' round' : 'e série'}`}
         variant="secondary"
         size="sm"
         className="mt-2"
         onPress={onAddSet}
       />
+
+      {/* Le rythme se décide ici, une fois -- la séance, elle, n'aura plus à
+          le demander. Un interrupteur et non un bouton : il ne fait rien
+          arriver, il dit dans quel état est l'exercice. */}
+      <View className="mt-1 flex-row items-center justify-end gap-2">
+        <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+          EMOM
+        </Text>
+        <Switch
+          value={emom}
+          onValueChange={onToggleEmom}
+          trackColor={{ true: '#BFF04A', false: '#C3C8B8' }}
+          thumbColor="#FFFFFF"
+        />
+      </View>
     </Collapsible>
   );
 }

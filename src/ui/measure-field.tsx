@@ -34,8 +34,9 @@ export function MeasureField({
   label?: string;
   compact?: boolean;
   /**
-   * Le réglage est terminé. N'a de sens que pour une durée : elle se choisit
-   * d'un geste et se referme, là où un compteur n'a pas de fin.
+   * Le réglage est terminé : la roulette vient de se refermer. Vaut pour une
+   * durée comme pour un compteur -- les deux se choisissent d'un geste dans
+   * une fenêtre qui, en se fermant, dit que la série est réglée.
    */
   onDone?: () => void;
   /** Sans objet pour un compteur, qui n'a pas de fenêtre à ouvrir. */
@@ -65,6 +66,7 @@ export function MeasureField({
       step={step}
       ceiling={ceilingOf(measurementId)}
       compact={compact}
+      onDone={onDone}
     />
   );
 }
