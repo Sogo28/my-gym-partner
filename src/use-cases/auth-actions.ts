@@ -143,8 +143,17 @@ function translated(error: AuthError): Error {
     case 'over_request_rate_limit':
     case 'over_email_send_rate_limit':
       return new DomainError('Trop d’essais d’affilée. Laisse passer une minute.');
+    // Trois refus différents pour une même cause vue d'ici : le projet
+    // Supabase n'accepte pas qu'on crée un compte. Le message le dit
+    // franchement plutôt que de laisser croire à une panne -- c'est un
+    // interrupteur du tableau de bord, et personne ne le devinerait depuis
+    // « quelque chose n'a pas fonctionné ».
+    case 'email_provider_disabled':
+    case 'provider_disabled':
     case 'signup_disabled':
-      return new DomainError('Les inscriptions sont fermées sur ce projet.');
+      return new DomainError(
+        'La création de compte par e-mail est désactivée sur le projet Supabase. C’est un réglage à rouvrir dans son tableau de bord, côté Authentication.',
+      );
     case 'user_banned':
       return new DomainError('Ce compte est suspendu.');
     default:
