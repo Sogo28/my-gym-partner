@@ -17,7 +17,7 @@ import { findActive, findById } from '../infra/workout-session-repository';
  */
 export async function eraseHistory(): Promise<void> {
   if (await findActive()) {
-    throw new DomainError('Termine ou annule la séance en cours avant d effacer l historique.');
+    throw new DomainError("Termine ou annule la séance en cours avant d'effacer l'historique.");
   }
   await deleteHistory();
 }
@@ -32,10 +32,10 @@ export async function eraseHistory(): Promise<void> {
 export async function eraseSession(sessionId: string): Promise<void> {
   const session = await findById(sessionId);
   if (!session) {
-    throw new DomainError('Cette séance n existe plus.');
+    throw new DomainError("Cette séance n'existe plus.");
   }
   if (session.status === 'ACTIVE') {
-    throw new DomainError('Termine ou annule cette séance avant de l effacer.');
+    throw new DomainError("Termine ou annule cette séance avant de l'effacer.");
   }
   await deleteSession(sessionId);
 }

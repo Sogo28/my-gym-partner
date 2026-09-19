@@ -254,7 +254,7 @@ function checkRequirement(requirement: Requirement, subject: GoalSubject): void 
   const allowed = windowsFor(subject);
   for (const condition of requirement.conditions) {
     if (condition.aggregation !== 'setCount' && condition.measurementId === null) {
-      throw new DomainError('Cette condition doit préciser la mesure qu elle observe.');
+      throw new DomainError("Cette condition doit préciser la mesure qu'elle observe.");
     }
     checkQualifying(condition, subject);
     // Une mensuration n'a pas de séances, un exercice n'a pas de relevés :
@@ -262,8 +262,8 @@ function checkRequirement(requirement: Requirement, subject: GoalSubject): void 
     if (!allowed.includes(condition.window)) {
       throw new DomainError(
         subject.kind === 'body'
-          ? 'Une mensuration ne s évalue que sur son dernier relevé.'
-          : 'Un exercice ne s évalue pas sur un relevé corporel.',
+          ? "Une mensuration ne s'évalue que sur son dernier relevé."
+          : "Un exercice ne s'évalue pas sur un relevé corporel.",
       );
     }
   }
@@ -279,11 +279,11 @@ function checkQualifying(condition: Condition, subject: GoalSubject): void {
 
   if (condition.aggregation !== 'setCount') {
     throw new DomainError(
-      'Seul un décompte de séries peut décrire les séries qu il compte.',
+      "Seul un décompte de séries peut décrire les séries qu'il compte.",
     );
   }
   if (subject.kind === 'body') {
-    throw new DomainError('Un relevé corporel n est pas une série.');
+    throw new DomainError("Un relevé corporel n'est pas une série.");
   }
 
   const seen = new Set<MeasurementId>();

@@ -19,7 +19,7 @@ const FOLDER = 'repdb';
 const FILE = 'exercises.json';
 
 /** L'attribution que sa licence exige, à afficher là où le catalogue sert. */
-export const ATTRIBUTION = 'Données d exercices par RepDB (repdb.co)';
+export const ATTRIBUTION = "Données d'exercices par RepDB (repdb.co)";
 export const ATTRIBUTION_URL = 'https://repdb.co';
 
 /**
@@ -57,7 +57,7 @@ export async function download(): Promise<void> {
   try {
     await File.downloadFileAsync(SOURCE, existing);
   } catch {
-    throw new DomainError('Le catalogue n a pas pu être téléchargé. Vérifie ta connexion.');
+    throw new DomainError("Le catalogue n'a pas pu être téléchargé. Vérifie ta connexion.");
   }
 }
 

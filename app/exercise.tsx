@@ -399,7 +399,7 @@ export default function ExerciseDetailScreen() {
                     ? charted === VOLUME
                       ? 'Aucune série ne porte les deux mesures.'
                       : `Aucune série enregistrée en ${unitOf(charted)}.`
-                    : 'Une seule séance : rien à comparer pour l instant.'}
+                    : "Une seule séance : rien à comparer pour l'instant."}
                 </Text>
               )}
             </Card>

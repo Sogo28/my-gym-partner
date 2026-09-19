@@ -19,10 +19,10 @@ import { findById, save } from '../infra/workout-session-repository';
 export async function moveSession(sessionId: string, at: Date): Promise<void> {
   const session = await findById(sessionId);
   if (!session) {
-    throw new DomainError('Cette séance n existe plus.');
+    throw new DomainError("Cette séance n'existe plus.");
   }
   if (session.status === 'ACTIVE') {
-    throw new DomainError('Cette séance est en cours : termine-la d abord.');
+    throw new DomainError("Cette séance est en cours : termine-la d'abord.");
   }
 
   const shift = at.getTime() - session.startedAt.getTime();

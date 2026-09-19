@@ -102,7 +102,7 @@ function Sheet({
             onPress={() => onConfirm(null)}
           />
           <Button
-            label="Garder l extrait"
+            label="Garder l'extrait"
             size="lg"
             className="flex-1"
             disabled={from === null || to === null || invalid}

@@ -216,7 +216,7 @@ export default function SettingsScreen() {
             de performances à évaluer.
           </Text>
           <Button
-            label="Effacer l historique"
+            label="Effacer l'historique"
             variant="danger"
             size="md"
             onPress={() => setErasing(true)}
@@ -247,11 +247,11 @@ export default function SettingsScreen() {
 
       <Sheet
         visible={erasing}
-        title="Effacer l historique ?"
-        description="Toutes tes séances passées disparaissent définitivement, avec les performances qu elles portaient. Une sauvegarde est le seul moyen de les retrouver."
+        title="Effacer l'historique ?"
+        description="Toutes tes séances passées disparaissent définitivement, avec les performances qu'elles portaient. Une sauvegarde est le seul moyen de les retrouver."
         actions={[
           {
-            label: "Effacer l historique",
+            label: "Effacer l'historique",
             tone: 'danger',
             onPress: () =>
               eraseHistory()

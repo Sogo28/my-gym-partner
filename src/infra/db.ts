@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -809,6 +809,19 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
     );
   }
 
+  // Migration 29 : l'apostrophe manquante d'une mensuration du catalogue.
+  //
+  // Le catalogue de départ n'est posé qu'à la création de la base : corriger
+  // la graine ne corrige pas les installations qui l'ont déjà avalée. On vise
+  // l'identifiant, pas le libellé -- s'il a été renommé à la main entre-temps,
+  // c'est ce nom-là qui doit rester.
+  if (version < 29) {
+    await db.runAsync(
+      "UPDATE body_metrics SET name = ? WHERE id = 'tourdepaules' AND name = 'Tour d épaules';",
+      "Tour d'épaules",
+    );
+  }
+
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   return db;
 }
@@ -835,7 +848,7 @@ async function seedBodyMetrics(db: SQLite.SQLiteDatabase): Promise<void> {
     ['tourdemollet', 'Tour de mollet', 'cm', ['mollets']],
     ['tourdetaille', 'Tour de taille', 'cm', ['abdominaux']],
     ['tourdepoitrine', 'Tour de poitrine', 'cm', ['pectoraux']],
-    ['tourdepaules', 'Tour d épaules', 'cm', ['epaules', 'dos']],
+    ['tourdepaules', "Tour d'épaules", 'cm', ['epaules', 'dos']],
   ];
 
   for (const [position, [id, name, unit, muscles]] of metrics.entries()) {

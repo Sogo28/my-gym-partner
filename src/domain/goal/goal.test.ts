@@ -225,7 +225,7 @@ describe('les clauses d une condition', () => {
 
   it('refuse de décrire une série sur un relevé corporel', () => {
     expect(() => withQualifying({}, { kind: 'body', metricId: 'cuisse' } as never)).toThrow(
-      /n est pas une série/,
+      /n'est pas une série/,
     );
   });
 });

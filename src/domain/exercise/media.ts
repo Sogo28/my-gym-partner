@@ -68,7 +68,7 @@ function normalizeTrim(media: ExerciseMedia): MediaTrim | null {
     throw new DomainError("Une image n'a pas de durée : elle ne se borne pas.");
   }
   if (media.trim.from < 0 || media.trim.to <= media.trim.from) {
-    throw new DomainError('La fin d un extrait doit venir après son début.');
+    throw new DomainError("La fin d'un extrait doit venir après son début.");
   }
 
   return { from: media.trim.from, to: media.trim.to };

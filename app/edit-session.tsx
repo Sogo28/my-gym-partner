@@ -181,7 +181,7 @@ export default function EditSessionScreen() {
         {nothingToEdit && (
           <EmptyState
             title="Aucune série à corriger"
-            description="Cette séance n a validé aucune série. Sa date, elle, reste modifiable."
+            description="Cette séance n'a validé aucune série. Sa date, elle, reste modifiable."
           />
         )}
 

@@ -106,7 +106,7 @@ export default function GoalScreen() {
     if (!evaluation?.satisfied) return null;
 
     if (goal.isOnLastStep) {
-      return <BusinessNotice message="Objectif atteint" detail="C était la dernière étape." />;
+      return <BusinessNotice message="Objectif atteint" detail="C'était la dernière étape." />;
     }
 
     return (
@@ -116,7 +116,7 @@ export default function GoalScreen() {
           detail={`Tu peux passer à ${subjectName(steps[goal.currentStepIndex + 1].subject)}.`}
         />
         <Button
-          label="Passer à l étape suivante"
+          label="Passer à l'étape suivante"
           size="md"
           onPress={() =>
             advanceProgression(goal)

@@ -97,7 +97,7 @@ export function catalogueSource(onAdopted?: () => void) {
 
     adopt: async (id: string) => {
       const entry = entryById(id);
-      if (!entry) throw new DomainError('Cet exercice n est plus dans le catalogue.');
+      if (!entry) throw new DomainError("Cet exercice n'est plus dans le catalogue.");
       const created = await adoptFromCatalogue(entry);
       onAdopted?.();
       return created.id;

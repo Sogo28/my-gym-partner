@@ -40,7 +40,7 @@ export async function startWorkoutSession(
   scheduledWorkoutId?: string | null,
 ): Promise<WorkoutSession> {
   if (await findActive()) {
-    throw new DomainError('Une séance est déjà en cours. Termine-la ou annule-la d abord.');
+    throw new DomainError("Une séance est déjà en cours. Termine-la ou annule-la d'abord.");
   }
 
   const session = WorkoutSession.start({

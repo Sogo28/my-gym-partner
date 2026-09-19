@@ -35,14 +35,14 @@ export const AGGREGATION_PHRASES: Record<Aggregation, string> = {
 /** Dans une phrase : « moyenne des valeurs sur tout l'historique ». */
 export const WINDOW_PHRASES: Record<EvaluationWindow, string> = {
   LAST_SESSION: 'lors de la dernière séance',
-  ALL_TIME: 'sur tout l historique',
+  ALL_TIME: "sur tout l'historique",
   LATEST_READING: 'au dernier relevé',
 };
 
 /** Pour les boutons de choix. */
 export const WINDOW_LABELS: { value: EvaluationWindow; label: string }[] = [
   { value: 'LAST_SESSION', label: 'Dernière séance' },
-  { value: 'ALL_TIME', label: 'Tout l historique' },
+  { value: 'ALL_TIME', label: "Tout l'historique" },
   { value: 'LATEST_READING', label: 'Dernier relevé' },
 ];
 
@@ -147,7 +147,7 @@ const AGGREGATION_SHORT: Record<Aggregation, string> = {
 
 const WINDOW_SHORT: Record<EvaluationWindow, string> = {
   LAST_SESSION: 'dernière séance',
-  ALL_TIME: 'tout l historique',
+  ALL_TIME: "tout l'historique",
   LATEST_READING: 'dernier relevé',
 };
 

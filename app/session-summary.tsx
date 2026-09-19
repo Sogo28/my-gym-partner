@@ -233,7 +233,7 @@ export default function SessionSummaryScreen() {
                 />
                 {!goal.isOnLastStep && (
                   <Button
-                    label="Passer à l étape suivante"
+                    label="Passer à l'étape suivante"
                     size="md"
                     onPress={() =>
                       advanceProgression(goal)
