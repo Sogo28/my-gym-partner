@@ -4,14 +4,20 @@
 > https://docs.expo.dev/versions/v57.0.0/ avant d'écrire du code Expo.
 
 App Expo (React Native, TypeScript) de planification et de suivi sportif, **local-first** :
-domaine et base SQLite embarqués dans le téléphone, pas de backend. Mono-utilisateur.
+domaine et base SQLite embarqués dans le téléphone. Mono-utilisateur.
+
+Un compte Supabase (e-mail + mot de passe) existe désormais, mais il **ne commande rien** :
+aucun écran n'exige d'être connecté, aucune lecture ne passe par le réseau, et la base locale
+ne porte pas de `user_id` — un téléphone vaut un compte. Tout ce qui s'entraîne fonctionne
+hors ligne, et doit le rester. Configuration dans `.env` (voir `.env.example`), absente d'un
+dépôt fraîchement cloné : `isSupabaseConfigured` dit si un projet est joignable.
 
 ## Structure
 
 - `app/` — écrans. **Réservé à expo-router** : l'arborescence des fichiers définit la navigation.
 - `src/domain/` — règles métier pures. N'importe RIEN de React, Expo ou SQLite, donc testable en Node.
 - `src/use-cases/` — orchestration : génération des identifiants, lecture de l'horloge, règles qui traversent plusieurs agrégats.
-- `src/infra/` — SQLite : schéma, migrations, repositories.
+- `src/infra/` — ce qui sort du programme : SQLite (schéma, migrations, repositories) et le client Supabase.
 
 ⚠️ Ne jamais créer de dossier `src/app/` : expo-router le prendrait pour sa racine de routes
 et tenterait de rendre son contenu comme des écrans.

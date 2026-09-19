@@ -12,6 +12,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AccountProvider } from '../src/ui/account';
 import { NotificationProvider } from '../src/ui/notifications';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
 import '../global.css';
@@ -73,6 +74,9 @@ export default function RootLayout() {
     {/* Au-dessus des écrans et sous la racine des gestes : les messages
         flottent par-dessus la pile, sans appartenir à aucun écran. */}
     <NotificationProvider>
+    {/* Le compte connecté, au-dessus des écrans : une déconnexion doit
+        atteindre l'avatar de l'accueil et le profil en même temps. */}
+    <AccountProvider>
     <ThemeProvider value={theme}>
     <Stack
       screenOptions={{
@@ -88,6 +92,7 @@ export default function RootLayout() {
           rend la main à l'onglet d'où l'on vient, et non au premier. */}
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="sign-in" />
       <Stack.Screen name="history" />
       <Stack.Screen name="goals" />
       <Stack.Screen name="exercise" />
@@ -103,6 +108,7 @@ export default function RootLayout() {
       <Stack.Screen name="settings" />
     </Stack>
     </ThemeProvider>
+    </AccountProvider>
     </NotificationProvider>
     </GestureHandlerRootView>
   );

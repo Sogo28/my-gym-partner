@@ -9,7 +9,9 @@ import type { WorkoutSession } from '../../src/domain/workout-session/workout-se
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
 import { findSessionsOn, type DaySession } from '../../src/infra/session-history';
 import { findActive } from '../../src/infra/workout-session-repository';
+import { useAccount } from '../../src/ui/account';
 import { AvatarButton } from '../../src/ui/avatar';
+import { initialsOf } from '../../src/ui/initials';
 import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
@@ -57,6 +59,7 @@ const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exe
 export default function HomeScreen() {
   const { notify } = useNotifications();
   const router = useRouter();
+  const { account } = useAccount();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [week, setWeek] = useState<MuscleSummary>(EMPTY);
   const [done, setDone] = useState<Date[]>([]);
@@ -265,7 +268,12 @@ export default function HomeScreen() {
           // Le profil s'atteint depuis l'accueil, et de nulle part ailleurs :
           // c'est le premier écran, et rien de ce qu'il contient ne se fait
           // au milieu d'une série.
-          right={<AvatarButton onPress={() => router.push('/profile')} />}
+          right={
+            <AvatarButton
+              initials={account ? initialsOf(account.email) : undefined}
+              onPress={() => router.push('/profile')}
+            />
+          }
         />
       </View>
 
