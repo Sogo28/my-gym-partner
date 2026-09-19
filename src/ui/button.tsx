@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Pressable, Text, type PressableProps } from 'react-native';
+import { Pressable, Text, useColorScheme, type PressableProps } from 'react-native';
 import { cn } from './cn';
 
 /**
@@ -54,28 +55,59 @@ const label = cva('text-center', {
   defaultVariants: { variant: 'primary', size: 'lg', disabled: false },
 });
 
+/**
+ * La couleur d'une icône, par variante et par thème.
+ *
+ * Elle ne peut pas venir de la feuille de styles : une icône reçoit sa
+ * couleur en propriété. Elle suit celle du libellé qu'elle remplace.
+ */
+const ICON_COLORS: Record<'light' | 'dark', Record<string, string>> = {
+  light: { primary: '#14160F', secondary: '#14160F', ghost: '#5F6459', danger: '#B3261E' },
+  dark: { primary: '#14160F', secondary: '#F2F4EF', ghost: '#8B9086', danger: '#FF7A66' },
+};
+
+/** L'icône suit le corps du texte qu'elle remplace, à une taille près. */
+const ICON_SIZES: Record<string, number> = { '2xl': 28, xl: 26, lg: 22, md: 20, sm: 18 };
+
 type ButtonProps = Omit<PressableProps, 'disabled'> &
   VariantProps<typeof button> & {
     label: string;
+    /**
+     * Fournie : elle REMPLACE le libellé, qui reste dire à voix haute ce que
+     * le bouton fait -- un pictogramme n'a pas de nom pour qui ne le voit pas.
+     */
+    icon?: keyof typeof Ionicons.glyphMap;
     className?: string;
     disabled?: boolean;
   };
 
 export function Button({
   label: text,
+  icon,
   variant,
   size,
   disabled = false,
   className,
   ...props
 }: ButtonProps) {
+  const dark = useColorScheme() === 'dark';
+
   return (
     <Pressable
       disabled={disabled}
+      accessibilityLabel={icon ? text : undefined}
       className={cn(button({ variant, size, disabled }), className)}
       {...props}
     >
-      <Text className={label({ variant, size, disabled })}>{text}</Text>
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={ICON_SIZES[size ?? 'lg'] ?? 22}
+          color={disabled ? '#A8AD9E' : ICON_COLORS[dark ? 'dark' : 'light'][variant ?? 'primary']}
+        />
+      ) : (
+        <Text className={label({ variant, size, disabled })}>{text}</Text>
+      )}
     </Pressable>
   );
 }
