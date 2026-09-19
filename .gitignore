@@ -31,6 +31,11 @@ yarn-error.*
 *.pem
 
 # local env files
+# `.env` porte la configuration Supabase. Ses valeurs sont publiques par
+# nature -- `EXPO_PUBLIC_` les inscrit dans le bundle --, mais elles restent
+# hors du dépôt par choix : `.env.example` dit ce qu'il faut y mettre, et
+# les builds EAS lisent leurs variables depuis le serveur Expo.
+.env
 .env*.local
 
 # typescript
