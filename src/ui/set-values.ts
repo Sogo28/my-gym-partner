@@ -64,6 +64,18 @@ export function formatTargets(
   return formatSetValues({ BOTH: targets }, unitOf);
 }
 
+/**
+ * La cadence d'un exercice au rythme imposé : « EMOM · un round toutes les
+ * 1:00 ».
+ *
+ * Une ANNOTATION, pas un résumé qui remplacerait la liste : les rounds se
+ * lisent exactement comme des séries, numérotés et chiffrés, parce qu'ils en
+ * sont. Seule la façon dont ils s'enchaînent demande à être dite.
+ */
+export function formatEmomPace(intervalSeconds: number): string {
+  return `EMOM · un round toutes les ${formatDuration(intervalSeconds)}`;
+}
+
 /** La même chose en version courte, pour les pastilles. */
 export function formatTargetsShort(
   targets: TargetValues,

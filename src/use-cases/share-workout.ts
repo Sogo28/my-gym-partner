@@ -1,5 +1,5 @@
 import type { PlannedWorkout } from '../domain/planned-workout/planned-workout';
-import { formatTargets } from '../ui/set-values';
+import { formatEmomPace, formatTargets } from '../ui/set-values';
 
 /**
  * Une espace INSÉCABLE, pas une espace ordinaire.
@@ -36,6 +36,11 @@ export function describeWorkout(
     if (exercise.sets.length === 0) {
       lines.push(`${INDENT}aucune série prévue`);
     } else {
+      // La cadence en tête, puis les rounds comme des séries : à l'arrivée,
+      // c'est ainsi qu'on raconte un EMOM à quelqu'un.
+      if (exercise.intervalSeconds) {
+        lines.push(`${INDENT}${formatEmomPace(exercise.intervalSeconds)}`);
+      }
       exercise.sets.forEach((set, setIndex) => {
         lines.push(`${INDENT}${setIndex + 1}. ${formatTargets(set.targets, unitOf)}`);
       });

@@ -13,7 +13,7 @@ import { Button } from '../src/ui/button';
 import { Ionicons } from '@expo/vector-icons';
 import { BodyMap } from '../src/ui/body-map';
 import { Card } from '../src/ui/card';
-import { formatTargets } from '../src/ui/set-values';
+import { formatEmomPace, formatTargets } from '../src/ui/set-values';
 import { highlight } from '../src/ui/body-slugs';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
@@ -188,6 +188,14 @@ export default function WorkoutDetailScreen() {
                    au corps et à la couleur -- le nom en gras sombre, les séries
                    en chiffres alignés. */
                 <View className="gap-0.5">
+                  {/* Une annotation au-dessus de la liste, et non à sa place :
+                      des rounds se lisent comme des séries, seule leur cadence
+                      demande à être dite. */}
+                  {planned.intervalSeconds ? (
+                    <Text className="text-small text-muted dark:text-muted-dark">
+                      {formatEmomPace(planned.intervalSeconds)}
+                    </Text>
+                  ) : null}
                   {planned.sets.map((set, index) => (
                     <Text
                       key={index}
