@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 type SectionHeaderProps = { title: string; subtitle?: string };
@@ -12,7 +13,14 @@ export function SectionHeader({
   subtitle,
   action,
   onMenu,
-}: SectionHeaderProps & { action?: HeaderAction; onMenu?: () => void }) {
+  right,
+}: SectionHeaderProps & {
+  action?: HeaderAction;
+  onMenu?: () => void;
+  /** Ce que la page a de particulier à poser à droite du titre, quand ni un
+      raccourci textuel ni un menu ne conviennent -- l'avatar, par exemple. */
+  right?: ReactNode;
+}) {
   return (
     <View className="flex-row items-start justify-between gap-3 pb-2">
       <View className="shrink gap-1">
@@ -39,6 +47,7 @@ export function SectionHeader({
           <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
         </Pressable>
       )}
+      {right}
     </View>
   );
 }

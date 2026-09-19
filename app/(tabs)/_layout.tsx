@@ -3,12 +3,18 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 /**
- * Les cinq sections de l'application.
+ * Les quatre sections de l'application.
  *
  * Elles seules sont des onglets. Tout ce qui s'ouvre PAR-DESSUS -- une fiche,
  * un formulaire, les réglages -- vit dans la pile au-dessus de ce groupe :
  * un écran caché de la barre reste un onglet, et revenir depuis un onglet
  * ramène au premier de la liste, pas à l'écran d'où l'on vient.
+ *
+ * Un onglet est un endroit où l'on REVIENT sans cesse. L'historique et les
+ * objectifs, eux, se consultent : ils sont passés dans la pile, sous le
+ * profil, et ce sont de vrais fichiers déplacés hors de ce dossier -- les
+ * cacher de la barre les aurait laissés onglets, avec le retour qui ramène
+ * au premier de la liste plutôt qu'à l'écran d'où l'on vient.
  */
 export default function TabsLayout() {
   // La barre d'onglets est un composant natif : ses couleurs se règlent en
@@ -31,9 +37,6 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontFamily: 'Archivo_700Bold', fontSize: 11 },
       }}
     >
-      {/* Temporaire : l'accueil s'éprouve à côté des onglets actuels avant
-          qu'on ne réduise la barre à trois. Démonter la navigation avant que
-          la destination n'existe casserait les deux. */}
       <Tabs.Screen
         name="home"
         options={{
@@ -49,13 +52,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Historique',
-          tabBarIcon: ({ color }) => <Ionicons name="time-outline" size={20} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="index"
         options={{
           title: 'Exercices',
@@ -63,16 +59,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="goals"
-        options={{
-          title: 'Objectifs',
-          tabBarIcon: ({ color }) => <Ionicons name="trophy-outline" size={19} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="workouts"
         options={{
-          title: 'Entraîn.',
+          title: 'Entraînements',
           tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={19} color={color} />,
         }}
       />

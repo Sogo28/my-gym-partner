@@ -2,25 +2,25 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { Measurement } from '../../src/domain/exercise/measurement';
-import type { BodyMetric } from '../../src/domain/body/body-metric';
-import type { Goal, GoalSubject } from '../../src/domain/goal/goal';
-import { findAll as findAllExercises, findAllMeasurements } from '../../src/infra/exercise-repository';
-import { listMetrics } from '../../src/use-cases/body-actions';
-import { useNotifications } from '../../src/ui/notifications';
-import { messageOf } from '../../src/ui/message';
-import { GoalCard } from '../../src/ui/goal-card';
-import { EmptyState } from '../../src/ui/empty-state';
-import { SearchField } from '../../src/ui/search';
-import { fold } from '../../src/text';
-import { Fab } from '../../src/ui/fab';
-import { SectionHeader } from '../../src/ui/screen-header';
+import type { Exercise } from '../src/domain/exercise/exercise';
+import type { Measurement } from '../src/domain/exercise/measurement';
+import type { BodyMetric } from '../src/domain/body/body-metric';
+import type { Goal, GoalSubject } from '../src/domain/goal/goal';
+import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
+import { listMetrics } from '../src/use-cases/body-actions';
+import { useNotifications } from '../src/ui/notifications';
+import { messageOf } from '../src/ui/message';
+import { GoalCard } from '../src/ui/goal-card';
+import { EmptyState } from '../src/ui/empty-state';
+import { SearchField } from '../src/ui/search';
+import { fold } from '../src/text';
+import { Fab } from '../src/ui/fab';
+import { BackHeader } from '../src/ui/screen-header';
 import {
   evaluateGoal,
   listGoals,
   type GoalEvaluation,
-} from '../../src/use-cases/goal-actions';
+} from '../src/use-cases/goal-actions';
 
 export default function GoalsScreen() {
   const { notify } = useNotifications();
@@ -85,14 +85,15 @@ export default function GoalsScreen() {
   });
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="px-5 pt-4">
-        <SectionHeader
+        {/* Les mensurations ne sont plus annoncées ici : le profil les range
+            à côté des objectifs, et deux chemins vers la même page en font
+            une qu'on ne sait plus où chercher. */}
+        <BackHeader
           title="Objectifs"
           subtitle={`${active.length} en cours · évalués sur tes performances`}
-          // Les mensurations sont une page voisine, pas une action de
-          // celle-ci : en bas, elles se seraient fait passer pour telle.
-          action={{ label: 'Mensurations', onPress: () => router.push('/body') }}
+          onBack={() => router.back()}
         />
 
         <View className="pb-3">

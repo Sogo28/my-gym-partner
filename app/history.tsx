@@ -1,28 +1,28 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useNotifications } from '../../src/ui/notifications';
-import { messageOf } from '../../src/ui/message';
+import { useNotifications } from '../src/ui/notifications';
+import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Exercise } from '../../src/domain/exercise/exercise';
-import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
-import { findAll as findAllExercises } from '../../src/infra/exercise-repository';
-import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
-import { listSessionSummaries, type SessionSummary } from '../../src/use-cases/session-summary';
+import type { Exercise } from '../src/domain/exercise/exercise';
+import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import { findAll as findAllExercises } from '../src/infra/exercise-repository';
+import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
+import { listSessionSummaries, type SessionSummary } from '../src/use-cases/session-summary';
 import {
   applyBackup,
   pickBackup,
   shareBackup,
   type BackupPreview,
-} from '../../src/use-cases/backup-actions';
-import { Button } from '../../src/ui/button';
-import { Card } from '../../src/ui/card';
-import { Sheet } from '../../src/ui/sheet';
-import { EmptyState } from '../../src/ui/empty-state';
-import { SectionHeader } from '../../src/ui/screen-header';
-import { SearchField } from '../../src/ui/search';
-import { fold } from '../../src/text';
-import { formatClock, formatDateTime } from '../../src/ui/format';
+} from '../src/use-cases/backup-actions';
+import { Button } from '../src/ui/button';
+import { Card } from '../src/ui/card';
+import { Sheet } from '../src/ui/sheet';
+import { EmptyState } from '../src/ui/empty-state';
+import { BackHeader } from '../src/ui/screen-header';
+import { SearchField } from '../src/ui/search';
+import { fold } from '../src/text';
+import { formatClock, formatDateTime } from '../src/ui/format';
 
 /** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
 const PAGE = 10;
@@ -138,11 +138,12 @@ export default function HistoryScreen() {
   const visible = matching.slice(0, shown);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-background dark:bg-background-dark">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
       <View className="gap-3 px-5 pt-4">
-        <SectionHeader
+        <BackHeader
           title="Historique"
           subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
+          onBack={() => router.back()}
           onMenu={() => setMenu(true)}
         />
 

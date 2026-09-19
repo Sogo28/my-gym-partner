@@ -87,6 +87,9 @@ export default function RootLayout() {
           Chacun se pose SUR la barre au lieu de la remplacer : le retour
           rend la main à l'onglet d'où l'on vient, et non au premier. */}
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="history" />
+      <Stack.Screen name="goals" />
       <Stack.Screen name="exercise" />
       <Stack.Screen name="workout" />
       <Stack.Screen name="new-workout" />

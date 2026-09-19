@@ -9,6 +9,7 @@ import type { WorkoutSession } from '../../src/domain/workout-session/workout-se
 import { findAll as findAllPlans } from '../../src/infra/planned-workout-repository';
 import { findSessionsOn, type DaySession } from '../../src/infra/session-history';
 import { findActive } from '../../src/infra/workout-session-repository';
+import { AvatarButton } from '../../src/ui/avatar';
 import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
@@ -261,6 +262,10 @@ export default function HomeScreen() {
               ? 'aucun exercice travaillé cette semaine'
               : `${week.exerciseCount} exercice${week.exerciseCount > 1 ? 's' : ''} travaillé${week.exerciseCount > 1 ? 's' : ''} cette semaine`
           }
+          // Le profil s'atteint depuis l'accueil, et de nulle part ailleurs :
+          // c'est le premier écran, et rien de ce qu'il contient ne se fait
+          // au milieu d'une série.
+          right={<AvatarButton onPress={() => router.push('/profile')} />}
         />
       </View>
 
