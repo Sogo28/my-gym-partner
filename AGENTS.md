@@ -12,6 +12,11 @@ ne porte pas de `user_id` — un téléphone vaut un compte. Tout ce qui s'entra
 hors ligne, et doit le rester. Configuration dans `.env` (voir `.env.example`), absente d'un
 dépôt fraîchement cloné : `isSupabaseConfigured` dit si un projet est joignable.
 
+Le compte sert à UNE chose : déposer des copies datées de la base dans le seau Storage
+`backups`, dossier par compte. Ce n'est pas une synchronisation — le téléphone reste la
+vérité, et restaurer REMPLACE tout. Le cloisonnement est assuré par les politiques RLS de
+`docs/supabase-storage.sql`, à jouer une fois sur un projet neuf.
+
 ## Structure
 
 - `app/` — écrans. **Réservé à expo-router** : l'arborescence des fichiers définit la navigation.

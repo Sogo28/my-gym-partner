@@ -58,6 +58,22 @@ export type BackupPreview = {
 };
 
 /**
+ * Ce qu'une sauvegarde annonce d'elle-même, sans rien appliquer.
+ *
+ * Trois nombres suffisent à reconnaître SA sauvegarde : le reste en découle,
+ * et une liste exhaustive ne se lit pas dans un dialogue de confirmation.
+ */
+export function previewOf(backup: Backup): BackupPreview {
+  return {
+    backup,
+    exportedAt: new Date(backup.exportedAt),
+    exercises: backup.tables.exercises?.length ?? 0,
+    sessions: backup.tables.workout_sessions?.length ?? 0,
+    performances: backup.tables.exercise_performances?.length ?? 0,
+  };
+}
+
+/**
  * Laisse choisir un fichier et en lit le contenu, SANS rien remplacer.
  *
  * La restauration efface tout : on annonce d'abord ce qu'on s'apprête à
@@ -78,13 +94,7 @@ export async function pickBackup(): Promise<BackupPreview | null> {
     throw new DomainError("Ce fichier n'est pas une sauvegarde de l'application.");
   }
 
-  return {
-    backup,
-    exportedAt: new Date(backup.exportedAt),
-    exercises: backup.tables.exercises?.length ?? 0,
-    sessions: backup.tables.workout_sessions?.length ?? 0,
-    performances: backup.tables.exercise_performances?.length ?? 0,
-  };
+  return previewOf(backup);
 }
 
 /** Remplace toutes les données par celles de la sauvegarde. */

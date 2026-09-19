@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AccountProvider } from '../src/ui/account';
+import { AutoBackup } from '../src/ui/auto-backup';
 import { NotificationProvider } from '../src/ui/notifications';
 // Charge les styles Tailwind générés. Doit être importé une seule fois, ici.
 import '../global.css';
@@ -77,6 +78,9 @@ export default function RootLayout() {
     {/* Le compte connecté, au-dessus des écrans : une déconnexion doit
         atteindre l'avatar de l'accueil et le profil en même temps. */}
     <AccountProvider>
+    {/* Ne rend rien : guette le retour au premier plan pour déposer une
+        copie, quand il y a un compte et que quelque chose a changé. */}
+    <AutoBackup />
     <ThemeProvider value={theme}>
     <Stack
       screenOptions={{
