@@ -39,6 +39,14 @@ export function __clearData(): void {
 }
 
 const handle = {
+  /**
+   * Fermer ne détruit rien ici : la base de test vit en mémoire et sert tous
+   * les tests. Ce qui compte est que le code de production PUISSE fermer une
+   * poignée avant d'en rouvrir une -- c'est ainsi qu'il se débarrasse d'une
+   * base que le module natif a détruite sous ses pieds.
+   */
+  async closeAsync(): Promise<void> {},
+
   async execAsync(sql: string): Promise<void> {
     db.exec(sql);
   },

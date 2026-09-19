@@ -30,8 +30,28 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
   // Libérée sous nos pieds : on rouvre, une fois. Si la neuve ne répond pas
   // davantage, la panne n'est plus celle-là et doit se dire.
+  await discard(db);
   dbPromise = null;
   return open();
+}
+
+/**
+ * Se débarrasser d'une base morte AVANT d'en rouvrir une.
+ *
+ * Le module natif garde les bases ouvertes dans un cache, exprès pour
+ * survivre aux rechargements à chaud : il rend LA MÊME à qui la redemande.
+ * Rouvrir sans fermer d'abord redonnait donc la morte, indéfiniment.
+ *
+ * La fermeture elle-même échoue -- on ferme un objet déjà détruit -- mais le
+ * module le retire de son cache AVANT d'essayer, et c'est tout ce qu'on lui
+ * demande : que la prochaine ouverture en fabrique une neuve.
+ */
+async function discard(db: SQLite.SQLiteDatabase): Promise<void> {
+  try {
+    await db.closeAsync();
+  } catch {
+    // Déjà morte. Elle a quitté le cache, c'est ce qui compte.
+  }
 }
 
 function open(): Promise<SQLite.SQLiteDatabase> {
@@ -45,6 +65,28 @@ function open(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
+/**
+ * Ouvre la base, et s'assure que la poignée rendue est VIVANTE.
+ *
+ * Une poignée peut naître morte. Le module natif garde les bases ouvertes
+ * dans un cache pour survivre aux rechargements à chaud et rend LA MÊME à qui
+ * la redemande ; mais quand le contexte précédent lâche la sienne, il la
+ * FERME sans regarder qui d'autre s'en sert. On hérite alors d'un objet natif
+ * déjà détruit, sur lequel la moindre requête échoue (« NullPointerException »
+ * côté Android, la poignée ne pointant plus nulle part).
+ *
+ * La sonde est une LECTURE, jouée avant de toucher au schéma : une migration
+ * interrompue en plein vol laisserait la base à moitié à jour, sans le numéro
+ * de version qui le dirait.
+ */
+async function openLive(): Promise<SQLite.SQLiteDatabase> {
+  const db = await SQLite.openDatabaseAsync('my-gym-partner.db');
+  if (await answers(db)) return db;
+
+  await discard(db);
+  return SQLite.openDatabaseAsync('my-gym-partner.db');
+}
+
 async function answers(db: SQLite.SQLiteDatabase): Promise<boolean> {
   try {
     await db.getFirstAsync('SELECT 1;');
@@ -55,7 +97,7 @@ async function answers(db: SQLite.SQLiteDatabase): Promise<boolean> {
 }
 
 async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
-  const db = await SQLite.openDatabaseAsync('my-gym-partner.db');
+  const db = await openLive();
 
   // Les clés étrangères sont désactivées par défaut dans SQLite.
   await db.execAsync('PRAGMA foreign_keys = ON;');
@@ -754,7 +796,14 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // font en EMOM dans un entraînement et en séries libres dans un autre.
   // Nullable, et null pour tout l'existant : un entraînement déjà écrit ne
   // devient pas un EMOM parce que la colonne est apparue.
-  if (version < 28) {
+  //
+  // Ajoutée seulement si elle manque : rien n'enferme les migrations dans une
+  // transaction, et le numéro de version ne se pose qu'à la toute fin. Une
+  // migration coupée en plein vol -- l'app tuée, l'objet natif libéré sous
+  // nos pieds -- laisse donc la colonne posée et la version en arrière. Sans
+  // cette garde, le démarrage suivant rejouerait l'ajout, échouerait sur une
+  // colonne en double, et l'app ne s'ouvrirait plus jamais.
+  if (version < 28 && !(await hasColumn(db, 'planned_workout_exercises', 'interval_seconds'))) {
     await db.execAsync(
       'ALTER TABLE planned_workout_exercises ADD COLUMN interval_seconds INTEGER;',
     );
@@ -762,6 +811,16 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   return db;
+}
+
+/** La table porte-t-elle déjà cette colonne ? C'est SQLite qui le dit. */
+async function hasColumn(
+  db: SQLite.SQLiteDatabase,
+  table: string,
+  column: string,
+): Promise<boolean> {
+  const columns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table});`);
+  return columns.some((candidate) => candidate.name === column);
 }
 
 /**
