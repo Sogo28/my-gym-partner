@@ -186,6 +186,34 @@ export class ExercisePerformance {
   }
 
   /**
+   * Consigner une série déjà faite, sans l'avoir chronométrée.
+   *
+   * L'autre façon dont une série devient une performance : non plus en la
+   * vivant -- démarrée, puis close quand elle s'achève --, mais en la
+   * DÉCLARANT après coup. Le soir, on se souvient d'avoir fait huit
+   * répétitions à soixante kilos ; on ne se souvient pas de la seconde où on
+   * a reposé la barre.
+   *
+   * C'est pourquoi elle n'a pas de fin : `endedAt` reste null, là où une
+   * série vécue le porte. Ce n'est pas un trou à combler mais le fait
+   * lui-même -- cette série n'a pas été mesurée dans le temps. Les écrans
+   * qui affichent un temps d'exécution s'en taisent alors, au lieu
+   * d'annoncer une durée que personne n'a relevée.
+   */
+  logSet(values: ValuesBySide, at: Date): void {
+    if (this.currentSet) {
+      throw new DomainError('Une série est déjà en cours.');
+    }
+    this._sets.push({
+      status: 'COMPLETED',
+      values: this.checkValues(values),
+      startedAt: at,
+      endedAt: null,
+      videoUri: null,
+    });
+  }
+
+  /**
    * IN_PROGRESS -> ABANDONED. On garde les valeurs saisies avant l'abandon
    * (elles restent lisibles pendant la séance) mais la série ne comptera pas
    * comme performance.

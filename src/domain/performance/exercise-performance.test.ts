@@ -278,3 +278,54 @@ describe('ExercisePerformance', () => {
     ]);
   });
 });
+
+/**
+ * Une série déclarée après coup : elle a eu lieu, mais personne ne l'a
+ * chronométrée.
+ */
+describe('Consigner une série non chronométrée', () => {
+  it('compte comme une performance', () => {
+    const performance = pullUp();
+
+    performance.logSet({ BOTH: { reps: 8, weight: 60 } }, t(5));
+
+    expect(performance.completedSets).toHaveLength(1);
+    expect(performance.completedSets[0].values).toEqual({ BOTH: { reps: 8, weight: 60 } });
+  });
+
+  it('n annonce aucune durée d exécution', () => {
+    const performance = pullUp();
+
+    performance.logSet({ BOTH: { reps: 8 } }, t(5));
+
+    // Pas un trou à combler : le fait qu'on n'a pas mesuré ce temps-là.
+    expect(performance.sets[0].endedAt).toBeNull();
+  });
+
+  it('vérifie les valeurs comme n importe quelle série', () => {
+    const performance = pullUp();
+
+    expect(() => performance.logSet({ BOTH: { duration: 30 } }, t(5))).toThrow(
+      /ne se mesure pas/,
+    );
+    expect(() => performance.logSet({}, t(5))).toThrow(/au moins une valeur/);
+  });
+
+  it('refuse de s ajouter derrière une série en cours', () => {
+    const performance = pullUp();
+    performance.startSet(t(1));
+
+    expect(() => performance.logSet({ BOTH: { reps: 8 } }, t(5))).toThrow(/déjà en cours/);
+  });
+
+  it('se corrige et se retire comme les autres', () => {
+    const performance = pullUp();
+    performance.logSet({ BOTH: { reps: 8 } }, t(5));
+
+    performance.correctSetValues(0, { BOTH: { reps: 9 } });
+    expect(performance.completedSets[0].values).toEqual({ BOTH: { reps: 9 } });
+
+    performance.removeSet(0);
+    expect(performance.sets).toHaveLength(0);
+  });
+});
