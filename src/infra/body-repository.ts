@@ -1,5 +1,5 @@
 import { BodyMetric, BodyReading } from '../domain/body/body-metric';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 type MetricRow = {
   id: string;
@@ -14,7 +14,7 @@ type ReadingRow = { id: string; metric_id: string; value: number; taken_at: stri
 export async function saveMetric(metric: BodyMetric): Promise<void> {
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     // La position ne sert qu'à l'ordre d'affichage : une mensuration ajoutée
     // par l'utilisateur se range après le catalogue de départ.
     await db.runAsync(

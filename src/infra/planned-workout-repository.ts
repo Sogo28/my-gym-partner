@@ -3,7 +3,7 @@ import {
   type PlannedExercise,
   type PlannedSet,
 } from '../domain/planned-workout/planned-workout';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 type WorkoutRow = { id: string; name: string; archived: number };
 type ExerciseRow = {
@@ -23,7 +23,7 @@ type SetRow = {
 export async function save(workout: PlannedWorkout): Promise<void> {
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     await db.runAsync(
       `INSERT INTO planned_workouts (id, name, archived) VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET name = excluded.name, archived = excluded.archived;`,

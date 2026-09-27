@@ -1,7 +1,7 @@
 import { Exercise } from '../domain/exercise/exercise';
 import type { Measurement } from '../domain/exercise/measurement';
 import type { Muscle } from '../domain/exercise/muscle';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 type ExerciseRow = {
   id: string;
@@ -34,7 +34,7 @@ export async function save(exercise: Exercise): Promise<void> {
   // mesures échoue après celle de l'exercice, on se retrouverait avec un
   // exercice sans mesure -- un état que le domaine interdit. La transaction
   // garantit que soit tout est écrit, soit rien ne l'est.
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     await db.runAsync(
       `INSERT INTO exercises (id, name, is_unilateral, archived, origin) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
@@ -191,7 +191,7 @@ export async function isReferenced(exerciseId: string): Promise<boolean> {
 /** Suppression définitive : réservée à un exercice que rien ne référence. */
 export async function remove(exerciseId: string): Promise<void> {
   const db = await getDatabase();
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     await db.runAsync('DELETE FROM exercise_measurements WHERE exercise_id = ?;', exerciseId);
     await db.runAsync('DELETE FROM exercises WHERE id = ?;', exerciseId);
   });

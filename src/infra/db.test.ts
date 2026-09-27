@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { useCleanDatabase } from '../../test/support';
+import { anExercise, useCleanDatabase } from '../../test/support';
+import { ExercisePerformance } from '../domain/performance/exercise-performance';
+import { save as savePerformance } from './performance-repository';
 import { getDatabase, SCHEMA_VERSION } from './db';
 
 useCleanDatabase();
@@ -90,5 +92,55 @@ describe('L ouverture de la base', () => {
     // REPRISE d'une migration, pas de celle qui se trouvait être la dernière
     // le jour où il a été écrit.
     expect(version?.user_version).toBe(SCHEMA_VERSION);
+  });
+});
+
+/**
+ * Une seule connexion sert toute l'application, et `withTransactionAsync`
+ * d'expo-sqlite ne s'ordonne pas tout seul -- le module le dit lui-même :
+ * « This transaction is not exclusive and can be interrupted by other async
+ * queries ». Deux écritures lancées sans s'attendre posaient donc deux BEGIN
+ * sur la même connexion, et l'une des deux échouait sur un COMMIT ou un
+ * ROLLBACK qui n'avait plus de transaction à refermer.
+ */
+describe('Deux écritures en même temps', () => {
+  const aPerformance = (id: string, exerciseId: string) =>
+    ExercisePerformance.start({
+      id,
+      exerciseId,
+      measurementIds: ['reps'],
+      at: new Date(),
+    });
+
+  it('se suivent au lieu de se marcher dessus', async () => {
+    const exercise = await anExercise('Traction', ['reps']);
+
+    // Lancées ensemble, sans attendre : c'est ce que fait l'écran quand on
+    // tape deux fois de suite sur « − » pour corriger une série.
+    await expect(
+      Promise.all([
+        savePerformance(aPerformance('p1', exercise.id)),
+        savePerformance(aPerformance('p2', exercise.id)),
+      ]),
+    ).resolves.toBeDefined();
+
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM exercise_performances;');
+    expect(rows.map((row) => row.id).sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('laissent la connexion propre quand l une échoue', async () => {
+    const exercise = await anExercise('Traction', ['reps']);
+
+    // La seconde vise un exercice qui n'existe pas : son échec ne doit pas
+    // emporter la transaction de la première, ni laisser une transaction
+    // ouverte derrière lui -- la suivante ne pourrait plus rien écrire.
+    const results = await Promise.allSettled([
+      savePerformance(aPerformance('p1', exercise.id)),
+      savePerformance(aPerformance('p2', 'inconnu')),
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(['fulfilled', 'rejected']);
+    await expect(savePerformance(aPerformance('p3', exercise.id))).resolves.toBeUndefined();
   });
 });

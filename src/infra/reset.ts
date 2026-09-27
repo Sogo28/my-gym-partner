@@ -1,4 +1,4 @@
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 import { tableNames } from './backup';
 
 /**
@@ -26,7 +26,7 @@ export async function resetData(): Promise<void> {
   // être posé dans une transaction, d'où sa place ici.
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
-    await db.withTransactionAsync(async () => {
+    await inTransaction(db, async () => {
       for (const name of [...names].reverse()) {
         if (CATALOGUES.includes(name) || name === 'body_metrics') continue;
         await db.runAsync(`DELETE FROM ${name};`);
@@ -61,7 +61,7 @@ export async function deleteHistory(): Promise<void> {
   // une clé étrangère à un moment.
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
-    await db.withTransactionAsync(async () => {
+    await inTransaction(db, async () => {
       await db.runAsync('DELETE FROM performance_set_values;');
       await db.runAsync('DELETE FROM performance_sets;');
       await db.runAsync('DELETE FROM exercise_performances;');
@@ -95,7 +95,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
-    await db.withTransactionAsync(async () => {
+    await inTransaction(db, async () => {
       // Les performances D'ABORD : on les retrouve par les activités, qu'il
       // faut donc effacer après elles.
       await db.runAsync(

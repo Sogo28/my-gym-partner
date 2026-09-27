@@ -11,7 +11,7 @@ import {
   type ProgressionStep,
   type Requirement,
 } from '../domain/goal/goal';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 /** Le requirement de l'objectif lui-même, quand il n'a pas d'étapes. */
 const GOAL_ITSELF = -1;
@@ -58,7 +58,7 @@ export async function save(goal: Goal): Promise<void> {
   const db = await getDatabase();
   const target = goal.target;
 
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     const subject = target.kind === 'simple' ? target.subject : null;
 
     await db.runAsync(

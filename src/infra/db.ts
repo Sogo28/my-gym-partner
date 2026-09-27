@@ -36,6 +36,46 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 }
 
 /**
+ * Une écriture à la fois.
+ *
+ * `withTransactionAsync` ne s'ordonne pas tout seul -- expo-sqlite le dit :
+ * « This transaction is not exclusive and can be interrupted by other async
+ * queries ». Et toute l'application partage UNE connexion, sur laquelle deux
+ * BEGIN ne peuvent pas cohabiter : la seconde transaction échoue à s'ouvrir,
+ * son ROLLBACK de rattrapage referme celle de la première, et la dernière des
+ * deux s'écrase sur « cannot rollback - no transaction is active ». Une
+ * écriture perdue, et un message qui ne dit pas de quoi il parle.
+ *
+ * Or rien ne garantit qu'on attende une écriture avant d'en lancer une autre :
+ * l'écran de séance en lance à chaque cran d'une valeur, sans attendre --
+ * corriger une série de deux taps suffit --, et pendant un EMOM l'horloge en
+ * lance de son côté. Les deux se croisaient.
+ *
+ * D'où cette file : les transactions se suivent dans l'ordre où elles ont été
+ * demandées. Chacune garde son BEGIN pour elle, et la dernière valeur réglée
+ * reste bien la dernière écrite.
+ *
+ * Les LECTURES ne passent pas par ici : elles n'ouvrent pas de transaction, et
+ * les faire attendre ralentirait chaque écran pour rien.
+ *
+ * Ce qui est passé en tâche n'écrit QU'AVEC `db` -- jamais en appelant un
+ * repository, qui reviendrait faire la queue derrière la transaction qui
+ * l'attend, et ne passerait jamais son tour.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+
+export function inTransaction(
+  db: SQLite.SQLiteDatabase,
+  task: () => Promise<void>,
+): Promise<void> {
+  const run = queue.then(() => db.withTransactionAsync(task));
+  // La file ne se casse pas sur un échec : l'écriture suivante doit passer,
+  // et c'est son appelant qui apprend l'échec de la sienne, pas elle.
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+/**
  * Se débarrasser d'une base morte AVANT d'en rouvrir une.
  *
  * Le module natif garde les bases ouvertes dans un cache, exprès pour

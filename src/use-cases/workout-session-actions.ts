@@ -26,6 +26,40 @@ import { DomainError } from '../domain/domain-error';
  */
 
 /**
+ * Une action de séance à la fois.
+ *
+ * Chacune de ces actions fait un aller-retour : charger la séance ou la
+ * performance, laisser le domaine décider, réécrire. Deux qui se chevauchent
+ * lisent donc le même état de départ, et la seconde à écrire efface ce que la
+ * première venait de faire -- sans erreur, sans trace, la correction a juste
+ * disparu.
+ *
+ * Ce n'est pas théorique : l'écran de séance écrit à chaque cran d'une valeur
+ * SANS attendre la précédente, et pendant un EMOM l'horloge écrit de son côté
+ * -- elle note le round et démarre le suivant toute seule. Le doigt et
+ * l'horloge se croisaient.
+ *
+ * La file d'attente des transactions (`inTransaction`, dans db.ts) ne suffit
+ * pas : elle empêche deux BEGIN de cohabiter, mais les LECTURES qui précèdent
+ * n'y passent pas. C'est tout l'aller-retour qu'il faut tenir, pas la seule
+ * écriture.
+ *
+ * Ce qui passe ici ne doit donc appeler AUCUNE action déjà sérialisée : elle
+ * attendrait un tour que son propre appelant retient, et ne viendrait jamais.
+ * Les actions composées (« passer au suivant » = finir puis démarrer)
+ * enchaînent des tours, elles n'en prennent pas un de plus.
+ */
+let turn: Promise<unknown> = Promise.resolve();
+
+function oneAtATime<T>(action: () => Promise<T>): Promise<T> {
+  const run = turn.then(action);
+  // La file ne se casse pas sur un refus du domaine : l'action suivante doit
+  // passer, et c'est son appelant qui apprend l'échec de la sienne.
+  turn = run.catch(() => undefined);
+  return run;
+}
+
+/**
  * StartWorkoutSession (§30). La séance peut naître d'un entraînement planifié
  * ou de rien du tout.
  *
@@ -137,16 +171,18 @@ export async function finishActivity(): Promise<WorkoutSession> {
  * À lire avant que la séance ne se referme : une fois close, elle n'a plus
  * d'exercice en cours.
  */
-async function abandonRemainingSets(): Promise<void> {
-  const session = await findActive();
-  const activity = session?.currentActivity;
-  if (!session || !activity?.performanceId) return;
+function abandonRemainingSets(): Promise<void> {
+  return oneAtATime(async () => {
+    const session = await findActive();
+    const activity = session?.currentActivity;
+    if (!session || !activity?.performanceId) return;
 
-  const performance = await findPerformanceById(activity.performanceId);
-  if (!performance) return;
+    const performance = await findPerformanceById(activity.performanceId);
+    if (!performance) return;
 
-  performance.abandonRemainingPlannedSets(await plannedSetCount(session, activity), new Date());
-  await savePerformance(performance);
+    performance.abandonRemainingPlannedSets(await plannedSetCount(session, activity), new Date());
+    await savePerformance(performance);
+  });
 }
 
 /**
@@ -263,24 +299,26 @@ async function stopRestIfAny(): Promise<void> {
 export const abandonPerformanceSet = () =>
   onCurrentPerformance((p, now) => p.abandonCurrentSet(now));
 
-async function onCurrentPerformance(
+function onCurrentPerformance(
   action: (performance: ExercisePerformance, now: Date) => void,
 ): Promise<ExercisePerformance> {
-  const session = await findActive();
-  const current = session?.currentActivity;
-  if (!current?.performanceId) {
-    throw new DomainError("Aucun exercice n'est en cours.");
-  }
+  return oneAtATime(async () => {
+    const session = await findActive();
+    const current = session?.currentActivity;
+    if (!current?.performanceId) {
+      throw new DomainError("Aucun exercice n'est en cours.");
+    }
 
-  const performance = await findPerformanceById(current.performanceId);
-  if (!performance) {
-    throw new DomainError('Performance introuvable.');
-  }
+    const performance = await findPerformanceById(current.performanceId);
+    if (!performance) {
+      throw new DomainError('Performance introuvable.');
+    }
 
-  action(performance, new Date());
+    action(performance, new Date());
 
-  await savePerformance(performance);
-  return performance;
+    await savePerformance(performance);
+    return performance;
+  });
 }
 
 /**
@@ -307,16 +345,18 @@ export async function cancelWorkoutSession(): Promise<WorkoutSession> {
   return onActiveSession((session, now) => session.cancel(now));
 }
 
-async function onActiveSession(
+function onActiveSession(
   action: (session: WorkoutSession, now: Date) => void,
 ): Promise<WorkoutSession> {
-  const session = await findActive();
-  if (!session) {
-    throw new DomainError("Aucune séance n'est en cours.");
-  }
+  return oneAtATime(async () => {
+    const session = await findActive();
+    if (!session) {
+      throw new DomainError("Aucune séance n'est en cours.");
+    }
 
-  action(session, new Date());
+    action(session, new Date());
 
-  await save(session);
-  return session;
+    await save(session);
+    return session;
+  });
 }

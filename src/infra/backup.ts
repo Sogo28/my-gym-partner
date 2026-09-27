@@ -1,4 +1,4 @@
-import { getDatabase, SCHEMA_VERSION } from './db';
+import { getDatabase, inTransaction, SCHEMA_VERSION } from './db';
 
 /**
  * Copie et restauration de toute la base.
@@ -72,7 +72,7 @@ export async function restoreBackup(backup: Backup): Promise<void> {
   // transaction, d'où sa place ici.
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
-    await db.withTransactionAsync(async () => {
+    await inTransaction(db, async () => {
       for (const name of [...names].reverse()) {
         await db.runAsync(`DELETE FROM ${name};`);
       }

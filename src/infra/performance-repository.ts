@@ -5,7 +5,7 @@ import {
   type SetValues,
   type Side,
 } from '../domain/performance/exercise-performance';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 type PerformanceRow = { id: string; exercise_id: string; started_at: string };
 type MeasurementRow = { performance_id: string; measurement_id: string };
@@ -28,7 +28,7 @@ type ValueRow = {
 export async function save(performance: ExercisePerformance): Promise<void> {
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     await db.runAsync(
       `INSERT INTO exercise_performances (id, exercise_id, started_at) VALUES (?, ?, ?)
        -- started_at se réécrit : une performance suit la séance qu'on déplace.

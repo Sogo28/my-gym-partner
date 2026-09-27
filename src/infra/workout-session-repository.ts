@@ -4,7 +4,7 @@ import {
   type Rest,
   type WorkoutSessionStatus,
 } from '../domain/workout-session/workout-session';
-import { getDatabase } from './db';
+import { getDatabase, inTransaction } from './db';
 
 type SessionRow = {
   id: string;
@@ -34,7 +34,7 @@ type RestRow = {
 export async function save(session: WorkoutSession): Promise<void> {
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
+  await inTransaction(db, async () => {
     await db.runAsync(
       `INSERT INTO workout_sessions
          (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri)

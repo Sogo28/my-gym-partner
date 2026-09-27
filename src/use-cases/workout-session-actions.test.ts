@@ -8,6 +8,7 @@ import { scheduleWorkout } from './scheduling-actions';
 import {
   cancelWorkoutSession,
   completePerformanceSet,
+  correctSet,
   finishActivity,
   finishWorkoutSession,
   goToNextExercise,
@@ -351,5 +352,50 @@ describe('Correction pendant la séance', () => {
 
     const sets = await currentSets();
     expect(sets.map((set) => set.values.BOTH?.duration)).toEqual([10, 8]);
+  });
+});
+
+/**
+ * L'écran de séance écrit SANS attendre : chaque cran d'une valeur part pour
+ * lui-même, et pendant un EMOM l'horloge écrit de son côté -- elle note le
+ * round et démarre le suivant toute seule.
+ *
+ * Deux allers-retours qui se chevauchent lisent le même état de départ, et la
+ * seconde écriture efface la première. Sans erreur : la correction disparaît,
+ * simplement.
+ */
+describe('Deux actions lancées sans s attendre', () => {
+  async function twoCompletedSets(exerciseId: string) {
+    await startWorkoutSession();
+    await startActivity(exerciseId);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { reps: 10 } });
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { reps: 10 } });
+  }
+
+  it('ne perdent pas la correction de l une au profit de l autre', async () => {
+    const exercise = await anExercise('Traction', ['reps']);
+    await twoCompletedSets(exercise.id);
+
+    await Promise.all([
+      correctSet(0, { BOTH: { reps: 8 } }),
+      correctSet(1, { BOTH: { reps: 6 } }),
+    ]);
+
+    const sets = await currentSets();
+    expect(sets.map((set) => set.values.BOTH?.reps)).toEqual([8, 6]);
+  });
+
+  it('gardent la correction quand une série démarre au même instant', async () => {
+    const exercise = await anExercise('Traction', ['reps']);
+    await twoCompletedSets(exercise.id);
+
+    // Ce que fait l'horloge d'un EMOM pendant qu'on corrige un round.
+    await Promise.all([correctSet(0, { BOTH: { reps: 8 } }), startPerformanceSet()]);
+
+    const sets = await currentSets();
+    expect(sets).toHaveLength(3);
+    expect(sets[0].values.BOTH?.reps).toBe(8);
   });
 });
