@@ -3,7 +3,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -45,6 +45,7 @@ import { SetChip } from '../../src/ui/set-chip';
 import { SlideIn } from '../../src/ui/slide-in';
 import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
+import { ScrollHint } from '../../src/ui/scroll-hint';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
@@ -269,6 +270,16 @@ export default function SessionScreen() {
    * barre du bas (Galaxy A15, 2026-09-27).
    */
   const [ringBox, setRingBox] = useState<{ width: number; height: number } | null>(null);
+
+  /**
+   * De quoi dire qu'une cinquième série attend sous les quatre qu'on voit.
+   *
+   * Le défilement passe par une valeur ANIMÉE et non par un état : il
+   * déplacerait sinon la barre en re-rendant tout l'écran, soixante fois par
+   * seconde, sur une page qui bat déjà quatre fois par seconde.
+   */
+  const listOffset = useRef(new Animated.Value(0)).current;
+  const [listBox, setListBox] = useState({ visible: 0, content: 0 });
 
   const liveSessionId = session?.id ?? null;
   useFocusEffect(
@@ -1349,15 +1360,50 @@ export default function SessionScreen() {
           </Pressable>
 
           {showDetail ? (
+            <View className="shrink grow-0">
             <ScrollView
               key={activity.performanceId ?? 'none'}
               keyboardShouldPersistTaps="handled"
-              className="shrink grow-0"
               // Quatre lignes, pas une hauteur en pourcentage : au-delà, la
               // liste mangeait l'anneau et les boutons sur les petits écrans.
               // Ce qui dépasse se fait défiler.
               style={{ maxHeight: 4 * (SET_ROW_HEIGHT + SET_ROW_GAP) }}
-              contentContainerClassName="gap-2 px-1 pb-1 pt-0.5"
+              // Celle d'Android est écartée au profit de la nôtre : elle
+              // n'apparaît qu'en défilant -- or le problème est de ne pas
+              // savoir qu'on peut défiler -- et sa couleur vient du thème
+              // natif, qu'on ne peut pas atteindre d'ici.
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: listOffset } } }],
+                { useNativeDriver: false },
+              )}
+              onLayout={({ nativeEvent }) =>
+                setListBox((current) =>
+                  current.visible === nativeEvent.layout.height
+                    ? current
+                    : { ...current, visible: nativeEvent.layout.height },
+                )
+              }
+              onContentSizeChange={(_, height) =>
+                setListBox((current) =>
+                  current.content === height ? current : { ...current, content: height },
+                )
+              }
+              // L'écart vient de la CONSTANTE, pas d'une classe qui dit le
+              // même nombre ailleurs : c'est elle qui sert à calculer la
+              // hauteur ci-dessus, et les deux se contrediraient le jour où
+              // l'une change sans l'autre -- ce qui venait d'arriver.
+              //
+              // À droite, la place de la barre : les lignes ne passent pas
+              // dessous.
+              contentContainerStyle={{
+                gap: SET_ROW_GAP,
+                paddingLeft: 4,
+                paddingRight: 10,
+                paddingTop: 2,
+                paddingBottom: 4,
+              }}
             >
               {sets.map((set, index) => (
                 <SetRow
@@ -1389,6 +1435,12 @@ export default function SessionScreen() {
                 />
               ))}
             </ScrollView>
+            <ScrollHint
+              offset={listOffset}
+              visible={listBox.visible}
+              content={listBox.content}
+            />
+            </View>
           ) : (
             <ScrollView
               key={activity.performanceId ?? 'none'}
