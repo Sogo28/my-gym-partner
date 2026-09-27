@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -78,6 +79,15 @@ import { takeStoppedByHand } from '../../src/ui/filmed-set';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
+
+/**
+ * L'étiquette du verrou qui garde l'écran allumé.
+ *
+ * expo-keep-awake compte les verrous par étiquette : celui qu'on prend doit
+ * se rendre sous le MÊME nom, sinon l'écran ne se rendort jamais. Nommée ici
+ * plutôt qu'écrite deux fois à la main.
+ */
+const KEEP_AWAKE = 'session-en-cours';
 
 /** Ce que « ROUND 5/10 » occupe sous l'anneau : son écart et sa ligne. */
 const ROUND_LABEL = 32;
@@ -229,6 +239,26 @@ export default function SessionScreen() {
   );
 
   /**
+   * L'écran reste allumé pendant qu'une séance est en cours.
+   *
+   * Le téléphone est posé sur le banc, et l'app affiche précisément ce qu'on
+   * vient y lire entre deux séries : le temps de repos qui monte, l'anneau
+   * d'un EMOM qui descend. Une veille au bout de trente secondes obligeait à
+   * déverrouiller à chaque série -- et pire, à rater le décompte des cinq
+   * dernières secondes d'un round, qui ne sonne que si l'écran vit.
+   *
+   * Lié au FOCUS autant qu'à la séance : le verrou se prend en arrivant sur
+   * cet écran avec une séance en cours, et se rend en le quittant. Le garder
+   * pour toute la durée de la séance, où qu'on aille, laissait un téléphone
+   * allumé indéfiniment le jour où la séance se termine ailleurs -- l'écran
+   * d'un exercice sait le faire (voir exercise.tsx), et celui-ci ne
+   * l'apprendrait qu'en reprenant la main.
+   *
+   * Sur l'identifiant de la séance et non sur la séance : elle est un objet
+   * neuf à chaque rechargement, et le verrou se reprendrait quatre fois par
+   * seconde pendant un EMOM.
+   */
+  /**
    * La place réellement laissée à l'anneau, mesurée plutôt que supposée.
    *
    * Ce qui l'entoure n'a pas la même hauteur d'un téléphone à l'autre : le
@@ -239,6 +269,20 @@ export default function SessionScreen() {
    * barre du bas (Galaxy A15, 2026-09-27).
    */
   const [ringBox, setRingBox] = useState<{ width: number; height: number } | null>(null);
+
+  const liveSessionId = session?.id ?? null;
+  useFocusEffect(
+    useCallback(() => {
+      if (!liveSessionId) return;
+
+      // En silence s'il échoue : un écran qui s'éteint est une gêne, pas une
+      // panne, et rien ne justifie d'interrompre une séance pour le dire.
+      activateKeepAwakeAsync(KEEP_AWAKE).catch(() => undefined);
+      return () => {
+        deactivateKeepAwake(KEEP_AWAKE).catch(() => undefined);
+      };
+    }, [liveSessionId]),
+  );
 
   async function run(action: () => Promise<unknown>) {
     try {
