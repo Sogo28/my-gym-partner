@@ -46,7 +46,7 @@ import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
-import { CountdownRing } from '../../src/ui/countdown-ring';
+import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
 import { EMOM_INTERVAL_SECONDS, emomStatus } from '../../src/domain/workout-session/emom';
 import {
   formatEmomPace,
@@ -79,6 +79,8 @@ import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
 
+/** Ce que « ROUND 5/10 » occupe sous l'anneau : son écart et sa ligne. */
+const ROUND_LABEL = 32;
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
@@ -225,6 +227,18 @@ export default function SessionScreen() {
       };
     }, [reload]),
   );
+
+  /**
+   * La place réellement laissée à l'anneau, mesurée plutôt que supposée.
+   *
+   * Ce qui l'entoure n'a pas la même hauteur d'un téléphone à l'autre : le
+   * nom de l'exercice tient sur une ou deux lignes, la liste des séries
+   * s'ouvre ou se replie, et la barre de gestes mange ce qu'elle veut. Une
+   * taille choisie une fois pour toutes tenait donc ici et débordait là --
+   * l'anneau montant sur la dernière série, le rang du round passant sous la
+   * barre du bas (Galaxy A15, 2026-09-27).
+   */
+  const [ringBox, setRingBox] = useState<{ width: number; height: number } | null>(null);
 
   async function run(action: () => Promise<unknown>) {
     try {
@@ -1386,6 +1400,19 @@ export default function SessionScreen() {
             <Pressable
               className="flex-1 items-center justify-center"
               onPress={() => editing !== null && toggleEditing(editing)}
+              // La zone ne dépend pas de ce qu'elle contient -- `flex-1` prend
+              // ce qui RESTE --, donc la mesurer pour dimensionner l'anneau ne
+              // boucle pas. On ne réécrit que si elle a bougé, par prudence.
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setRingBox((current) =>
+                  current &&
+                  Math.abs(current.width - width) < 1 &&
+                  Math.abs(current.height - height) < 1
+                    ? current
+                    : { width, height },
+                );
+              }}
             >
               {editing !== null && editedSet ? (
                 <View className="items-center gap-0.5">
@@ -1407,6 +1434,10 @@ export default function SessionScreen() {
                   <CountdownRing
                     remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
                     totalSeconds={emom.intervalSeconds}
+                    // Le rang du round s'écrit SOUS l'anneau : sa ligne et
+                    // son écart sont pris sur le même budget, sinon c'est lui
+                    // qui passe sous la barre du bas.
+                    size={ringSizeIn(ringBox, ROUND_LABEL)}
                   />
                   <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
                     Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}

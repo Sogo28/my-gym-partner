@@ -12,9 +12,15 @@ export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress'
  * séance, où l'anneau et les boutons réclament le reste de la place -- a
  * besoin de les connaître pour se donner sa borne. Une hauteur en pourcentage
  * coupait une cinquième ligne au hasard, différemment sur chaque téléphone.
+ *
+ * Serrés le 2026-09-27 (52 et 8 auparavant) : quatre lignes dépliées prenaient
+ * assez de place pour que l'anneau d'un EMOM doive rétrécir sous elles. La
+ * pastille fait vingt-huit pixels, donc quarante-quatre en laissent huit de
+ * part et d'autre -- la ligne reste une cible qu'on vise sans regarder, et la
+ * valeur garde sa taille de lecture : c'est elle qu'on vient chercher.
  */
-export const SET_ROW_HEIGHT = 52;
-export const SET_ROW_GAP = 8;
+export const SET_ROW_HEIGHT = 44;
+export const SET_ROW_GAP = 6;
 
 /**
  * La couleur du contour et de la pastille, par état et par thème.
@@ -102,7 +108,7 @@ export function SetRow({
     <Row
       onPress={onPress}
       className={cn(
-        'min-h-[52px] flex-row items-center gap-3 rounded-xl px-4',
+        'min-h-[44px] flex-row items-center gap-3 rounded-xl px-4',
         status === 'completed' && 'bg-surface dark:bg-surface-dark',
         status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
         status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
