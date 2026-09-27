@@ -488,13 +488,19 @@ export default function SessionScreen() {
   /**
    * La série n'a-t-elle qu'une durée à régler ?
    *
-   * Alors taper la série ouvre directement sa roulette, et la refermer
-   * relâche la série : s'arrêter sur le champ, avant comme après,
-   * demanderait un tap pour rien.
+   * Alors refermer la roulette relâche la série : il n'y a rien d'autre à
+   * régler derrière, et s'arrêter sur le champ demanderait un tap pour rien.
    *
-   * Dès qu'une autre mesure ou un second côté existe, les deux tombent. Il y
-   * a un choix à faire avant, que l'ouverture d'office cacherait -- et un
-   * réglage qui reste après, que la fermeture emporterait.
+   * Elle ne s'OUVRE plus d'office pour autant (essayé le 2026-09-27, retiré
+   * aussitôt). Une roulette qui surgit sur une série qu'on venait juste
+   * d'ouvrir cache la série elle-même -- son rang, sa valeur actuelle, ce
+   * qu'on est venu vérifier avant de décider. Et elle enlève le choix du
+   * geste : les deux crans suffisent souvent, quand on note une seconde de
+   * moins que la fois d'avant.
+   *
+   * Dès qu'une autre mesure ou un second côté existe, la fermeture cesse
+   * elle aussi de relâcher la série : il reste un réglage derrière, que la
+   * fermeture emporterait.
    */
   const durationOnly =
     sides.length === 1 &&
@@ -569,11 +575,10 @@ export default function SessionScreen() {
               measurementId={id}
               value={editedValues[side]?.[id] ?? 0}
               onChange={(value) => adjust(side, id, value)}
-              // Les deux suivent la MÊME condition : la roulette n'est tout
-              // le réglage que si elle est le seul. À plusieurs mesures, elle
-              // en est une parmi d'autres, et la refermer ramène aux autres
-              // au lieu de tout relâcher.
-              autoOpen={durationOnly}
+              // La roulette s'ouvre au tap, jamais d'elle-même. La refermer,
+              // en revanche, relâche la série quand elle était tout le
+              // réglage : à plusieurs mesures, elle n'en est qu'une, et la
+              // refermer ramène aux autres au lieu de tout relâcher.
               onDone={durationOnly ? () => editing !== null && toggleEditing(editing) : undefined}
             />
           ))}
@@ -1363,20 +1368,52 @@ export default function SessionScreen() {
 
           {emom ? (
             /* L'anneau ne demande rien : il montre juste ce qu'il reste. Le
-               round avance à l'horloge, jamais au tap (voir l'effet
-               d'avance automatique plus haut). */
+               round avance à l'horloge, jamais au tap (voir l'effet d'avance
+               automatique plus haut).
+
+               Et c'est le VIDE de l'écran : y taper referme la correction en
+               cours, exactement comme pendant le repos. Rien à apprendre, et
+               donc pas de bouton pour le dire.
+
+               Pendant qu'on corrige, l'anneau s'efface et laisse sa place :
+               les champs s'inscrivent en bas, là où ils s'inscrivent hors
+               EMOM. Ils ont d'abord vécu dans une feuille par-dessus l'écran,
+               puis ici même à la place de l'anneau, et dans les deux cas ils
+               ne recevaient rien sur Android. Le seul endroit dont on SAIT
+               qu'il répond est celui qui sert pendant le repos : c'est donc
+               celui-là qui sert aussi ici. Un emplacement qui marche vaut
+               mieux qu'une explication de pourquoi l'autre ne marchait pas. */
             <Pressable
               className="flex-1 items-center justify-center"
               onPress={() => editing !== null && toggleEditing(editing)}
             >
-              <CountdownRing
-                remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
-                totalSeconds={emom.intervalSeconds}
-              />
-              <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
-                Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}
-                {emom.pausedAt ? ' · en pause' : ''}
-              </Text>
+              {editing !== null && editedSet ? (
+                <View className="items-center gap-0.5">
+                  <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    Round {editing + 1}
+                  </Text>
+                  {/* L'anneau n'est plus là pour le dire : une ligne rappelle
+                      que l'horloge n'attend pas qu'on ait fini de noter. */}
+                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                    {emom.pausedAt
+                      ? 'EMOM en pause'
+                      : isFinalEmomRound
+                        ? 'dernier round'
+                        : `prochain round dans ${emomState?.remainingSeconds ?? 0} s`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <CountdownRing
+                    remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
+                    totalSeconds={emom.intervalSeconds}
+                  />
+                  <Text className="pt-3 font-bold uppercase text-label text-muted dark:text-muted-dark">
+                    Round {Math.min(sets.length, emom.totalRounds)}/{emom.totalRounds}
+                    {emom.pausedAt ? ' · en pause' : ''}
+                  </Text>
+                </>
+              )}
             </Pressable>
           ) : (
             /* Le chrono occupe le centre de l'écran pendant la récupération.
@@ -1393,13 +1430,11 @@ export default function SessionScreen() {
           )}
 
           <View className="gap-3 pb-2">
-            {/* Corriger une série déjà validée reste possible pendant un EMOM
-                comme en dehors, mais pas au même endroit : sous l'anneau, il
-                ne reste pas de place pour les champs -- ils lui montaient
-                dessus. Pendant un round, la correction passe donc par une
-                feuille (voir plus bas) ; le reste du temps, elle s'inscrit
-                sous le chrono, qui lui laisse la place. */}
-            {editing !== null && editedSet && !emom && setControls()}
+            {/* Les champs s'inscrivent ICI, que l'horloge tourne ou non :
+                sous le chrono pendant le repos, sous l'anneau effacé pendant
+                un EMOM. Un seul emplacement, donc un seul comportement à
+                vérifier -- et c'est celui dont on sait qu'il répond. */}
+            {editing !== null && editedSet && setControls()}
 
             {editing === null &&
               (emomOffered ? (
@@ -1577,19 +1612,6 @@ export default function SessionScreen() {
           />
         </View>
       )}
-      {/* Pendant un EMOM, corriger une série passe par une feuille : l'anneau
-          occupe le centre de l'écran, et les champs posés dessous lui
-          montaient dessus. Elle dit quel round elle règle -- on la rouvre
-          entre deux rounds, l'horloge continuant derrière. */}
-      <Sheet
-        visible={Boolean(emom) && editing !== null && editedSet !== undefined}
-        title={`Round ${(editing ?? 0) + 1}`}
-        description={nameOf(activity?.exerciseId ?? '')}
-        onClose={closeEditing}
-      >
-        <View className="gap-3 pb-2">{editing !== null && editedSet && setControls()}</View>
-      </Sheet>
-
       <Sheet
         visible={sheet === 'menu'}
         title="Séance"
