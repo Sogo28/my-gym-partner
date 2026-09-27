@@ -48,3 +48,35 @@ export function emomStatus(input: {
     done: input.round >= input.totalRounds && elapsed >= input.intervalSeconds,
   };
 }
+
+/**
+ * Le décompte de MISE EN PLACE, avant que le premier round ne parte.
+ *
+ * Un round ne commence pas quand on appuie : il commence quand on est en
+ * position. Entre les deux il y a le trajet -- poser le téléphone, marcher
+ * jusqu'au mur, monter en équilibre -- et sans ce délai la première minute
+ * était déjà entamée avant le premier mouvement. Les rounds SUIVANTS n'en ont
+ * pas besoin : on est déjà sur place quand ils s'enchaînent.
+ *
+ * Même principe que le reste de ce module : un calcul sur l'horloge murale,
+ * jamais un compteur qui s'incrémente et dérive en arrière-plan.
+ *
+ * Zéro seconde est une réponse valable -- « immédiat » -- et rend `ready`
+ * d'emblée : le décompte n'a alors rien à montrer.
+ */
+export function setupCountdown(input: {
+  seconds: number;
+  /** Quand l'EMOM a été armé. */
+  armedAt: Date;
+  now: Date;
+}): { remainingSeconds: number; ready: boolean } {
+  const elapsed = Math.max(
+    0,
+    Math.floor((input.now.getTime() - input.armedAt.getTime()) / 1000),
+  );
+
+  return {
+    remainingSeconds: Math.max(0, input.seconds - elapsed),
+    ready: elapsed >= input.seconds,
+  };
+}

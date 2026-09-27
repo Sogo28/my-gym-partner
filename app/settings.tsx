@@ -15,10 +15,13 @@ import { WINDOW_LABELS } from '../src/ui/goal-labels';
 import {
   captureCountdown,
   COUNTDOWN_CHOICES,
+  emomSetupCountdown,
   evaluationWindow,
   setCaptureCountdown,
+  setEmomSetupCountdown,
   setEvaluationWindow,
   SELECTABLE_WINDOWS,
+  SETUP_CHOICES,
 } from '../src/use-cases/preferences';
 import {
   ATTRIBUTION,
@@ -53,18 +56,25 @@ export default function SettingsScreen() {
   const [window, setWindow] = useState<EvaluationWindow>('LAST_SESSION');
   /** Le décompte avant qu'une captation ne démarre, en secondes. */
   const [countdown, setCountdown] = useState(5);
+  const [setup, setSetup] = useState(10);
 
   useFocusEffect(
     useCallback(() => {
       setState(catalogueState());
       evaluationWindow().then(setWindow).catch((e) => notify(messageOf(e)));
       captureCountdown().then(setCountdown).catch((e) => notify(messageOf(e)));
+      emomSetupCountdown().then(setSetup).catch((e) => notify(messageOf(e)));
     }, []),
   );
 
   function chooseCountdown(next: number) {
     setCountdown(next);
     setCaptureCountdown(next).catch((e) => notify(messageOf(e)));
+  }
+
+  function chooseSetup(next: number) {
+    setSetup(next);
+    setEmomSetupCountdown(next).catch((e) => notify(messageOf(e)));
   }
 
   function chooseWindow(next: EvaluationWindow) {
@@ -164,8 +174,8 @@ export default function SettingsScreen() {
         </Card>
 
         <Text className="px-1 text-small text-muted dark:text-muted-dark">
-          Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d un bouton, et
-          l alourdir n aurait servi personne.
+          Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d'un bouton, et
+          l'alourdir n'aurait servi personne.
         </Text>
 
         <Card density="titled" className="mt-2 gap-2">
@@ -173,8 +183,8 @@ export default function SettingsScreen() {
             Filmer une série
           </Text>
           <Text className="text-small text-muted dark:text-muted-dark">
-            Le temps dont tu disposes, entre le départ et le début de l enregistrement, pour poser
-            le téléphone et rejoindre la barre. L enregistrement s arrête seul au bout de deux
+            Le temps dont tu disposes, entre le départ et le début de l'enregistrement, pour poser
+            le téléphone et rejoindre la barre. L'enregistrement s'arrête seul au bout de deux
             minutes.
           </Text>
 
@@ -192,6 +202,41 @@ export default function SettingsScreen() {
                 <Text
                   className={
                     countdown === value
+                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
+                      : 'font-medium text-body text-muted dark:text-muted-dark'
+                  }
+                >
+                  {value === 0 ? 'Immédiat' : `${value} s`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+
+        <Card density="titled" className="mt-2 gap-2">
+          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
+            Se mettre en place
+          </Text>
+          <Text className="text-small text-muted dark:text-muted-dark">
+            Le temps que l'EMOM te laisse, après l'avoir démarré, avant que le premier round ne
+            parte : de quoi poser le téléphone et te mettre en position. Les rounds suivants
+            s'enchaînent sans délai, puisque tu y es déjà.
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2 pt-1">
+            {SETUP_CHOICES.map((value) => (
+              <Pressable
+                key={value}
+                onPress={() => chooseSetup(value)}
+                className={
+                  setup === value
+                    ? 'min-h-touch justify-center rounded-full border border-primary-ink bg-primary-soft px-4 dark:border-primary-ink-dark dark:bg-primary-soft-dark'
+                    : 'min-h-touch justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
+                }
+              >
+                <Text
+                  className={
+                    setup === value
                       ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
                       : 'font-medium text-body text-muted dark:text-muted-dark'
                   }

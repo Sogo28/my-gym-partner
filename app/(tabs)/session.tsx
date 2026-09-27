@@ -46,10 +46,16 @@ import { SlideIn } from '../../src/ui/slide-in';
 import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
+import { SetupCountdown } from '../../src/ui/setup-countdown';
+import { emomSetupCountdown } from '../../src/use-cases/preferences';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
-import { EMOM_INTERVAL_SECONDS, emomStatus } from '../../src/domain/workout-session/emom';
+import {
+  EMOM_INTERVAL_SECONDS,
+  emomStatus,
+  setupCountdown,
+} from '../../src/domain/workout-session/emom';
 import {
   formatEmomPace,
   formatSetValues,
@@ -89,6 +95,23 @@ import { detachSetVideo } from '../../src/use-cases/set-video';
  * plutôt qu'écrite deux fois à la main.
  */
 const KEEP_AWAKE = 'session-en-cours';
+
+/**
+ * Un EMOM ARMÉ : décidé, pas encore commencé.
+ *
+ * Rien n'est écrit pendant ce temps -- ni séance, ni exercice, ni série. Une
+ * séance DATE de sa première série (voir `beginWorkoutSession`), et la faire
+ * naître au tap lui donnerait pour début le moment où l'on range le
+ * téléphone. L'intention vit donc dans l'écran, et n'engage rien.
+ */
+type Arming = {
+  readonly armedAt: Date;
+  readonly seconds: number;
+  readonly intervalSeconds: number;
+  readonly totalRounds: number;
+  /** Séance libre : l'exercice dont la séance naîtra. Entraînement prévu : null. */
+  readonly exerciseId: string | null;
+};
 
 /** Ce que « ROUND 5/10 » occupe sous l'anneau : son écart et sa ligne. */
 const ROUND_LABEL = 32;
@@ -170,8 +193,19 @@ export default function SessionScreen() {
   /** La feuille qui règle durée totale et cible avant de démarrer en EMOM. */
   const [configuringEmom, setConfiguringEmom] = useState(false);
   const [emomTotalSeconds, setEmomTotalSeconds] = useState(600);
+  /**
+   * L'EMOM décidé, qui attend qu'on soit en position (voir `Arming`).
+   *
+   * `setupSeconds` est lu au réglage et gardé ici : armer doit être
+   * instantané, et aller chercher la préférence à ce moment-là ferait partir
+   * le décompte après un aller-retour en base.
+   */
+  const [arming, setArming] = useState<Arming | null>(null);
+  const [setupSeconds, setSetupSeconds] = useState(10);
   /** Empêche l'avance automatique de se déclencher deux fois pour le même round. */
   const advancingEmomRound = useRef(false);
+  /** Même rôle, pour le départ qui suit le décompte de mise en place. */
+  const launchingEmom = useRef(false);
   /**
    * La performance dont on a ARRÊTÉ l'EMOM en cours de route.
    *
@@ -221,6 +255,7 @@ export default function SessionScreen() {
   useFocusEffect(
     useCallback(() => {
       reload().catch((e) => notify(messageOf(e)));
+      emomSetupCountdown().then(setSetupSeconds).catch((e) => notify(messageOf(e)));
 
       // Couper l'enregistrement, c'est dire qu'on a fini la série : on ne
       // s'arrête pas de filmer au milieu d'un mouvement.
@@ -235,6 +270,9 @@ export default function SessionScreen() {
         setPending(null);
         setAdjustingStart(false);
         setConfiguringEmom(false);
+        // L'EMOM armé n'a rien écrit : le laisser courir ferait naître une
+        // séance pendant qu'on regarde un autre onglet.
+        setArming(null);
       };
     }, [reload]),
   );
@@ -337,13 +375,17 @@ export default function SessionScreen() {
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (restStartedAt === null && !emom) return;
-    // Quatre fois par seconde pendant un EMOM : le décompte sonore se déclenche
-    // sur ce qu'affiche l'écran, et une seconde jamais rendue -- le battement
-    // n'est pas calé sur celui de l'horloge -- serait un bip qui saute.
-    const interval = setInterval(() => setTick((value) => value + 1), emom ? 250 : 1000);
+    if (restStartedAt === null && !emom && !arming) return;
+    // Quatre fois par seconde pendant un EMOM, et pendant le décompte qui le
+    // précède : le décompte sonore se déclenche sur ce qu'affiche l'écran, et
+    // une seconde jamais rendue -- le battement n'est pas calé sur celui de
+    // l'horloge -- serait un bip qui saute.
+    const interval = setInterval(
+      () => setTick((value) => value + 1),
+      emom || arming ? 250 : 1000,
+    );
     return () => clearInterval(interval);
-  }, [restStartedAt, emom]);
+  }, [restStartedAt, emom, arming]);
   const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -419,6 +461,18 @@ export default function SessionScreen() {
           now: emom.pausedAt ?? new Date(),
         })
       : null;
+  /** Où en est le décompte de mise en place, s'il y en a un. */
+  const setup = arming
+    ? setupCountdown({ seconds: arming.seconds, armedAt: arming.armedAt, now: new Date() })
+    : null;
+  /**
+   * L'exercice qu'on s'apprête à faire : celui qu'on vient de choisir en
+   * séance libre, ou celui de l'activité en cours dans un entraînement.
+   */
+  const armingName = arming?.exerciseId
+    ? (exercises.find((candidate) => candidate.id === arming.exerciseId)?.name ?? '')
+    : nameOf(activity?.exerciseId ?? '');
+
   // Celui prévu au départ, pas un maximum : "Ajouter un round" le recule.
   const isFinalEmomRound = Boolean(emom && sets.length >= emom.totalRounds);
   /**
@@ -481,24 +535,55 @@ export default function SessionScreen() {
   }, [emom, sets.length]);
 
   /**
-   * Les cinq dernières secondes du round, une par une.
+   * Les cinq dernières secondes, une par une -- celles d'un round comme celles
+   * de la mise en place. C'est le même signal parce que c'est la même chose à
+   * dire : ça part bientôt, mets-toi en position.
    *
-   * Le zéro n'est pas sonné ici : c'est le départ du round suivant qui le
-   * dit, avec son propre signal -- deux sons au même instant n'en feraient
-   * qu'un, brouillon.
+   * Le zéro n'est pas sonné ici : c'est le départ du round qui le dit, avec
+   * son propre signal -- deux sons au même instant n'en feraient qu'un,
+   * brouillon.
    *
    * En pause, rien ne s'écoule : rien ne sonne non plus.
    */
+  const countingDown = arming
+    ? setup?.remainingSeconds
+    : emom && !emom.pausedAt
+      ? emomState?.remainingSeconds
+      : undefined;
+
   useEffect(() => {
-    const left = emomState?.remainingSeconds;
-    if (!emom || emom.pausedAt || left === undefined || left > 5 || left <= 0) {
+    if (countingDown === undefined || countingDown > 5 || countingDown <= 0) {
       soundedSecond.current = null;
       return;
     }
-    if (left === soundedSecond.current) return;
-    soundedSecond.current = left;
+    if (countingDown === soundedSecond.current) return;
+    soundedSecond.current = countingDown;
     playRoundCountdown();
-  }, [emom, emomState?.remainingSeconds]);
+  }, [countingDown]);
+
+  /**
+   * Le premier round part quand le décompte tombe à zéro.
+   *
+   * C'est ICI que la séance naît, et pas au tap : entre les deux il y a le
+   * trajet jusqu'au mur, et une séance qui daterait du tap aurait pour
+   * première série une minute déjà entamée.
+   */
+  useEffect(() => {
+    if (!arming || !setup?.ready || launchingEmom.current) return;
+
+    launchingEmom.current = true;
+    const armed = arming;
+    setArming(null);
+
+    const launched = armed.exerciseId
+      ? launchFreeEmom(armed.exerciseId, armed.totalRounds)
+      : launchPlannedEmom(armed.intervalSeconds, armed.totalRounds);
+
+    launched.finally(() => {
+      launchingEmom.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arming, setup?.ready]);
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.
@@ -729,13 +814,29 @@ export default function SessionScreen() {
    */
   function startPlannedEmom() {
     const interval = plannedExercise?.intervalSeconds;
-    const totalRounds = Math.max(1, plannedExercise?.sets.length ?? 1);
     if (!interval) return;
 
+    setArming({
+      armedAt: new Date(),
+      seconds: setupSeconds,
+      intervalSeconds: interval,
+      totalRounds: Math.max(1, plannedExercise?.sets.length ?? 1),
+      exerciseId: null,
+    });
+  }
+
+  /**
+   * Le rythme prévu part pour de bon, décompte de mise en place écoulé.
+   *
+   * La série « qui traîne » se juge ICI et non au moment d'armer : le
+   * décompte a duré, et une série encore fraîche au tap peut avoir passé sa
+   * minute entre-temps.
+   */
+  function launchPlannedEmom(interval: number, totalRounds: number): Promise<unknown> {
     const openedAt = performance?.currentSet?.startedAt;
     const stale = openedAt ? Date.now() - openedAt.getTime() >= interval * 1000 : false;
 
-    run(async () => {
+    return run(async () => {
       closeEditing();
       if (stale) await abandonPerformanceSet();
       if (!performance?.currentSet || stale) await startPerformanceSet();
@@ -854,15 +955,31 @@ export default function SessionScreen() {
    * de rounds se déduit de la durée totale plutôt que de rester ouvert.
    */
   function beginFreeEmom(exerciseId: string, totalSeconds: number) {
-    const totalRounds = Math.max(1, Math.round(totalSeconds / EMOM_INTERVAL_SECONDS));
-    startWorkoutSession()
+    setConfiguringEmom(false);
+    setArming({
+      armedAt: new Date(),
+      seconds: setupSeconds,
+      intervalSeconds: EMOM_INTERVAL_SECONDS,
+      totalRounds: Math.max(1, Math.round(totalSeconds / EMOM_INTERVAL_SECONDS)),
+      exerciseId,
+    });
+  }
+
+  /**
+   * La séance libre naît ICI, décompte écoulé -- et non au tap.
+   *
+   * Une séance DATE de sa première série : la faire naître au tap lui
+   * donnerait pour début le moment où l'on range le téléphone, et sa première
+   * minute serait déjà entamée quand on monte au mur.
+   */
+  function launchFreeEmom(exerciseId: string, totalRounds: number): Promise<unknown> {
+    return startWorkoutSession()
       .then(() => startActivity(exerciseId))
       .then(() => startPerformanceSet())
       .then(reload)
       .then(() => {
         setPending(null);
         setAdjustingStart(false);
-        setConfiguringEmom(false);
         setEmom({
           intervalSeconds: EMOM_INTERVAL_SECONDS,
           totalRounds,
@@ -1080,6 +1197,16 @@ export default function SessionScreen() {
         />
 
         {exercisePicker(choose)}
+
+        {/* Posé en DERNIER et sur toute la surface : pendant le décompte on
+            ne lit plus l'écran, on range le téléphone et on marche. */}
+        {arming && setup && (
+          <SetupCountdown
+            remainingSeconds={setup.remainingSeconds}
+            exerciseName={armingName}
+            onCancel={() => setArming(null)}
+          />
+        )}
       </SafeAreaView>
     );
   }
@@ -1781,6 +1908,16 @@ export default function SessionScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
+
+      {/* Posé en DERNIER et sur toute la surface : pendant le décompte on ne
+          lit plus l'écran, on range le téléphone et on marche. */}
+      {arming && setup && (
+        <SetupCountdown
+          remainingSeconds={setup.remainingSeconds}
+          exerciseName={armingName}
+          onCancel={() => setArming(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

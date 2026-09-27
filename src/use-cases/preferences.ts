@@ -71,3 +71,32 @@ export async function setCaptureCountdown(seconds: number): Promise<void> {
  * remplisse le téléphone.
  */
 export const CAPTURE_MAX_SECONDS = 120;
+
+/**
+ * Le décompte de MISE EN PLACE avant le premier round d'un EMOM (décidé le
+ * 2026-09-27).
+ *
+ * Même raison que le décompte de captation -- la distance entre le téléphone
+ * et soi --, et pourtant un réglage à part, parce que ce n'est pas le même
+ * trajet. Rejoindre une barre prend cinq secondes ; poser le téléphone,
+ * marcher au mur et monter en équilibre en prend dix ou quinze. Les réunir
+ * aurait obligé à choisir le plus long des deux pour les deux.
+ *
+ * Il ne vaut que pour le PREMIER round : les suivants s'enchaînent alors
+ * qu'on est déjà sur place.
+ */
+const SETUP_KEY = 'emom.setup';
+
+/** En secondes. Zéro : le premier round part au tap, comme avant. */
+export const SETUP_CHOICES = [0, 5, 10, 15] as const;
+
+const SETUP_FALLBACK = 10;
+
+export async function emomSetupCountdown(): Promise<number> {
+  const stored = Number(await readSetting(SETUP_KEY));
+  return SETUP_CHOICES.includes(stored as never) ? stored : SETUP_FALLBACK;
+}
+
+export async function setEmomSetupCountdown(seconds: number): Promise<void> {
+  await writeSetting(SETUP_KEY, String(seconds));
+}
