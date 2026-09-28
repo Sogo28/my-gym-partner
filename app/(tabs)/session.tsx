@@ -684,8 +684,11 @@ export default function SessionScreen() {
    * Ouvrir la caméra sur une série, par son rang.
    *
    * Le rang est fixé au départ de l'enregistrement, et la vidéo s'attache à
-   * son arrêt : filmer le round À VENIR est donc possible -- il aura commencé
-   * entre-temps, l'horloge s'en charge.
+   * son arrêt.
+   *
+   * Hors EMOM seulement : sous une horloge imposée, le temps d'installer la
+   * caméra et de rejoindre le mur appartient au round, qui court pendant
+   * (voir la barre du bas).
    */
   function film(setIndex: number) {
     if (!activity?.performanceId) return;
@@ -1706,24 +1709,23 @@ export default function SessionScreen() {
                 />
               ) : emom ? (
                 performance?.currentSet ? (
-                  <View className="flex-row gap-3">
-                    {/* Le round qu'on est en train de faire est le seul qu'on
-                        puisse encore montrer. */}
-                    <Button
-                      label={lastSet?.videoUri ? 'Refilmer ce round' : 'Filmer ce round'}
-                      icon="videocam"
-                      variant="secondary"
-                      size="lg"
-                      onPress={() => film(lastSetIndex)}
-                    />
-                    <Button
-                      label="Fini"
-                      icon="checkmark"
-                      size="lg"
-                      className="flex-1"
-                      onPress={() => run(() => completePerformanceSet(shown))}
-                    />
-                  </View>
+                  /* Un round ne se filme pas -- retiré le 2026-09-28.
+                     Installer la caméra, la lancer, rejoindre le mur : le
+                     temps que ça prend appartient au round, qui court
+                     pendant. On a essayé de faire coïncider les deux horloges
+                     (le round partait à l'instant où l'enregistrement
+                     démarre) et ça marchait, mais ça demandait trop de gestes
+                     pour ce que ça rend. Le sujet est remis à plus tard,
+                     quand le flux d'une séance filmée sera clair.
+
+                     Une série ORDINAIRE se filme toujours : c'est l'horloge
+                     imposée qui pose problème, pas la caméra. */
+                  <Button
+                    label="Fini"
+                    icon="checkmark"
+                    size="lg"
+                    onPress={() => run(() => completePerformanceSet(shown))}
+                  />
                 ) : sets.length === 0 ? null : isFinalEmomRound ? (
                   // Le dernier round prévu vient d'être noté : le choix se
                   // fait ICI, pas en silence à la fin du minuteur -- sinon
