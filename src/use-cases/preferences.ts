@@ -54,8 +54,7 @@ export const COUNTDOWN_CHOICES = [0, 3, 5, 10] as const;
 const COUNTDOWN_FALLBACK = 5;
 
 export async function captureCountdown(): Promise<number> {
-  const stored = Number(await readSetting(COUNTDOWN_KEY));
-  return COUNTDOWN_CHOICES.includes(stored as never) ? stored : COUNTDOWN_FALLBACK;
+  return chosenSeconds(await readSetting(COUNTDOWN_KEY), COUNTDOWN_CHOICES, COUNTDOWN_FALLBACK);
 }
 
 export async function setCaptureCountdown(seconds: number): Promise<void> {
@@ -93,8 +92,30 @@ export const SETUP_CHOICES = [0, 5, 10, 15] as const;
 const SETUP_FALLBACK = 10;
 
 export async function emomSetupCountdown(): Promise<number> {
-  const stored = Number(await readSetting(SETUP_KEY));
-  return SETUP_CHOICES.includes(stored as never) ? stored : SETUP_FALLBACK;
+  return chosenSeconds(await readSetting(SETUP_KEY), SETUP_CHOICES, SETUP_FALLBACK);
+}
+
+/**
+ * Le délai retenu, ou celui par défaut tant que rien n'a été choisi.
+ *
+ * L'ABSENCE se teste avant la conversion, et c'est tout l'objet de cette
+ * fonction. `Number(null)` vaut zéro, et zéro est un choix VALABLE ici --
+ * « immédiat » -- donc une préférence jamais réglée se lisait comme une
+ * préférence réglée sur zéro : le défaut n'avait aucune chance de s'appliquer.
+ * Le décompte de mise en place ne s'affichait jamais sur un téléphone où l'on
+ * n'était pas passé par les réglages, et celui de la captation non plus.
+ *
+ * Écrite une fois pour les deux : elles partageaient la faute, elles
+ * partagent la réparation.
+ */
+function chosenSeconds(
+  stored: string | null,
+  choices: readonly number[],
+  fallback: number,
+): number {
+  if (stored === null) return fallback;
+  const seconds = Number(stored);
+  return choices.includes(seconds) ? seconds : fallback;
 }
 
 export async function setEmomSetupCountdown(seconds: number): Promise<void> {
