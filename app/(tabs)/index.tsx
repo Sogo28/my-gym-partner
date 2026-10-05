@@ -116,8 +116,6 @@ export default function ExercisesScreen() {
       <SectionHeader
         title="Exercices"
         subtitle={`${exercises.length - archivedCount} définition${exercises.length - archivedCount > 1 ? 's' : ''} · référentiel`}
-        // Les réglages tiennent au catalogue d'exercices : on y va d'ici.
-        action={{ label: 'Réglages', onPress: () => router.push('/settings') }}
       />
 
       <View className="gap-3 pb-3">

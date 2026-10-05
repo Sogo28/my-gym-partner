@@ -1,19 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { useColorScheme, type ColorValue } from 'react-native';
+import { type ColorValue } from 'react-native';
+import { usePalette } from '../../src/ui/palette';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 /**
  * L'icône d'un onglet : pleine quand il est actif, en trait sinon.
  *
- * Sans libellé, la teinte reste seule à désigner l'onglet où l'on est, et
- * elle ne suffit pas : une couleur se perd au soleil, sous un écran baissé,
- * ou pour qui la distingue mal. Une silhouette pleine se voit sans elle.
+ * La teinte seule ne suffit pas à désigner l'onglet où l'on est : une
+ * couleur se perd au soleil, sous un écran baissé, ou pour qui la distingue
+ * mal. Une silhouette pleine se voit sans elle.
  */
 function tabIcon(filled: IconName, outline: IconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-    <Ionicons name={focused ? filled : outline} size={26} color={color} />
+    <Ionicons name={focused ? filled : outline} size={24} color={color} />
   );
 }
 
@@ -31,75 +32,48 @@ function tabIcon(filled: IconName, outline: IconName) {
  * cacher de la barre les aurait laissés onglets, avec le retour qui ramène
  * au premier de la liste plutôt qu'à l'écran d'où l'on vient.
  *
- * La barre ne porte que des icônes. Quatre destinations qu'on visite chaque
- * jour n'ont pas besoin qu'on les nomme à chaque fois, et le libellé coûtait
- * la taille de l'icône -- c'est-à-dire la lisibilité de la seule chose qui
- * reste à viser du pouce, une main occupée par une barre.
+ * Chaque icône porte son nom. La barre n'en a longtemps porté aucun, et deux
+ * pictogrammes -- une liste, une grille -- ne disaient pas lequel menait aux
+ * exercices et lequel aux entraînements : un libellé coûte deux points
+ * d'icône, deviner coûte un aller-retour.
  */
 export default function TabsLayout() {
   // La barre d'onglets est un composant natif : ses couleurs se règlent en
   // JavaScript, la variante `dark:` de NativeWind ne l'atteint pas.
-  const dark = useColorScheme() === 'dark';
+  const palette = usePalette();
 
   return (
     <Tabs
       screenOptions={{
         // Chaque écran porte son propre en-tête, dessiné par nos composants.
         headerShown: false,
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: dark ? '#BFF04A' : '#46600F',
-        tabBarInactiveTintColor: dark ? '#8B9086' : '#5F6459',
+        tabBarActiveTintColor: palette.primaryInk,
+        tabBarInactiveTintColor: palette.muted,
+        tabBarLabelStyle: { fontFamily: 'Archivo_700Bold', fontSize: 11 },
         tabBarStyle: {
-          backgroundColor: dark ? '#141613' : '#EDEFE8',
-          borderTopColor: dark ? '#2A2D28' : '#DDE0D6',
-          // Hauteur TOTALE : la barre en retranche elle-même la marge du bas
-          // de l'écran. Le rembourrage haut, lui, est parti avec le libellé
-          // qu'il compensait.
-          height: 84,
+          backgroundColor: palette.surfaceAlt,
+          borderTopColor: palette.border,
+          paddingTop: 4,
         },
-        // Un onglet empile son icône PUIS son libellé, alignés en haut. Le
-        // libellé retiré, l'icône restait collée au plafond de la barre et
-        // le vide tombait sous elle. Deux marges automatiques lui font
-        // absorber ce vide des deux côtés : c'est le seul endroit d'où
-        // recentrer, l'alignement vivant dans un style interne à la barre
-        // qu'aucune option n'expose.
-        tabBarIconStyle: { marginVertical: 'auto' },
       }}
     >
-      {/* `title` n'est plus affiché nulle part, mais reste le nom que les
-          lecteurs d'écran annoncent : une icône seule ne se lit pas à voix
-          haute, et `tabBarAccessibilityLabel` le dit sur les deux
-          plateformes, là où le repli automatique ne vaut que pour iOS. */}
       <Tabs.Screen
         name="home"
-        options={{
-          title: 'Accueil',
-          tabBarAccessibilityLabel: 'Accueil',
-          tabBarIcon: tabIcon('home', 'home-outline'),
-        }}
+        options={{ title: 'Accueil', tabBarIcon: tabIcon('home', 'home-outline') }}
       />
       <Tabs.Screen
         name="session"
-        options={{
-          title: 'Séance',
-          tabBarAccessibilityLabel: 'Séance',
-          tabBarIcon: tabIcon('barbell', 'barbell-outline'),
-        }}
+        options={{ title: 'Séance', tabBarIcon: tabIcon('flash', 'flash-outline') }}
       />
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Exercices',
-          tabBarAccessibilityLabel: 'Exercices',
-          tabBarIcon: tabIcon('list', 'list-outline'),
-        }}
+        options={{ title: 'Exercices', tabBarIcon: tabIcon('barbell', 'barbell-outline') }}
       />
       <Tabs.Screen
         name="workouts"
         options={{
           title: 'Entraînements',
-          tabBarAccessibilityLabel: 'Entraînements',
-          tabBarIcon: tabIcon('grid', 'grid-outline'),
+          tabBarIcon: tabIcon('clipboard', 'clipboard-outline'),
         }}
       />
     </Tabs>
