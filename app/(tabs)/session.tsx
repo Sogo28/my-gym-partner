@@ -45,6 +45,7 @@ import { Sheet, type SheetAction } from '../../src/ui/sheet';
 import { SetChip } from '../../src/ui/set-chip';
 import { SlideIn } from '../../src/ui/slide-in';
 import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
+import { feelSetDone, feelStart } from '../../src/ui/haptics';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
 import { usePalette } from '../../src/ui/palette';
@@ -230,6 +231,11 @@ export default function SessionScreen() {
   const soundedRound = useRef(0);
   /** La seconde du décompte déjà sonnée, pour la même raison. */
   const soundedSecond = useRef<number | null>(null);
+  /** Les séries faites déjà signalées à la main, performance par performance. */
+  const feltDone = useRef<{ performanceId: string | null; count: number }>({
+    performanceId: null,
+    count: 0,
+  });
 
   const reload = useCallback(async () => {
     const [active, allExercises, allPlans, allMeasurements, allSchedule, allMuscles, recent] =
@@ -535,7 +541,27 @@ export default function SessionScreen() {
     }
     soundedRound.current = round;
     playRoundStart();
+    // La musique peut couvrir les bips : le téléphone dans la poche, lui,
+    // se sent.
+    feelStart();
   }, [emom, sets.length]);
+
+  /**
+   * La vibration d'une série enregistrée.
+   *
+   * Sur le COMPTE des séries faites, comme le son sur celui des rounds : «
+   * Terminer », « Fini », l'avance automatique d'un EMOM et le retour de la
+   * caméra y mènent tous. Seule une hausse dans la MÊME performance compte --
+   * changer d'exercice fait repartir le compte sans rien avoir terminé.
+   */
+  useEffect(() => {
+    const performanceId = activity?.performanceId ?? null;
+    const previous = feltDone.current;
+    feltDone.current = { performanceId, count: completedCount };
+    if (performanceId !== null && performanceId === previous.performanceId && completedCount > previous.count) {
+      feelSetDone();
+    }
+  }, [activity?.performanceId, completedCount]);
 
   /**
    * Les cinq dernières secondes, une par une -- celles d'un round comme celles
@@ -774,6 +800,7 @@ export default function SessionScreen() {
   }
 
   function beginSet() {
+    feelStart();
     // Aucune valeur à mémoriser : le socle les fournit, la saisie locale
     // repart donc de zéro à chaque série.
     run(async () => {
@@ -941,6 +968,7 @@ export default function SessionScreen() {
    * première série naissent du même geste, celui du bouton.
    */
   function beginFree(exerciseId: string) {
+    feelStart();
     startWorkoutSession()
       .then(() => startActivity(exerciseId))
       .then(() => startPerformanceSet())
@@ -1051,6 +1079,7 @@ export default function SessionScreen() {
    * démarrée dans le même geste.
    */
   function begin(plannedWorkoutId: string, scheduledId?: string) {
+    feelStart();
     beginWorkoutSession(plannedWorkoutId, scheduledId ?? null)
       .then(reload)
       // Le paramètre a fait son office : le garder ramènerait sur l'écran

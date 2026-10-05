@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
+import { feelSelection } from './haptics';
 
 /** L'état d'un jour : ce qu'on y a fait, ce qui y est prévu. */
 export type WeekDay = {
@@ -41,7 +42,10 @@ export function WeekStrip({
           key={index}
           className="flex-1 items-center gap-1"
           disabled={!onSelect}
-          onPress={() => onSelect?.(isSelected(day.date) ? null : day.date)}
+          onPress={() => {
+            feelSelection();
+            onSelect?.(isSelected(day.date) ? null : day.date);
+          }}
         >
           <Text className="text-micro text-muted dark:text-muted-dark">{LETTERS[index]}</Text>
 
