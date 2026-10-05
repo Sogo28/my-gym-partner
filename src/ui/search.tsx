@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, TextInput, View } from 'react-native';
+import { usePalette } from './palette';
 
 /** Le champ de recherche, partout pareil. */
 export function SearchField({
@@ -11,6 +12,8 @@ export function SearchField({
   onChange: (value: string) => void;
   placeholder: string;
 }) {
+  const { muted } = usePalette();
+
   return (
     <View className="h-12 flex-row items-center rounded-lg border border-border bg-surface pl-4 dark:border-border-dark dark:bg-surface-dark">
       <TextInput
@@ -30,7 +33,7 @@ export function SearchField({
           hitSlop={8}
           className="h-12 w-12 items-center justify-center"
         >
-          <Ionicons name="close-circle" size={18} color="#8B9086" />
+          <Ionicons name="close-circle" size={18} color={muted} />
         </Pressable>
       )}
     </View>

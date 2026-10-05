@@ -21,6 +21,7 @@ import {
   pushBackup,
   type CloudState,
 } from '../src/use-cases/cloud-backup-actions';
+import { usePalette } from '../src/ui/palette';
 
 /** « 2,1 Mo » : une taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -307,17 +308,19 @@ function Row({
   detail: string;
   onPress: () => void;
 }) {
+  const { muted } = usePalette();
+
   return (
     <Pressable onPress={onPress}>
       <Card density="titled" className="flex-row items-center gap-3">
         <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
-          <Ionicons name={icon} size={20} color="#8B9086" />
+          <Ionicons name={icon} size={20} color={muted} />
         </View>
         <View className="shrink grow gap-0.5">
           <Text className="font-extrabold text-body text-ink dark:text-ink-dark">{title}</Text>
           <Text className="text-small text-muted dark:text-muted-dark">{detail}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#8B9086" />
+        <Ionicons name="chevron-forward" size={18} color={muted} />
       </Card>
     </Pressable>
   );

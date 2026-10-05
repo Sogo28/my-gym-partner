@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text } from 'react-native';
+import { usePalette } from './palette';
 
 /**
  * Le raccourci vers le profil, posé dans l'en-tête de l'accueil.
@@ -20,6 +21,8 @@ export function AvatarButton({
   initials?: string;
   onPress: () => void;
 }) {
+  const { muted } = usePalette();
+
   return (
     <Pressable
       onPress={onPress}
@@ -30,7 +33,7 @@ export function AvatarButton({
       {initials ? (
         <Text className="font-extrabold text-small text-ink dark:text-ink-dark">{initials}</Text>
       ) : (
-        <Ionicons name="person-outline" size={20} color="#8B9086" />
+        <Ionicons name="person-outline" size={20} color={muted} />
       )}
     </Pressable>
   );

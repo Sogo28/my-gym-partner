@@ -174,7 +174,7 @@ export default function GoalScreen() {
 
             {evaluation === null ? (
               <Text className="text-small text-muted dark:text-muted-dark">
-                Cet objectif n a pas de condition : à valider toi-même.
+                Cet objectif n'a pas de condition : à valider toi-même.
               </Text>
             ) : (
               evaluation.results.map((result, index) => (

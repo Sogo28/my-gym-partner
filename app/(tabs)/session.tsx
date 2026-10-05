@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useNotifications } from '../../src/ui/notifications';
@@ -46,6 +47,7 @@ import { SlideIn } from '../../src/ui/slide-in';
 import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
+import { usePalette } from '../../src/ui/palette';
 import { SetupCountdown } from '../../src/ui/setup-countdown';
 import { emomSetupCountdown } from '../../src/use-cases/preferences';
 import { MeasureField } from '../../src/ui/measure-field';
@@ -118,6 +120,7 @@ const ROUND_LABEL = 32;
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
+  const { muted } = usePalette();
   const router = useRouter();
   /**
    * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
@@ -1484,9 +1487,12 @@ export default function SessionScreen() {
                   compte : le mot suit ce qu'on est en train de faire. */}
               {emom ? 'Rounds' : 'Séries'} {completedCount}/{totalSets || '—'}
             </Text>
-            <Text className="font-mono text-small text-muted dark:text-muted-dark">
-              {showDetail ? 'réduire ⌃' : 'détail ⌄'}
-            </Text>
+            <View className="flex-row items-center gap-1">
+              <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                {showDetail ? 'réduire' : 'détail'}
+              </Text>
+              <Ionicons name={showDetail ? 'chevron-up' : 'chevron-down'} size={14} color={muted} />
+            </View>
           </Pressable>
 
           {showDetail ? (

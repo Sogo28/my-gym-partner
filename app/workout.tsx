@@ -21,6 +21,7 @@ import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogu
 import { duplicateWorkout } from '../src/use-cases/create-planned-workout';
 import { describeWorkout } from '../src/use-cases/share-workout';
 import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
+import { usePalette } from '../src/ui/palette';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -29,6 +30,7 @@ import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
  * Écran sans effet de bord : consulter un entraînement ne le démarre pas.
  */
 export default function WorkoutDetailScreen() {
+  const { muted } = usePalette();
   const { notify } = useNotifications();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -175,7 +177,7 @@ export default function WorkoutDetailScreen() {
                 >
                   {position + 1}. {nameOf(planned.exerciseId)}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#8B9086" />
+                <Ionicons name="chevron-forward" size={16} color={muted} />
               </View>
 
               {planned.sets.length === 0 ? (

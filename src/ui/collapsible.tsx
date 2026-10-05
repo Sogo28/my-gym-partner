@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
+import { usePalette } from './palette';
 
 type CollapsibleProps = {
   title: ReactNode;
@@ -34,7 +35,7 @@ export function Collapsible({
   const progress = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
   // Les icônes reçoivent leur couleur en propriété : la variante dark:
   // ne s'applique qu'aux composants stylés par la feuille.
-  const iconColor = useColorScheme() === 'dark' ? '#8B9086' : '#5F6459';
+  const iconColor = usePalette().muted;
 
   useEffect(() => {
     Animated.timing(progress, {

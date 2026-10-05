@@ -448,7 +448,7 @@ export default function HomeScreen() {
             {goals.length === 0 ? (
               <Card density="titled" className="gap-2">
                 <Text className="text-small text-muted dark:text-muted-dark">
-                  Aucun objectif. Un objectif suit une progression : chaque étape est ce qu il
+                  Aucun objectif. Un objectif suit une progression : chaque étape est ce qu'il
                   faut atteindre pour passer à la suivante.
                 </Text>
                 <Button

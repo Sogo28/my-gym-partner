@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { Button } from './button';
 import { cn } from './cn';
 import { ToastHost } from './notifications';
+import { usePalette } from './palette';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -57,8 +58,7 @@ export function DatePickerSheet({
 }: DatePickerSheetProps) {
   const [selected, setSelected] = useState(() => initial ?? new Date());
   const [shown, setShown] = useState(() => initial ?? new Date());
-  const dark = useColorScheme() === 'dark';
-  const muted = dark ? '#8B9086' : '#5F6459';
+  const { muted } = usePalette();
 
   // Repartir de la date proposée à chaque ouverture, pas de celle laissée
   // par la fois précédente.

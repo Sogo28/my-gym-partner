@@ -74,7 +74,7 @@ function Sheet({
           Choisir l extrait
         </Text>
         <Text className="text-small text-muted dark:text-muted-dark">
-          Avance la vidéo jusqu au moment voulu, puis marque le début et la fin. Le fichier n est
+          Avance la vidéo jusqu'au moment voulu, puis marque le début et la fin. Le fichier n'est
           pas modifié.
         </Text>
 

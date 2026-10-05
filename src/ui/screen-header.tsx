@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { usePalette } from './palette';
 
 type SectionHeaderProps = { title: string; subtitle?: string };
 
@@ -21,6 +22,8 @@ export function SectionHeader({
       raccourci textuel ni un menu ne conviennent -- l'avatar, par exemple. */
   right?: ReactNode;
 }) {
+  const { muted } = usePalette();
+
   return (
     <View className="flex-row items-start justify-between gap-3 pb-2">
       <View className="shrink gap-1">
@@ -44,7 +47,7 @@ export function SectionHeader({
           hitSlop={8}
           className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
+          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
         </Pressable>
       )}
       {right}
@@ -59,13 +62,15 @@ export function BackHeader({
   onBack,
   onMenu,
 }: SectionHeaderProps & { onBack: () => void; onMenu?: () => void }) {
+  const { muted } = usePalette();
+
   return (
     <View className="flex-row items-center gap-3 pb-2">
       <Pressable
         onPress={onBack}
         className="h-12 w-12 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
       >
-        <Ionicons name="chevron-back" size={22} color="#8B9086" />
+        <Ionicons name="chevron-back" size={22} color={muted} />
       </Pressable>
       <View className="shrink grow gap-0.5">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark" numberOfLines={1}>
@@ -81,7 +86,7 @@ export function BackHeader({
           hitSlop={8}
           className="h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
+          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
         </Pressable>
       )}
     </View>
@@ -98,6 +103,8 @@ export function SessionHeader({
   position: string;
   onMenu: () => void;
 }) {
+  const { muted } = usePalette();
+
   return (
     <View className="flex-row items-center justify-between gap-3 pb-2">
       <View className="shrink gap-0.5">
@@ -114,7 +121,7 @@ export function SessionHeader({
         hitSlop={8}
         className="h-12 w-12 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
       >
-        <Ionicons name="ellipsis-horizontal" size={20} color="#8B9086" />
+        <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
       </Pressable>
     </View>
   );

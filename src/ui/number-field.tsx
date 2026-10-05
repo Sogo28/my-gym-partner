@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
 import { Sheet } from './sheet';
 import { ladder, Wheel } from './wheel';
+import { usePalette } from './palette';
 
 type NumberFieldProps = {
   value: number;
@@ -149,13 +150,15 @@ export function StepButton({
   compact: boolean;
   onPress: () => void;
 }) {
+  const { muted } = usePalette();
+
   return (
     <Pressable
       onPress={onPress}
       hitSlop={10}
       className={cn('items-center justify-center', compact ? 'h-8 w-7' : 'h-10 w-8')}
     >
-      <Ionicons name={icon} size={compact ? 17 : 20} color="#8B9086" />
+      <Ionicons name={icon} size={compact ? 17 : 20} color={muted} />
     </Pressable>
   );
 }

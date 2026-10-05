@@ -302,10 +302,10 @@ export function ExercisePicker({
           {catalogue && !catalogue.available && query.trim() !== '' && (
             <Pressable onPress={onOpenSettings} className="py-4">
               <Text className="text-center text-small text-muted dark:text-muted-dark">
-                Le catalogue de 601 exercices n est pas téléchargé.
+                Le catalogue de 601 exercices n'est pas téléchargé.
               </Text>
               <Text className="pt-1 text-center text-small text-primary-ink dark:text-primary-ink-dark">
-                L installer depuis les réglages
+                L'installer depuis les réglages
               </Text>
             </Pressable>
           )}

@@ -23,6 +23,7 @@ import { moveSession } from '../src/use-cases/move-session';
 import { fileUri, pickSetVideo } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 import { attachSetVideo, detachSetVideo } from '../src/use-cases/set-video';
+import { usePalette } from '../src/ui/palette';
 
 
 /** La série qu'on règle : de quoi la retrouver, et de quoi l'afficher. */
@@ -46,6 +47,7 @@ type Editing = {
  * fait daté, pas une mesure d'appareil (§11).
  */
 export default function EditSessionScreen() {
+  const { muted } = usePalette();
   const { notify } = useNotifications();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -225,7 +227,7 @@ export default function EditSessionScreen() {
                     </Text>
                     {/* Un repère, pas une cible : il DIT qu'une vidéo existe,
                         et c'est la ligne entière qui l'ouvre. */}
-                    {set.videoUri && <Ionicons name="videocam" size={13} color="#8B9086" />}
+                    {set.videoUri && <Ionicons name="videocam" size={13} color={muted} />}
                   </View>
                   <Text
                     className="font-mono-bold text-lead text-ink dark:text-ink-dark"

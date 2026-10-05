@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, useColorScheme, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -38,6 +38,7 @@ import type { PlannedWorkout } from '../src/domain/planned-workout/planned-worko
 import { defaultTargets } from '../src/ui/set-defaults';
 import { formatTargets } from '../src/ui/set-values';
 import { EMOM_INTERVAL_SECONDS } from '../src/domain/workout-session/emom';
+import { usePalette } from '../src/ui/palette';
 
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
@@ -500,7 +501,7 @@ function DraftCard({
   const dragging = useIsActive();
   // Les icônes reçoivent leur couleur en propriété : la variante dark: ne
   // s'applique qu'aux composants stylés par la feuille.
-  const danger = useColorScheme() === 'dark' ? '#FF7A66' : '#B3261E';
+  const { danger, muted, primaryInk } = usePalette();
   const planned = entry.planned;
   /**
    * Un round EST une série : même ligne, même réglage, même retrait. Seul le
@@ -515,7 +516,7 @@ function DraftCard({
       title={
         <View className="flex-row items-center gap-2">
           <Pressable onPressIn={drag} className="h-9 w-8 items-center justify-center rounded-md">
-            <Ionicons name="reorder-two" size={20} color={dragging ? '#BFF04A' : '#8B9086'} />
+            <Ionicons name="reorder-two" size={20} color={dragging ? primaryInk : muted} />
           </Pressable>
           <Text
             className="shrink font-bold text-body text-ink dark:text-ink-dark"

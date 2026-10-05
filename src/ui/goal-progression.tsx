@@ -73,7 +73,7 @@ export function GoalProgression({
                 <View className="gap-3 pt-2">
                   {evaluation === null ? (
                     <Text className="text-small text-muted dark:text-muted-dark">
-                      Cette étape n a pas de condition : à valider toi-même.
+                      Cette étape n'a pas de condition : à valider toi-même.
                     </Text>
                   ) : (
                     evaluation.results.map((result, position) => (
