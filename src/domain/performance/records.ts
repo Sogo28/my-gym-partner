@@ -135,3 +135,49 @@ function average(values: readonly (number | null)[]): number | null {
   if (kept.length === 0) return null;
   return kept.reduce((total, value) => total + value, 0) / kept.length;
 }
+
+/**
+ * Un record battu : ce qui a été fait, et ce qui tenait jusque-là.
+ *
+ * `measurementId` vaut null pour le volume, qui n'est la valeur d'aucune
+ * mesure mais le produit de toutes.
+ */
+export type BeatenRecord = {
+  readonly measurementId: string | null;
+  readonly value: number;
+  readonly previous: number;
+};
+
+/**
+ * Les records qu'un ensemble de séries bat, par rapport à celles d'avant.
+ *
+ * Il faut un AVANT : la première fois qu'on fait un exercice, toutes ses
+ * valeurs sont des records, et le dire n'apprendrait rien -- on fêterait le
+ * simple fait d'avoir commencé. Égaler ne suffit pas non plus : un record se
+ * bat, il ne se rejoint pas.
+ *
+ * Mesure par mesure, puis le volume, avec les mêmes règles que la fiche de
+ * l'exercice : séries validées seulement, côté le plus faible.
+ */
+export function recordsBeaten(
+  before: readonly PerformanceSet[],
+  now: readonly PerformanceSet[],
+): BeatenRecord[] {
+  const held = bestByMeasurement(before);
+  const beaten: BeatenRecord[] = [];
+
+  for (const record of bestByMeasurement(now)) {
+    const previous = held.find((entry) => entry.measurementId === record.measurementId);
+    if (previous && record.value > previous.value) {
+      beaten.push({ measurementId: record.measurementId, value: record.value, previous: previous.value });
+    }
+  }
+
+  const heldVolume = bestVolume(before);
+  const volume = bestVolume(now);
+  if (heldVolume && volume && volume.value > heldVolume.value) {
+    beaten.push({ measurementId: null, value: volume.value, previous: heldVolume.value });
+  }
+
+  return beaten;
+}

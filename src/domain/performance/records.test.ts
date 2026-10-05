@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PerformanceSet } from './exercise-performance';
-import { averageVolume, bestVolume, volumeOf } from './records';
+import { averageVolume, bestVolume, recordsBeaten, volumeOf } from './records';
 
 const at = new Date(2026, 8, 13, 18, 0);
 
@@ -70,5 +70,52 @@ describe('Le volume moyen d une séance', () => {
 
   it('ne retient rien quand aucune série n a de volume', () => {
     expect(averageVolume([set({ duration: 12 })])).toBeNull();
+  });
+});
+
+/**
+ * Les records d'une séance : ce qu'elle a fait de mieux que toutes celles
+ * d'avant, sur le même exercice.
+ */
+describe('Les records battus', () => {
+  it('signale une mesure dépassée, avec ce qui tenait avant', () => {
+    const beaten = recordsBeaten([set({ duration: 10 })], [set({ duration: 12 })]);
+
+    expect(beaten).toEqual([{ measurementId: 'duration', value: 12, previous: 10 }]);
+  });
+
+  it('ne signale rien la première fois : il n y avait rien à battre', () => {
+    expect(recordsBeaten([], [set({ duration: 12 })])).toEqual([]);
+  });
+
+  it('ne signale pas un record égalé', () => {
+    expect(recordsBeaten([set({ duration: 12 })], [set({ duration: 12 })])).toEqual([]);
+  });
+
+  it('juge chaque mesure à part', () => {
+    // Plus lourd, mais moins de répétitions : un record de charge, pas de reps.
+    const beaten = recordsBeaten([set({ reps: 10, weight: 60 })], [set({ reps: 6, weight: 70 })]);
+
+    expect(beaten.map((record) => record.measurementId)).toEqual(['weight']);
+  });
+
+  it('signale le volume dépassé même quand aucune mesure ne l est', () => {
+    // 8 x 60 = 480 contre 10 x 40 = 400 et 5 x 70 = 350 : ni la charge ni les
+    // répétitions ne bougent, mais le travail fourni, si.
+    const beaten = recordsBeaten(
+      [set({ reps: 10, weight: 40 }), set({ reps: 5, weight: 70 })],
+      [set({ reps: 8, weight: 60 })],
+    );
+
+    expect(beaten).toEqual([{ measurementId: null, value: 480, previous: 400 }]);
+  });
+
+  it('ignore les séries abandonnées, d un côté comme de l autre', () => {
+    const beaten = recordsBeaten(
+      [set({ duration: 10 }), set({ duration: 30 }, 'ABANDONED')],
+      [set({ duration: 20 }), set({ duration: 40 }, 'ABANDONED')],
+    );
+
+    expect(beaten).toEqual([{ measurementId: 'duration', value: 20, previous: 10 }]);
   });
 });

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
-import { findSessionSummary, listSessionSummaries } from './session-summary';
+import { findSessionRecords, findSessionSummary, listSessionSummaries } from './session-summary';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -176,5 +176,61 @@ describe('Résumé d une séance précise', () => {
 
   it('ne trouve rien pour une séance qui n existe pas', async () => {
     expect(await findSessionSummary('inconnue')).toBeNull();
+  });
+});
+
+/**
+ * Les records d'une séance.
+ *
+ * L'horloge est figée d'une séance à l'autre : deux séances lancées dans la
+ * même milliseconde ne diraient pas laquelle précède l'autre.
+ */
+describe('Records battus par une séance', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Une séance d'une série validée, commencée le jour `day` de septembre. */
+  async function aSessionOn(day: number, exerciseId: string, duration: number) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, day, 18, 0));
+    const session = await startWorkoutSession();
+    await startActivity(exerciseId);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration } });
+    await finishWorkoutSession();
+    return session.id;
+  }
+
+  async function recordsOf(sessionId: string) {
+    const summary = await findSessionSummary(sessionId);
+    return summary ? findSessionRecords(summary) : [];
+  }
+
+  it('dit ce qui a été battu, et sur quel exercice', async () => {
+    const exercise = await anExercise();
+    await aSessionOn(1, exercise.id, 10);
+    const second = await aSessionOn(3, exercise.id, 12);
+
+    expect(await recordsOf(second)).toEqual([
+      { exerciseId: exercise.id, measurementId: 'duration', value: 12, previous: 10 },
+    ]);
+  });
+
+  it('ne dit rien de la toute première séance d un exercice', async () => {
+    const exercise = await anExercise();
+    const first = await aSessionOn(1, exercise.id, 10);
+
+    expect(await recordsOf(first)).toEqual([]);
+  });
+
+  it('se juge contre les séances d AVANT elle, pas contre celles qui ont suivi', async () => {
+    const exercise = await anExercise();
+    await aSessionOn(1, exercise.id, 10);
+    const second = await aSessionOn(3, exercise.id, 12);
+    await aSessionOn(5, exercise.id, 15);
+
+    // Relue après coup, la deuxième séance a toujours battu la première.
+    expect((await recordsOf(second)).map((record) => record.value)).toEqual([12]);
   });
 });

@@ -1,10 +1,12 @@
 import type { PerformanceSet } from '../domain/performance/exercise-performance';
+import { recordsBeaten, type BeatenRecord } from '../domain/performance/records';
 import {
   restBeforeEachSet,
   sessionDuration,
   totalRest,
 } from '../domain/workout-session/session-metrics';
 import type { WorkoutSession } from '../domain/workout-session/workout-session';
+import { findSessionsWorking } from '../infra/exercise-history';
 import { findByIds } from '../infra/performance-repository';
 import {
   findAll as findAllSessions,
@@ -131,4 +133,40 @@ function summarize(
     ),
     activities,
   };
+}
+
+/** Un record battu pendant une séance, et l'exercice sur lequel il l'a été. */
+export type SessionRecord = BeatenRecord & { readonly exerciseId: string };
+
+/**
+ * Les records qu'une séance a battus (§23 : dérivés, jamais stockés).
+ *
+ * « Avant » veut dire avant CETTE séance, et non avant aujourd'hui : relire
+ * une séance d'il y a un mois doit dire ce qu'elle avait battu ce jour-là,
+ * pas s'effacer parce qu'on a fait mieux depuis.
+ *
+ * Un exercice repris dans la même séance -- un finisher -- se juge en une
+ * fois : c'est la séance qui bat un record, pas chacun de ses passages.
+ */
+export async function findSessionRecords(summary: SessionSummary): Promise<SessionRecord[]> {
+  const { session } = summary;
+  const exerciseIds = [...new Set(summary.activities.map((activity) => activity.exerciseId))];
+  const records: SessionRecord[] = [];
+
+  for (const exerciseId of exerciseIds) {
+    const now = summary.activities
+      .filter((activity) => activity.exerciseId === exerciseId)
+      .flatMap((activity) => activity.completedSets.map((entry) => entry.set));
+    if (now.length === 0) continue;
+
+    const earlier = (await findSessionsWorking(exerciseId)).filter(
+      (entry) => entry.sessionId !== session.id && entry.startedAt < session.startedAt,
+    );
+    const performances = await findByIds(earlier.flatMap((entry) => entry.performanceIds));
+    const before = [...performances.values()].flatMap((performance) => performance.sets);
+
+    for (const record of recordsBeaten(before, now)) records.push({ ...record, exerciseId });
+  }
+
+  return records;
 }
