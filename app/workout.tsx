@@ -2,8 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Share, Text, TextInput, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
@@ -15,13 +14,13 @@ import { BodyMap } from '../src/ui/body-map';
 import { Card } from '../src/ui/card';
 import { formatEmomPace, formatTargets } from '../src/ui/set-values';
 import { highlight } from '../src/ui/body-slugs';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { discardWorkout, unarchiveWorkout } from '../src/use-cases/edit-catalogue';
 import { duplicateWorkout } from '../src/use-cases/create-planned-workout';
 import { describeWorkout } from '../src/use-cases/share-workout';
 import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 import { usePalette } from '../src/ui/palette';
+import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -79,12 +78,11 @@ export default function WorkoutDetailScreen() {
 
   if (!plan) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark">
-        <BackHeader title="Entraînement" onBack={() => router.back()} />
-        <Text className="text-muted dark:text-muted-dark">
-          Entraînement introuvable.
-        </Text>
-      </SafeAreaView>
+      <DetailLayout title="Entraînement" onBack={() => router.back()}>
+        <DetailContent>
+          <Text className="text-muted dark:text-muted-dark">Entraînement introuvable.</Text>
+        </DetailContent>
+      </DetailLayout>
     );
   }
 
@@ -145,16 +143,13 @@ export default function WorkoutDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={plan.name}
-          onMenu={() => setSheet('menu')}
-          subtitle={`${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''} prévue${totalSets > 1 ? 's' : ''}`}
-          onBack={() => router.back()}
-        />
-      </View>
-      <ScrollView contentContainerClassName="gap-3 p-5 pb-8" keyboardShouldPersistTaps="handled">
+    <DetailLayout
+      title={plan.name}
+      onMenu={() => setSheet('menu')}
+      subtitle={`${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${totalSets} série${totalSets > 1 ? 's' : ''} prévue${totalSets > 1 ? 's' : ''}`}
+      onBack={() => router.back()}
+    >
+      <DetailContent className="gap-3">
         {/* Ce que l'entraînement travaille, avant ce qu'il contient : c'est
             la question qu'on se pose en ouvrant sa fiche. */}
         <BodyMap parts={worked} />
@@ -212,12 +207,12 @@ export default function WorkoutDetailScreen() {
             </Card>
           </Pressable>
         ))}
-      </ScrollView>
+      </DetailContent>
 
       {/* Action principale ancrée en bas, hors du défilement. */}
-      <View className="p-5 pt-2">
+      <DetailFooter>
         <Button label="Démarrer la séance" size="lg" onPress={start} />
-      </View>
+      </DetailFooter>
 
       <Sheet
         visible={sheet === 'menu'}
@@ -294,6 +289,6 @@ export default function WorkoutDetailScreen() {
           />
         </View>
       </Sheet>
-    </SafeAreaView>
+    </DetailLayout>
   );
 }

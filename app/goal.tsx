@@ -1,7 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View } from 'react-native';
 import type { BodyMetric } from '../src/domain/body/body-metric';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
@@ -12,8 +11,8 @@ import { Card } from '../src/ui/card';
 import { ConditionProgress, GoalProgression } from '../src/ui/goal-progression';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
+import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 import { BusinessNotice } from '../src/ui/notice';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { Tag } from '../src/ui/tag';
 import { listMetrics } from '../src/use-cases/body-actions';
@@ -84,13 +83,11 @@ export default function GoalScreen() {
 
   if (!goal) {
     return (
-      <SafeAreaView
-        edges={['top', 'bottom']}
-        className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark"
-      >
-        <BackHeader title="Objectif" onBack={() => router.back()} />
-        <Text className="text-muted dark:text-muted-dark">Objectif introuvable.</Text>
-      </SafeAreaView>
+      <DetailLayout title="Objectif" onBack={() => router.back()}>
+        <DetailContent>
+          <Text className="text-muted dark:text-muted-dark">Objectif introuvable.</Text>
+        </DetailContent>
+      </DetailLayout>
     );
   }
 
@@ -127,25 +124,15 @@ export default function GoalScreen() {
   };
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
+    <DetailLayout
+      title={goal.name}
+      // Une progression se voit sur le rail juste dessous : la redire en
+      // sous-titre n'apprenait rien.
+      subtitle={goal.isProgressive ? undefined : 'Objectif simple'}
+      onBack={() => router.back()}
+      onMenu={() => setSheet('menu')}
     >
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={goal.name}
-          subtitle={
-            goal.isProgressive
-              ? `progression · étape ${goal.currentStepIndex + 1} sur ${steps.length}`
-              : 'objectif simple'
-          }
-          onBack={() => router.back()}
-          onMenu={() => setSheet('menu')}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
-
+      <DetailContent>
         {/* Une progression se lit comme un chemin : le rail porte l'étape
             en cours ET celles qui l'entourent, au lieu de les séparer. */}
         {goal.isProgressive ? (
@@ -191,8 +178,7 @@ export default function GoalScreen() {
             exercises={exercises}
           />
         )}
-
-      </ScrollView>
+      </DetailContent>
 
       <Sheet
         visible={sheet === 'menu'}
@@ -223,7 +209,7 @@ export default function GoalScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
 

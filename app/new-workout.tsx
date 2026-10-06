@@ -3,8 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -25,7 +24,6 @@ import { MeasureField } from '../src/ui/measure-field';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
-import { BackHeader } from '../src/ui/screen-header';
 import { Fab } from '../src/ui/fab';
 import { Sheet } from '../src/ui/sheet';
 import {
@@ -39,6 +37,7 @@ import { defaultTargets } from '../src/ui/set-defaults';
 import { formatTargets } from '../src/ui/set-values';
 import { EMOM_INTERVAL_SECONDS } from '../src/domain/workout-session/emom';
 import { usePalette } from '../src/ui/palette';
+import { DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 
 /** Un exercice du brouillon, et de quoi le suivre à travers les déplacements. */
@@ -300,19 +299,15 @@ export default function NewWorkoutScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={existing ? "Modifier l'entraînement" : 'Nouvel entraînement'}
-          subtitle={
-            existing ? 'les séances passées ne changent pas' : 'valeurs cibles · aucune date'
-          }
-          onBack={() => router.back()}
-          // Rien à retirer tant que l'entraînement n'existe pas : pas de menu.
-          onMenu={existing ? () => setSheet('menu') : undefined}
-        />
-      </View>
-
+    <DetailLayout
+      title={existing ? "Modifier l'entraînement" : 'Nouvel entraînement'}
+      subtitle={
+        existing ? 'Les séances passées ne changent pas' : 'Valeurs cibles · aucune date'
+      }
+      onBack={() => router.back()}
+      // Rien à retirer tant que l'entraînement n'existe pas : pas de menu.
+      onMenu={existing ? () => setSheet('menu') : undefined}
+    >
       {/* La pastille est posée DANS la zone qui défile, et non sur l'écran :
           son `bottom-6` se compte alors depuis le haut de la barre du bas,
           exactement comme il se compte depuis le haut de la barre d'onglets
@@ -456,7 +451,7 @@ export default function NewWorkoutScreen() {
         onClose={() => setSheet('none')}
       />
 
-      <View className="p-5 pt-2">
+      <DetailFooter>
         <Button
           label={existing ? 'Enregistrer les modifications' : "Créer l'entraînement"}
           size="lg"
@@ -467,8 +462,8 @@ export default function NewWorkoutScreen() {
           disabled={name.trim() === '' || draft.length === 0}
           onPress={submit}
         />
-      </View>
-    </SafeAreaView>
+      </DetailFooter>
+    </DetailLayout>
   );
 }
 

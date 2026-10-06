@@ -1,12 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { eraseHistory } from '../src/use-cases/erase-history';
 import { resetEverything } from '../src/use-cases/reset-actions';
@@ -31,6 +29,7 @@ import {
   forgetCatalogue,
   type CatalogueState,
 } from '../src/use-cases/repdb-actions';
+import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 /** « 2,1 Mo » : la taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -96,12 +95,8 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader title="Réglages" onBack={() => router.back()} />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
+    <ListLayout title="Réglages" onBack={() => router.back()}>
+      <ListContent className="pb-8">
 
         <Card density="titled" className="gap-2">
           <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
@@ -288,7 +283,7 @@ export default function SettingsScreen() {
             onPress={() => setResetting(true)}
           />
         </Card>
-      </ScrollView>
+      </ListContent>
 
       <Sheet
         visible={erasing}
@@ -335,6 +330,6 @@ export default function SettingsScreen() {
         ]}
         onClose={() => setConfirming(false)}
       />
-    </SafeAreaView>
+    </ListLayout>
   );
 }

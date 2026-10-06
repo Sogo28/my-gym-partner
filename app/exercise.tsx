@@ -1,7 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, View } from 'react-native';
 import type { Side, ValuesBySide } from '../src/domain/performance/exercise-performance';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -43,7 +42,6 @@ import { EmptyState } from '../src/ui/empty-state';
 import { formatDateTime, formatDuration, isDuration } from '../src/ui/format';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { BackHeader } from '../src/ui/screen-header';
 import { cn } from '../src/ui/cn';
 import { formatSetValues } from '../src/ui/set-values';
 import { Sheet } from '../src/ui/sheet';
@@ -53,6 +51,7 @@ import { TrimmedVideo } from '../src/ui/trimmed-video';
 import { discardExercise, unarchiveExercise } from '../src/use-cases/edit-catalogue';
 import { averageValue, averageVolume } from '../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
+import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
 const PAGE = 5;
@@ -134,10 +133,11 @@ export default function ExerciseDetailScreen() {
 
   if (!detail) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background p-5 pb-8 dark:bg-background-dark">
-        <BackHeader title="Exercice" onBack={() => router.back()} />
-        <Text className="text-muted dark:text-muted-dark">Exercice introuvable.</Text>
-      </SafeAreaView>
+      <DetailLayout title="Exercice" onBack={() => router.back()}>
+        <DetailContent>
+          <Text className="text-muted dark:text-muted-dark">Exercice introuvable.</Text>
+        </DetailContent>
+      </DetailLayout>
     );
   }
 
@@ -258,21 +258,17 @@ export default function ExerciseDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={exercise.name}
-          subtitle={
-            totalSets === 0
-              ? 'jamais travaillé'
-              : `${totalSets} série${totalSets > 1 ? 's' : ''} · ${sessions.length} séance${sessions.length > 1 ? 's' : ''}`
-          }
-          onBack={() => router.back()}
-          onMenu={() => setSheet('menu')}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-8" keyboardShouldPersistTaps="handled">
+    <DetailLayout
+      title={exercise.name}
+      subtitle={
+        totalSets === 0
+          ? 'Jamais travaillé'
+          : `${totalSets} série${totalSets > 1 ? 's' : ''} · ${sessions.length} séance${sessions.length > 1 ? 's' : ''}`
+      }
+      onBack={() => router.back()}
+      onMenu={() => setSheet('menu')}
+    >
+      <DetailContent className="gap-5">
 
         {/* Ce que l'exercice EST : ses mesures, ses muscles, sa nature. */}
         <View className="flex-row flex-wrap gap-1.5">
@@ -468,7 +464,7 @@ export default function ExerciseDetailScreen() {
             )}
           </>
         )}
-      </ScrollView>
+      </DetailContent>
 
       {/* Une série isolée, hors de toute séance -- le "Grease the Groove" ne
           connaît ni plan ni repos, juste une série de temps en temps dans la
@@ -572,7 +568,7 @@ export default function ExerciseDetailScreen() {
         actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
 

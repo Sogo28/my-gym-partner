@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, View } from 'react-native';
 import { useAccount } from '../src/ui/account';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
@@ -10,7 +9,6 @@ import { formatDateTime } from '../src/ui/format';
 import { initialsOf } from '../src/ui/initials';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { signOut } from '../src/use-cases/auth-actions';
 import { applyBackup, type BackupPreview } from '../src/use-cases/backup-actions';
@@ -22,6 +20,7 @@ import {
   type CloudState,
 } from '../src/use-cases/cloud-backup-actions';
 import { usePalette } from '../src/ui/palette';
+import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 /** « 2,1 Mo » : une taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -113,15 +112,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
-    >
-      <View className="px-5 pt-4">
-        <BackHeader title="Profil" onBack={() => router.back()} />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-8">
+    <ListLayout title="Profil" onBack={() => router.back()}>
+      <ListContent className="pb-8">
         {/* Sans projet Supabase configuré, il n'y a pas de compte à proposer :
             la page se tait plutôt que d'offrir un bouton qui échouerait. */}
         {status !== 'off' && (
@@ -252,7 +244,7 @@ export default function ProfileScreen() {
           detail="Évaluation des objectifs, catalogue d'exercices, effacement."
           onPress={() => router.push('/settings')}
         />
-      </ScrollView>
+      </ListContent>
 
       <Sheet
         visible={leaving}
@@ -286,7 +278,7 @@ export default function ProfileScreen() {
         actions={[{ label: 'Remplacer mes données', tone: 'danger', onPress: restore }]}
         onClose={() => setRestoring(null)}
       />
-    </SafeAreaView>
+    </ListLayout>
   );
 }
 

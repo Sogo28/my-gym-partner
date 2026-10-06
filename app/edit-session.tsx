@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Side } from '../src/domain/performance/exercise-performance';
@@ -14,7 +13,6 @@ import { formatDateTime } from '../src/ui/format';
 import { messageOf } from '../src/ui/message';
 import { MeasureField } from '../src/ui/measure-field';
 import { useNotifications } from '../src/ui/notifications';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { formatSetValues } from '../src/ui/set-values';
 import { SetVideoViewer } from '../src/ui/set-video';
@@ -24,6 +22,7 @@ import { fileUri, pickSetVideo } from '../src/use-cases/media-actions';
 import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
 import { attachSetVideo, detachSetVideo } from '../src/use-cases/set-video';
 import { usePalette } from '../src/ui/palette';
+import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 
 
 /** La série qu'on règle : de quoi la retrouver, et de quoi l'afficher. */
@@ -146,19 +145,12 @@ export default function EditSessionScreen() {
     summary?.activities.every((activity) => activity.completedSets.length === 0) ?? false;
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
+    <DetailLayout
+      title="Modifier la séance"
+      subtitle="Ce que tu déclares avoir fait"
+      onBack={() => router.back()}
     >
-      <View className="px-5 pt-4">
-        <BackHeader
-          title="Modifier la séance"
-          subtitle="ce que tu déclares avoir fait"
-          onBack={() => router.back()}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-3 px-5 pb-8" keyboardShouldPersistTaps="handled">
+      <DetailContent className="gap-3">
         {/* Quand la séance a eu lieu se corrige comme ce qu'elle a mesuré :
             une séance saisie le lendemain porte la date du lendemain, et la
             corriger, c'est dire ce qui s'est passé. */}
@@ -240,7 +232,7 @@ export default function EditSessionScreen() {
             </Card>
           );
         })}
-      </ScrollView>
+      </DetailContent>
 
       {/* Une seule feuille pour toutes les séries : celle qu'on règle dit ce
           qu'elle montre. */}
@@ -322,6 +314,6 @@ export default function EditSessionScreen() {
           if (target) removeVideo(target);
         }}
       />
-    </SafeAreaView>
+    </DetailLayout>
   );
 }

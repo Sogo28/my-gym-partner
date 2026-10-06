@@ -7,8 +7,7 @@ import {
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -29,10 +28,10 @@ import { MeasureField } from '../src/ui/measure-field';
 import { ExercisePicker } from '../src/ui/exercise-picker';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
 import { takeCreated } from '../src/ui/created-exercise';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
 import { capitalize } from '../src/ui/format';
+import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /** Une entrée de l'écran : ce qui est visé, et ses conditions. */
 type Entry = { subject: GoalSubject; conditions: Condition[] };
@@ -309,16 +308,12 @@ export default function NewGoalScreen() {
   const editedCondition = editing ? edited?.conditions[editing.condition] : undefined;
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title="Nouvel objectif"
-          subtitle="chaque condition choisit sa période"
-          onBack={() => router.back()}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8" keyboardShouldPersistTaps="handled">
+    <DetailLayout
+      title="Nouvel objectif"
+      subtitle="Chaque condition choisit sa période"
+      onBack={() => router.back()}
+    >
+      <DetailContent>
         <TextInput
           className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
           placeholder="Front Lever"
@@ -451,9 +446,9 @@ export default function NewGoalScreen() {
             </View>
           )
         )}
-      </ScrollView>
+      </DetailContent>
 
-      <View className="p-5 pt-2">
+      <DetailFooter>
         <Button
           label="Créer l'objectif"
           size="lg"
@@ -463,7 +458,7 @@ export default function NewGoalScreen() {
           disabled={name.trim() === '' || entries.length === 0}
           onPress={submit}
         />
-      </View>
+      </DetailFooter>
 
       {/* Une progression se choisit d'un bloc : les étapes suivent l'ordre
           dans lequel on coche les exercices. Un objectif simple n'en vise
@@ -600,7 +595,7 @@ export default function NewGoalScreen() {
         }))}
         onClose={() => setPicking('none')}
       />
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
 

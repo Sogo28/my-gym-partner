@@ -1,7 +1,6 @@
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { BodyMetric } from '../src/domain/body/body-metric';
@@ -15,12 +14,12 @@ import { EmptyState } from '../src/ui/empty-state';
 import { SearchField } from '../src/ui/search';
 import { fold } from '../src/text';
 import { Fab } from '../src/ui/fab';
-import { BackHeader } from '../src/ui/screen-header';
 import {
   evaluateGoal,
   listGoals,
   type GoalEvaluation,
 } from '../src/use-cases/goal-actions';
+import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 export default function GoalsScreen() {
   const { notify } = useNotifications();
@@ -85,26 +84,16 @@ export default function GoalsScreen() {
   });
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        {/* Les mensurations ne sont plus annoncées ici : le profil les range
-            à côté des objectifs, et deux chemins vers la même page en font
-            une qu'on ne sait plus où chercher. */}
-        <BackHeader
-          title="Objectifs"
-          subtitle={`${active.length} en cours · évalués sur tes performances`}
-          onBack={() => router.back()}
-        />
-
-        <View className="pb-3">
-          <SearchField value={query} onChange={setQuery} placeholder="Chercher un objectif" />
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerClassName="grow gap-3 px-5 pb-28"
-        keyboardShouldPersistTaps="handled"
-      >
+    // Les mensurations ne sont plus annoncées ici : le profil les range à
+    // côté des objectifs, et deux chemins vers la même page en font une
+    // qu'on ne sait plus où chercher.
+    <ListLayout
+      title="Objectifs"
+      subtitle={`${active.length} en cours · évalués sur tes performances`}
+      onBack={() => router.back()}
+      toolbar={<SearchField value={query} onChange={setQuery} placeholder="Chercher un objectif" />}
+    >
+      <ListContent>
         {active.length === 0 && (
           <EmptyState
             title="Aucun objectif"
@@ -129,11 +118,11 @@ export default function GoalsScreen() {
             onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
           />
         ))}
-      </ScrollView>
+      </ListContent>
 
       <Link href="/new-goal" asChild>
         <Fab accessibilityLabel="Nouvel objectif" />
       </Link>
-    </SafeAreaView>
+    </ListLayout>
   );
 }

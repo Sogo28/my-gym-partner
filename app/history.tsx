@@ -2,8 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
 import { findAll as findAllExercises } from '../src/infra/exercise-repository';
@@ -20,10 +19,10 @@ import { Card } from '../src/ui/card';
 import { Fab } from '../src/ui/fab';
 import { Sheet } from '../src/ui/sheet';
 import { EmptyState } from '../src/ui/empty-state';
-import { BackHeader } from '../src/ui/screen-header';
 import { SearchField } from '../src/ui/search';
 import { fold } from '../src/text';
 import { formatClock, formatDateTime } from '../src/ui/format';
+import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 /** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
 const PAGE = 10;
@@ -139,134 +138,124 @@ export default function HistoryScreen() {
   const visible = matching.slice(0, shown);
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background dark:bg-background-dark">
-      <View className="gap-3 px-5 pt-4">
-        <BackHeader
-          title="Historique"
-          subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
-          onBack={() => router.back()}
-          onMenu={() => setMenu(true)}
-        />
+    <ListLayout
+      title="Historique"
+      subtitle={`${summaries.length} séance${summaries.length > 1 ? 's' : ''} · ${thisMonth} ce mois-ci`}
+      onBack={() => router.back()}
+      onMenu={() => setMenu(true)}
+      toolbar={
+        <>
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Chercher une séance ou un exercice"
+          />
 
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Chercher une séance ou un exercice"
-        />
-
-        <View className="flex-row gap-2 pb-3">
-          {PERIODS.map(({ label, days }) => {
-            const on = days === period;
-            return (
-              <Pressable
-                key={label}
-                onPress={() => {
-                  setPeriod(days);
-                  // Changer de période repart du début : garder « 40 affichées »
-                  // d'une période à l'autre n'a aucun sens.
-                  setShown(PAGE);
-                }}
-                className={
-                  on
-                    ? 'h-10 justify-center rounded-full bg-primary px-4'
-                    : 'h-10 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                }
-              >
-                <Text
+          <View className="flex-row gap-2">
+            {PERIODS.map(({ label, days }) => {
+              const on = days === period;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => {
+                    setPeriod(days);
+                    // Changer de période repart du début : garder « 40 affichées »
+                    // d'une période à l'autre n'a aucun sens.
+                    setShown(PAGE);
+                  }}
                   className={
                     on
-                      ? 'font-bold text-small text-ink'
-                      : 'text-small text-muted dark:text-muted-dark'
+                      ? 'h-10 justify-center rounded-full bg-selected dark:bg-selected-dark px-4'
+                      : 'h-10 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
                   }
                 >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+                  <Text
+                    className={
+                      on
+                        ? 'font-bold text-small text-on-selected dark:text-on-selected-dark'
+                        : 'text-small text-muted dark:text-muted-dark'
+                    }
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      }
+    >
+      <ListContent>
+        {summaries.length === 0 && (
+          <EmptyState
+            title="Aucun historique"
+            description="Tes séances terminées apparaîtront ici. Tu peux aussi enregistrer une séance déjà faite, avec le bouton en bas."
+          />
+        )}
 
-      {/* La pastille est posée DANS la zone qui défile : son `bottom-6` se
-          compte alors depuis le haut de la barre du bas, sans hauteur à
-          deviner. La liste défile dessous, son rembourrage bas lui laisse de
-          quoi finir sans être recouverte. */}
-      <View className="flex-1">
-        <ScrollView
-          contentContainerClassName="grow gap-3 px-5 pb-28"
-          keyboardShouldPersistTaps="handled"
-        >
-          {summaries.length === 0 && (
-            <EmptyState
-              title="Aucun historique"
-              description="Tes séances terminées apparaîtront ici. Tu peux aussi enregistrer une séance déjà faite, avec le bouton en bas."
-            />
-          )}
+        {summaries.length > 0 && matching.length === 0 && (
+          <EmptyState
+            title="Rien sur cette période"
+            description="Élargis la période pour retrouver tes séances plus anciennes."
+          />
+        )}
 
-          {summaries.length > 0 && matching.length === 0 && (
-            <EmptyState
-              title="Rien sur cette période"
-              description="Élargis la période pour retrouver tes séances plus anciennes."
-            />
-          )}
+        {visible.map(({ session, duration, restTotal, completedSetCount, activities }, position) => {
+          const plan = plans.find((p) => p.id === session.plannedWorkoutId);
+          const date = session.startedAt;
 
-          {visible.map(({ session, duration, restTotal, completedSetCount, activities }, position) => {
-            const plan = plans.find((p) => p.id === session.plannedWorkoutId);
-            const date = session.startedAt;
-
-            // Une carte, trois chiffres, et le détail derrière un tap. Déplier
-            // chaque séance ICI faisait de l'historique une liste de pages
-            // empilées, alors qu'on y vient pour RETROUVER une séance -- la
-            // lire est le travail de sa fiche.
-            return (
-              <Pressable
-                key={session.id}
-                onPress={() =>
-                  router.push({ pathname: '/session-summary', params: { id: session.id } })
-                }
-              >
-                <Card density="titled" className="gap-2">
-                  <View className="flex-row items-start justify-between gap-3">
-                    <View className="shrink">
-                      <Text
-                        className="font-extrabold text-body text-ink dark:text-ink-dark"
-                        numberOfLines={1}
-                      >
-                        {plan ? plan.name : 'Séance libre'}
-                      </Text>
-                      <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                        {formatDateTime(date)}
-                      </Text>
-                    </View>
-                    <StatusPill status={session.status} />
+          // Une carte, trois chiffres, et le détail derrière un tap. Déplier
+          // chaque séance ICI faisait de l'historique une liste de pages
+          // empilées, alors qu'on y vient pour RETROUVER une séance -- la
+          // lire est le travail de sa fiche.
+          return (
+            <Pressable
+              key={session.id}
+              onPress={() =>
+                router.push({ pathname: '/session-summary', params: { id: session.id } })
+              }
+            >
+              <Card density="titled" className="gap-2">
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="shrink">
+                    <Text
+                      className="font-extrabold text-body text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {plan ? plan.name : 'Séance libre'}
+                    </Text>
+                    <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                      {formatDateTime(date)}
+                    </Text>
                   </View>
+                  <StatusPill status={session.status} />
+                </View>
 
-                  <View className="flex-row gap-3">
-                    <Stat label="durée" value={duration === null ? '—' : formatClock(duration)} />
-                    <Stat label="repos" value={formatClock(restTotal)} />
-                    <Stat label="séries" value={String(completedSetCount)} />
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          })}
-          {matching.length > visible.length && (
-            <Button
-              label={`Afficher ${Math.min(PAGE, matching.length - visible.length)} séance${Math.min(PAGE, matching.length - visible.length) > 1 ? 's' : ''} de plus`}
-              variant="secondary"
-              size="md"
-              onPress={() => setShown((count) => count + PAGE)}
-            />
-          )}
-        </ScrollView>
+                <View className="flex-row gap-3">
+                  <Stat label="Durée" value={duration === null ? '—' : formatClock(duration)} />
+                  <Stat label="Repos" value={formatClock(restTotal)} />
+                  <Stat label="Séries" value={String(completedSetCount)} />
+                </View>
+              </Card>
+            </Pressable>
+          );
+        })}
+        {matching.length > visible.length && (
+          <Button
+            label={`Afficher ${Math.min(PAGE, matching.length - visible.length)} séance${Math.min(PAGE, matching.length - visible.length) > 1 ? 's' : ''} de plus`}
+            variant="secondary"
+            size="md"
+            onPress={() => setShown((count) => count + PAGE)}
+          />
+        )}
+      </ListContent>
 
-        {/* C'est ici qu'on pense « il manque samedi » : l'historique est le
-            seul écran où l'absence d'une séance se remarque. */}
-        <Fab
-          accessibilityLabel="Enregistrer une séance passée"
-          onPress={() => router.push('/log-session')}
-        />
-      </View>
+      {/* C'est ici qu'on pense « il manque samedi » : l'historique est le
+          seul écran où l'absence d'une séance se remarque. */}
+      <Fab
+        accessibilityLabel="Enregistrer une séance passée"
+        onPress={() => router.push('/log-session')}
+      />
 
       <Sheet
         visible={menu}
@@ -292,7 +281,7 @@ export default function HistoryScreen() {
         onClose={() => setRestoring(null)}
       />
 
-    </SafeAreaView>
+    </ListLayout>
   );
 }
 

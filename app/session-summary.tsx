@@ -1,8 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, useColorScheme, View } from 'react-native';
+import { Image, Pressable, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
@@ -16,7 +15,6 @@ import { formatClock, formatDateTime, formatDuration, isDuration } from '../src/
 import { GoalCard } from '../src/ui/goal-card';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { cn } from '../src/ui/cn';
 import {
@@ -41,6 +39,7 @@ import {
 import { feelRecord } from '../src/ui/haptics';
 import { PALETTE } from '../src/ui/palette';
 import { Pop } from '../src/ui/pop';
+import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -132,12 +131,11 @@ export default function SessionSummaryScreen() {
 
   if (!summary) {
     return (
-      <SafeAreaView
-        edges={['top', 'bottom']}
-        className="flex-1 bg-background p-5 dark:bg-background-dark"
-      >
-        <Text className="text-muted dark:text-muted-dark">Séance introuvable.</Text>
-      </SafeAreaView>
+      <DetailLayout title="Séance" onBack={() => router.back()}>
+        <DetailContent>
+          <Text className="text-muted dark:text-muted-dark">Séance introuvable.</Text>
+        </DetailContent>
+      </DetailLayout>
     );
   }
 
@@ -158,35 +156,25 @@ export default function SessionSummaryScreen() {
   const plannedSets = plan?.exercises.reduce((total, entry) => total + entry.sets.length, 0) ?? 0;
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
+    <DetailLayout
+      title={fresh ? 'Séance terminée' : plan ? plan.name : 'Séance libre'}
+      subtitle={
+        fresh
+          ? `${plan ? plan.name : 'Séance libre'} · ${formatDateTime(summary.session.startedAt)}`
+          : formatDateTime(summary.session.startedAt)
+      }
+      // La même page sert deux moments : le bilan d'une séance qu'on vient de
+      // finir, et la fiche d'une séance qu'on consulte. Le second a besoin
+      // d'une flèche, le premier d'un point final -- et ce point final n'est
+      // pas un retour : la séance n'existe plus derrière.
+      onBack={() => (fresh ? router.replace('/home') : router.back())}
+      onMenu={() => setSheet('menu')}
     >
-      <View className="px-5 pt-4">
-        {/* La même page sert deux moments : le bilan d'une séance qu'on vient
-            de finir, et la fiche d'une séance qu'on consulte. Le second a
-            besoin d'une flèche, le premier d'un point final -- et ce point
-            final n'est pas un retour : la séance n'existe plus derrière. */}
-        <BackHeader
-          title={fresh ? 'Séance terminée' : plan ? plan.name : 'Séance libre'}
-          subtitle={
-            fresh
-              ? `${plan ? plan.name : 'Séance libre'} · ${formatDateTime(summary.session.startedAt)}`
-              : formatDateTime(summary.session.startedAt)
-          }
-          onBack={() => (fresh ? router.replace('/home') : router.back())}
-          onMenu={() => setSheet('menu')}
-        />
-      </View>
-
-      <ScrollView
-        contentContainerClassName="gap-4 px-5 pb-8"
-        keyboardShouldPersistTaps="handled"
-      >
+      <DetailContent>
         {/* Les trois chiffres qu'on retient d'une séance. */}
         <View className="flex-row gap-3">
-          <Figure value={summary.duration === null ? '—' : formatClock(summary.duration)} label="durée" />
-          <Figure value={String(worked.length)} label={worked.length > 1 ? 'exercices' : 'exercice'} />
+          <Figure value={summary.duration === null ? '—' : formatClock(summary.duration)} label="Durée" />
+          <Figure value={String(worked.length)} label={worked.length > 1 ? 'Exercices' : 'Exercice'} />
           <Figure
             value={
               plannedSets > 0
@@ -457,12 +445,12 @@ export default function SessionSummaryScreen() {
             );
           })}
         </View>
-      </ScrollView>
+      </DetailContent>
 
       {fresh && (
-        <View className="px-5 pt-2">
+        <DetailFooter>
           <Button label="Terminer" size="lg" onPress={() => router.replace('/home')} />
-        </View>
+        </DetailFooter>
       )}
 
       <Sheet
@@ -519,7 +507,7 @@ export default function SessionSummaryScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
 

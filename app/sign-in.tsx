@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Button } from '../src/ui/button';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
-import { BackHeader } from '../src/ui/screen-header';
 import { signIn, signUp } from '../src/use-cases/auth-actions';
+import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 
 type Mode = 'signIn' | 'signUp';
 
@@ -46,18 +45,11 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
+    <DetailLayout
+      title={mode === 'signIn' ? 'Connexion' : 'Nouveau compte'}
+      onBack={() => router.back()}
     >
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={mode === 'signIn' ? 'Connexion' : 'Nouveau compte'}
-          onBack={() => router.back()}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-8" keyboardShouldPersistTaps="handled">
+      <DetailContent className="gap-5">
         <Text className="text-small text-muted dark:text-muted-dark">
           Un compte ne change rien à ta façon de t’entraîner : tes séances continuent de vivre sur
           ce téléphone, réseau ou pas. Il sert à ce qu’elles ne disparaissent pas avec lui.
@@ -130,7 +122,7 @@ export default function SignInScreen() {
             {mode === 'signIn' ? 'Je n’ai pas encore de compte' : 'J’ai déjà un compte'}
           </Text>
         </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+      </DetailContent>
+    </DetailLayout>
   );
 }

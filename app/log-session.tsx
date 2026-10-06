@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -21,7 +20,6 @@ import { formatDateTime } from '../src/ui/format';
 import { MeasureField } from '../src/ui/measure-field';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
-import { BackHeader } from '../src/ui/screen-header';
 import { defaultTargets } from '../src/ui/set-defaults';
 import { formatSetValues } from '../src/ui/set-values';
 import { Sheet } from '../src/ui/sheet';
@@ -29,6 +27,7 @@ import { ladder, Wheel } from '../src/ui/wheel';
 import { listActiveExercises, listActiveWorkouts } from '../src/use-cases/edit-catalogue';
 import { logPastSession } from '../src/use-cases/log-session';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
+import { DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /** Une heure : ce qu'on suppose avoir passé à la salle tant qu'on ne l'a pas dit. */
 const DEFAULT_DURATION = 3600;
@@ -254,18 +253,11 @@ export default function LogSessionScreen() {
   }
 
   return (
-    <SafeAreaView
-      edges={['top', 'bottom']}
-      className="flex-1 bg-background pb-3 dark:bg-background-dark"
+    <DetailLayout
+      title="Enregistrer une séance"
+      subtitle="Ce que tu as fait, après coup"
+      onBack={() => router.back()}
     >
-      <View className="px-5 pt-4">
-        <BackHeader
-          title="Enregistrer une séance"
-          subtitle="ce que tu as fait, après coup"
-          onBack={() => router.back()}
-        />
-      </View>
-
       <View className="flex-1">
         <ScrollView contentContainerClassName="gap-3 px-5 pb-28" keyboardShouldPersistTaps="handled">
           {/* Les trois choses qu'on sait en rentrant : quand, combien de
@@ -335,14 +327,14 @@ export default function LogSessionScreen() {
         <Fab accessibilityLabel="Ajouter des exercices" onPress={() => setPicking(true)} />
       </View>
 
-      <View className="p-5 pt-2">
+      <DetailFooter>
         <Button
           label={saving ? 'Enregistrement…' : 'Enregistrer la séance'}
           size="lg"
           disabled={draft.length === 0 || saving}
           onPress={submit}
         />
-      </View>
+      </DetailFooter>
 
       <DatePickerSheet
         visible={sheet === 'when'}
@@ -461,7 +453,7 @@ export default function LogSessionScreen() {
           </View>
         )}
       </Sheet>
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
 

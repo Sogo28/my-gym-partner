@@ -1,7 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { BodyMetric, BodyReading } from '../src/domain/body/body-metric';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
@@ -11,7 +10,6 @@ import { formatDateTime } from '../src/ui/format';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { MeasureField } from '../src/ui/measure-field';
-import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import type { Muscle } from '../src/domain/exercise/muscle';
 import { findAllMuscles } from '../src/infra/exercise-repository';
@@ -23,6 +21,7 @@ import {
   listMetrics,
   recordReading,
 } from '../src/use-cases/body-actions';
+import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 /**
  * Le suivi corporel : ce que le mètre ruban dit, et qu'aucune séance ne peut
@@ -116,19 +115,12 @@ export default function BodyScreen() {
   const untracked = metrics.filter((metric) => readingsOf(metric.id).length === 0);
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title="Mensurations"
-          subtitle={`${tracked.length} suivie${tracked.length > 1 ? 's' : ''} · relevées à la main`}
-          onBack={() => router.back()}
-        />
-      </View>
-
-      <ScrollView
-        contentContainerClassName="grow gap-3 px-5 pb-28"
-        keyboardShouldPersistTaps="handled"
-      >
+    <ListLayout
+      title="Mensurations"
+      subtitle={`${tracked.length} suivie${tracked.length > 1 ? 's' : ''} · relevées à la main`}
+      onBack={() => router.back()}
+    >
+      <ListContent>
 
         {tracked.length === 0 && (
           <EmptyState
@@ -232,7 +224,7 @@ export default function BodyScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+      </ListContent>
 
       <Fab
         accessibilityLabel="Nouvelle mensuration"
@@ -346,6 +338,6 @@ export default function BodyScreen() {
           </View>
         )}
       </Sheet>
-    </SafeAreaView>
+    </ListLayout>
   );
 }

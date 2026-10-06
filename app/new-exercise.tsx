@@ -3,8 +3,7 @@ import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { ExerciseMedia } from '../src/domain/exercise/media';
@@ -14,7 +13,6 @@ import { findAll, findAllMeasurements, findAllMuscles } from '../src/infra/exerc
 import { Button } from '../src/ui/button';
 import { OptionChip, OptionSheet } from '../src/ui/option-sheet';
 import { Sheet } from '../src/ui/sheet';
-import { BackHeader } from '../src/ui/screen-header';
 import { createExercise } from '../src/use-cases/create-exercise';
 import { forgetUnusedMedia, mediaUri, pickDemonstration } from '../src/use-cases/media-actions';
 import { TrimSheet } from '../src/ui/trim-sheet';
@@ -23,6 +21,7 @@ import {
   unarchiveExercise,
   updateExercise,
 } from '../src/use-cases/edit-catalogue';
+import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /**
  * Création ET édition d'un exercice : un identifiant dans l'URL fait passer
@@ -162,18 +161,14 @@ export default function NewExerciseScreen() {
     // Le bord bas est réservé ici, alors que les onglets s'en chargeaient
     // ailleurs : cet écran se pose PAR-DESSUS la barre, et sans lui le
     // contenu passerait sous la zone de gestes du téléphone.
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background pb-3 dark:bg-background-dark">
-      <View className="px-5 pt-4">
-        <BackHeader
-          title={existing ? "Modifier l'exercice" : 'Nouvel exercice'}
-          subtitle={existing ? 'les séances passées ne changent pas' : undefined}
-          onBack={() => router.back()}
-          // Rien à retirer tant que l'exercice n'existe pas : pas de menu.
-          onMenu={existing ? () => setSheet('menu') : undefined}
-        />
-      </View>
-
-      <ScrollView contentContainerClassName="gap-6 px-5 pb-8" keyboardShouldPersistTaps="handled">
+    <DetailLayout
+      title={existing ? "Modifier l'exercice" : 'Nouvel exercice'}
+      subtitle={existing ? 'Les séances passées ne changent pas' : undefined}
+      onBack={() => router.back()}
+      // Rien à retirer tant que l'exercice n'existe pas : pas de menu.
+      onMenu={existing ? () => setSheet('menu') : undefined}
+    >
+      <DetailContent className="gap-6">
         <View className="gap-2">
           <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
             Démonstrations
@@ -272,9 +267,9 @@ export default function NewExerciseScreen() {
             thumbColor="#FFFFFF"
           />
         </View>
-      </ScrollView>
+      </DetailContent>
 
-      <View className="p-5 pt-2">
+      <DetailFooter>
         <View className="flex-row gap-3">
           <Button
             label="Annuler"
@@ -290,7 +285,7 @@ export default function NewExerciseScreen() {
             onPress={submit}
           />
         </View>
-      </View>
+      </DetailFooter>
 
       <TrimSheet
         visible={trimming !== null}
@@ -386,6 +381,6 @@ export default function NewExerciseScreen() {
         onClose={() => setChoosing('none')}
       />
 
-    </SafeAreaView>
+    </DetailLayout>
   );
 }
