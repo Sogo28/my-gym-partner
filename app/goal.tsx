@@ -109,12 +109,10 @@ export default function GoalScreen() {
       return <BusinessNotice message="Objectif atteint" detail="C'était la dernière étape." />;
     }
 
+    // Le constat et ce qu'on peut en faire, dans une seule bulle : l'étape
+    // suivante se lit déjà juste dessous, sur le rail.
     return (
-      <View className="gap-2">
-        <BusinessNotice
-          message="Étape atteinte"
-          detail={`Tu peux passer à ${subjectName(steps[goal.currentStepIndex + 1].subject)}.`}
-        />
+      <BusinessNotice message="Étape atteinte">
         <Button
           label="Passer à l'étape suivante"
           size="md"
@@ -124,7 +122,7 @@ export default function GoalScreen() {
               .catch((e) => notify(messageOf(e)))
           }
         />
-      </View>
+      </BusinessNotice>
     );
   };
 

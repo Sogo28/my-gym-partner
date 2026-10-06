@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { ConditionResult, RequirementEvaluation } from '../domain/goal/evaluation';
 import type { GoalSubject, ProgressionStep } from '../domain/goal/goal';
 import { cn } from './cn';
-import { describeCondition, describeDemand, WINDOW_PHRASES } from './goal-labels';
+import { describeCondition, describeDemand } from './goal-labels';
 import { capitalize } from './format';
 import { usePalette } from './palette';
 
@@ -169,8 +169,7 @@ function Dot({ state }: { state: 'past' | 'current' | 'todo' }) {
 }
 
 /**
- * Une condition de l'étape en cours : ce qu'elle demande, où en est-on, et
- * quelle période a servi à le dire.
+ * Une condition de l'étape en cours : ce qu'elle demande, et où en est-on.
  */
 export function ConditionProgress({
   result,
@@ -200,10 +199,15 @@ export function ConditionProgress({
 
       <Gauge ratio={ratioOf(result)} satisfied={result.satisfied} />
 
-      <Text className="font-mono text-caption text-planned dark:text-planned-dark">
-        {WINDOW_PHRASES[result.condition.window]}
-        {result.hasData ? '' : ' · aucune donnée'}
-      </Text>
+      {/* La période n'est plus dite : elle se règle à la création, et se
+          relire sous chaque jauge n'apprenait rien. Seule l'absence de
+          données reste à signaler -- sans elle, une jauge vide se lirait
+          comme un échec. */}
+      {!result.hasData && (
+        <Text className="font-mono text-caption text-planned dark:text-planned-dark">
+          Aucune donnée
+        </Text>
+      )}
     </View>
   );
 }
