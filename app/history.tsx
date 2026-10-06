@@ -302,7 +302,7 @@ function StatusPill({ status }: { status: string }) {
     <View
       className={
         done
-          ? 'rounded-full bg-[#E7F3C8] px-2 py-0.5 dark:bg-[#17281D]'
+          ? 'rounded-full bg-[#D9F2E3] px-2 py-0.5 dark:bg-[#17281D]'
           : 'rounded-full bg-[#FDF1F0] px-2 py-0.5 dark:bg-[#2A1A16]'
       }
     >

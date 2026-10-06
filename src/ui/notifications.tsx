@@ -156,7 +156,7 @@ const ICONS: Record<Tone, keyof typeof Ionicons.glyphMap> = {
 };
 
 const ICON_COLORS: Record<Tone, string> = {
-  info: '#46600F',
+  info: '#5F6459',
   success: '#1B7A45',
   danger: '#B3261E',
 };
@@ -234,7 +234,7 @@ function Dialog({ request, onClose }: { request: DialogRequest | null; onClose: 
                 className={cn(
                   'min-h-touch items-center justify-center rounded-lg border px-4 py-3',
                   action.tone === 'primary'
-                    ? 'border-primary bg-primary'
+                    ? 'border-primary bg-primary dark:border-primary-dark dark:bg-primary-dark'
                     : action.tone === 'danger'
                       ? 'border-[#EAB9B5] bg-[#FDF1F0] dark:border-[#5C332B] dark:bg-[#2A1A16]'
                       : 'border-border bg-surface dark:border-border-dark dark:bg-surface-dark',
@@ -244,7 +244,7 @@ function Dialog({ request, onClose }: { request: DialogRequest | null; onClose: 
                   className={cn(
                     'font-bold text-strong',
                     action.tone === 'primary'
-                      ? 'text-ink'
+                      ? 'text-on-primary dark:text-on-primary-dark'
                       : action.tone === 'danger'
                         ? 'text-danger dark:text-danger-dark'
                         : 'text-ink dark:text-ink-dark',

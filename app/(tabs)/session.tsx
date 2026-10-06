@@ -49,7 +49,7 @@ import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { feelSetDone, feelStart } from '../../src/ui/haptics';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
-import { PALETTE, usePalette } from '../../src/ui/palette';
+import { usePalette } from '../../src/ui/palette';
 import { MetaLine, type MetaItem } from '../../src/ui/meta-line';
 import { SetupCountdown } from '../../src/ui/setup-countdown';
 import { emomSetupCountdown } from '../../src/use-cases/preferences';
@@ -123,7 +123,7 @@ const ROUND_LABEL = 32;
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
-  const { muted, primaryInk } = usePalette();
+  const { muted, onPrimary, primaryInk } = usePalette();
   const router = useRouter();
   /**
    * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
@@ -1467,8 +1467,8 @@ export default function SessionScreen() {
           {/* Sans programme : l'exercice d'abord, le reste suit. */}
           <Pressable onPress={() => setSheet('pick-exercise')}>
             <Card className="flex-row items-center gap-3">
-              <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary">
-                <Ionicons name="flash" size={20} color={PALETTE.light.ink} />
+              <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary dark:bg-primary-dark">
+                <Ionicons name="flash" size={20} color={onPrimary} />
               </View>
               <View className="shrink grow gap-0.5">
                 <Text className="font-bold text-body text-ink dark:text-ink-dark">Séance libre</Text>

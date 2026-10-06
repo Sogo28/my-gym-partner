@@ -201,7 +201,7 @@ export default function HomeScreen() {
       items.push({
         icon: 'trophy',
         label: `${bilan.records.length} record${bilan.records.length > 1 ? 's' : ''}`,
-        tone: 'accent',
+        tone: 'done',
       });
     }
 
@@ -356,7 +356,7 @@ export default function HomeScreen() {
           {/* Le schéma reste, même vide : une silhouette sans couleur dit
               « rien ce jour-là » sans faire sauter la page, et garde le
               calendrier à la même place d'un jour à l'autre. */}
-          <BodyMap parts={worked} scale={0.62} />
+          <BodyMap parts={worked} scale={0.62} done />
 
           <WeekStrip days={strip} selected={day} onSelect={select} />
 

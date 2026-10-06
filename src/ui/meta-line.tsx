@@ -7,8 +7,8 @@ import { usePalette } from './palette';
 export type MetaItem = {
   readonly icon: keyof typeof Ionicons.glyphMap;
   readonly label: string;
-  /** `accent` : ce qui mérite d'être remarqué, un record par exemple. */
-  readonly tone?: 'default' | 'accent';
+  /** `done` : une chose faite qui mérite d'être remarquée -- un record. */
+  readonly tone?: 'default' | 'done';
 };
 
 /**
@@ -29,7 +29,7 @@ export function MetaLine({
   items: readonly MetaItem[];
   className?: string;
 }) {
-  const { muted, primaryInk } = usePalette();
+  const { muted, success } = usePalette();
 
   return (
     <View className={cn('flex-row flex-wrap items-center gap-x-3 gap-y-1', className)}>
@@ -38,13 +38,13 @@ export function MetaLine({
           <Ionicons
             name={item.icon}
             size={12}
-            color={item.tone === 'accent' ? primaryInk : muted}
+            color={item.tone === 'done' ? success : muted}
           />
           <Text
             className={cn(
               'text-micro',
-              item.tone === 'accent'
-                ? 'font-mono-bold text-primary-ink dark:text-primary-ink-dark'
+              item.tone === 'done'
+                ? 'font-mono-bold text-success dark:text-success-dark'
                 : 'font-mono text-muted dark:text-muted-dark',
             )}
             style={{ fontVariant: ['tabular-nums'] }}

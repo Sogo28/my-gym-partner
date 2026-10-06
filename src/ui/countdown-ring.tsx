@@ -71,7 +71,7 @@ export function CountdownRing({
           cx={REFERENCE / 2}
           cy={REFERENCE / 2}
           r={RADIUS}
-          stroke={dark ? '#BFF04A' : '#46600F'}
+          stroke={dark ? '#F2F4EF' : '#14160F'}
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}

@@ -620,14 +620,14 @@ function Choice({
       onPress={onPress}
       className={
         selected
-          ? 'flex-1 rounded-lg bg-primary px-4 py-3'
+          ? 'flex-1 rounded-lg bg-selected dark:bg-selected-dark px-4 py-3'
           : 'flex-1 rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark'
       }
     >
-      <Text className={selected ? 'font-bold text-ink' : 'font-bold text-muted dark:text-muted-dark'}>
+      <Text className={selected ? 'font-bold text-on-selected dark:text-on-selected-dark' : 'font-bold text-muted dark:text-muted-dark'}>
         {label}
       </Text>
-      <Text className={selected ? 'text-small text-ink' : 'text-small text-muted dark:text-muted-dark'}>
+      <Text className={selected ? 'text-small text-on-selected dark:text-on-selected-dark' : 'text-small text-muted dark:text-muted-dark'}>
         {hint}
       </Text>
     </Pressable>
@@ -648,13 +648,13 @@ function Chip({
       onPress={onPress}
       className={
         selected
-          ? 'h-10 justify-center rounded-full bg-primary px-3'
+          ? 'h-10 justify-center rounded-full bg-selected dark:bg-selected-dark px-3'
           : 'h-10 justify-center rounded-full border border-border bg-surface px-3 dark:border-border-dark dark:bg-surface-dark'
       }
     >
       <Text
         className={
-          selected ? 'font-bold text-small text-ink' : 'text-small text-muted dark:text-muted-dark'
+          selected ? 'font-bold text-small text-on-selected dark:text-on-selected-dark' : 'text-small text-muted dark:text-muted-dark'
         }
       >
         {label}

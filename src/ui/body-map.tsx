@@ -13,11 +13,30 @@ import type { HighlightedPart } from './body-slugs';
  * qu'on se pose devant un entraînement -- et il y répond sans avoir besoin
  * d'un historique, là où toute statistique attend d'abord des séances.
  */
-export function BodyMap({ parts, scale = 0.75 }: { parts: HighlightedPart[]; scale?: number }) {
+export function BodyMap({
+  parts,
+  scale = 0.75,
+  done = false,
+}: {
+  parts: HighlightedPart[];
+  scale?: number;
+  /**
+   * Des muscles réellement travaillés, et non visés : ils prennent le vert
+   * des choses faites. Ce qu'un entraînement se propose de travailler reste
+   * en gris -- une intention n'a pas la couleur d'un fait.
+   */
+  done?: boolean;
+}) {
   const dark = useColorScheme() === 'dark';
 
   // Deux teintes, dans l'ordre des intensités : soutien, puis visé.
-  const colors = dark ? ['#3F5411', '#BFF04A'] : ['#DCEBB4', '#46600F'];
+  const colors = done
+    ? dark
+      ? ['#1E4D33', '#4FD68A']
+      : ['#CDE8D6', '#1B7A45']
+    : dark
+      ? ['#3A3F37', '#C3C8B8']
+      : ['#D3D7CA', '#5F6459'];
 
   return (
     <View className="flex-row items-center justify-center gap-4">

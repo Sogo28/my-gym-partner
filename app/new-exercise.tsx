@@ -268,7 +268,7 @@ export default function NewExerciseScreen() {
           <Switch
             value={isUnilateral}
             onValueChange={setIsUnilateral}
-            trackColor={{ true: '#BFF04A', false: '#C3C8B8' }}
+            trackColor={{ true: '#1B7A45', false: '#C3C8B8' }}
             thumbColor="#FFFFFF"
           />
         </View>

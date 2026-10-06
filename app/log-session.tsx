@@ -482,7 +482,7 @@ function Row({
           <Text className="font-bold text-body text-ink dark:text-ink-dark">{label}</Text>
           <Text className="font-mono text-caption text-muted dark:text-muted-dark">{value}</Text>
         </View>
-        <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">modifier</Text>
+        <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">Modifier</Text>
       </Card>
     </Pressable>
   );

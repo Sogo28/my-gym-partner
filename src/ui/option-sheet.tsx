@@ -160,9 +160,9 @@ export function OptionSheet({
           )}
           <Pressable
             onPress={onClose}
-            className="min-h-action flex-1 items-center justify-center rounded-lg bg-primary"
+            className="min-h-action flex-1 items-center justify-center rounded-lg bg-primary dark:bg-primary-dark"
           >
-            <Text className="font-bold text-lead text-ink">{confirmLabel}</Text>
+            <Text className="font-bold text-lead text-on-primary dark:text-on-primary-dark">{confirmLabel}</Text>
           </Pressable>
         </View>
       </View>

@@ -52,7 +52,9 @@ export function WeekStrip({
           <View
             className={cn(
               'h-10 w-full items-center justify-center rounded-lg border-2',
-              day.worked && 'border-primary bg-primary dark:border-primary dark:bg-primary',
+              // Le vert des choses faites : un jour travaillé EST fait.
+              day.worked &&
+                'border-success bg-success dark:border-success-dark dark:bg-success-dark',
               !day.worked &&
                 day.scheduled &&
                 'border-primary-ink bg-transparent dark:border-primary-ink-dark',
@@ -69,7 +71,9 @@ export function WeekStrip({
             <Text
               className={cn(
                 'font-mono text-small',
-                day.worked ? 'text-ink' : 'text-muted dark:text-muted-dark',
+                // Blanc sur le vert foncé du thème clair, encre sur le vert vif du
+                // sombre : chacun là où il se lit.
+                day.worked ? 'text-white dark:text-ink' : 'text-muted dark:text-muted-dark',
                 // Aujourd'hui se lit en gras : c'est le repère depuis lequel
                 // on lit tous les autres.
                 day.today && 'font-mono-bold',

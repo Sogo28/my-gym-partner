@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { chartScale, curveOffsets } from './scale';
+import { usePalette } from './palette';
 
 export type ChartPoint = { value: number; at: Date };
 
@@ -22,6 +23,7 @@ const GUTTER = 42;
  * nombres, si bien que la base tronquée se voit au lieu de tromper.
  */
 export function LineChart({ points }: { points: readonly ChartPoint[] }) {
+  const { primaryInk } = usePalette();
   if (points.length === 0) return null;
 
   const values = points.map((point) => point.value);
@@ -101,7 +103,7 @@ export function LineChart({ points }: { points: readonly ChartPoint[] }) {
 
             <Path
               d={line}
-              stroke="#46600F"
+              stroke={primaryInk}
               strokeWidth={2}
               fill="none"
               vectorEffect="non-scaling-stroke"

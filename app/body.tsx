@@ -262,14 +262,14 @@ export default function BodyScreen() {
                   onPress={() => setCreating((current) => current && { ...current, unit })}
                   className={
                     creating.unit === unit
-                      ? 'h-11 justify-center rounded-full bg-primary px-4'
+                      ? 'h-11 justify-center rounded-full bg-selected dark:bg-selected-dark px-4'
                       : 'h-11 justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
                   }
                 >
                   <Text
                     className={
                       creating.unit === unit
-                        ? 'font-bold text-small text-ink'
+                        ? 'font-bold text-small text-on-selected dark:text-on-selected-dark'
                         : 'text-small text-muted dark:text-muted-dark'
                     }
                   >

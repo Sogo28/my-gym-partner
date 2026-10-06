@@ -5,6 +5,7 @@ import type { GoalSubject, ProgressionStep } from '../domain/goal/goal';
 import { cn } from './cn';
 import { describeCondition, describeDemand, WINDOW_PHRASES } from './goal-labels';
 import { capitalize } from './format';
+import { usePalette } from './palette';
 
 /**
  * Une progression, lue comme un chemin.
@@ -130,6 +131,8 @@ function Segment({
   height?: number;
   grow?: boolean;
 }) {
+  const { success } = usePalette();
+
   return (
     <View
       className={cn(grow && 'flex-1', hidden && 'opacity-0')}
@@ -140,7 +143,8 @@ function Segment({
         // obtient un trait pointillé, que RN ne sait pas dessiner autrement.
         borderLeftWidth: 2,
         borderStyle: travelled ? 'solid' : 'dashed',
-        borderLeftColor: travelled ? '#46600F' : '#A8AD9E',
+        // Le chemin parcouru est fait : il prend le vert des choses faites.
+        borderLeftColor: travelled ? success : '#A8AD9E',
       }}
     />
   );

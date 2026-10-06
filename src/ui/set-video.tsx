@@ -26,7 +26,7 @@ export function VideoBadge({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Voir la vidéo de cette série"
       className="h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft dark:bg-primary-soft-dark"
     >
-      <Ionicons name="play" size={18} color={dark ? '#BFF04A' : '#46600F'} />
+      <Ionicons name="play" size={18} color={dark ? '#F2F4EF' : '#14160F'} />
     </Pressable>
   );
 }

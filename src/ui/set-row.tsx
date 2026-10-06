@@ -34,13 +34,13 @@ const ACCENTS: Record<'light' | 'dark', Record<SetRowStatus, string>> = {
     completed: '#1B7A45',
     abandoned: '#B3261E',
     planned: '#A8AD9E',
-    'in-progress': '#46600F',
+    'in-progress': '#14160F',
   },
   dark: {
     completed: '#4FD68A',
     abandoned: '#FF7A66',
     planned: '#8B9086',
-    'in-progress': '#BFF04A',
+    'in-progress': '#F2F4EF',
   },
 };
 

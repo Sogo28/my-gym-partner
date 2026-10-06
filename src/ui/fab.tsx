@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, type PressableProps } from 'react-native';
 import { cn } from './cn';
+import { usePalette } from './palette';
 
 /**
  * L'action d'ajout, en pastille flottante au-dessus de la liste.
@@ -19,12 +20,14 @@ export function Fab({
   icon?: keyof typeof Ionicons.glyphMap;
   className?: string;
 }) {
+  const { onPrimary } = usePalette();
+
   return (
     <Pressable
       // La liste défile DESSOUS : son rembourrage bas lui laisse la place de
       // finir sans être recouverte.
       className={cn(
-        'absolute bottom-6 right-5 h-16 w-16 items-center justify-center rounded-xl bg-primary active:bg-primary-pressed',
+        'absolute bottom-6 right-5 h-16 w-16 items-center justify-center rounded-xl bg-primary dark:bg-primary-dark active:bg-primary-pressed dark:active:bg-primary-pressed-dark',
         className,
       )}
       // L'ombre ne s'exprime pas en classes : deux plateformes, deux modèles.
@@ -37,7 +40,7 @@ export function Fab({
       }}
       {...props}
     >
-      <Ionicons name={icon} size={30} color="#14160F" />
+      <Ionicons name={icon} size={30} color={onPrimary} />
     </Pressable>
   );
 }

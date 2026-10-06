@@ -10,14 +10,26 @@ module.exports = {
       // Couleurs nommées par leur RÔLE. Le suffixe -dark est la valeur du
       // mode sombre, à utiliser via `dark:` (ex. bg-surface dark:bg-surface-dark).
       colors: {
+        // Une seule couleur, le vert (`success`) : celui des choses faites,
+        // et l'aplat des boutons principaux. Tout le reste -- liens, accents
+        // en texte, choix sélectionnés -- est en noir et blanc.
         primary: {
-          DEFAULT: '#BFF04A', // aplat d'action : TOUJOURS avec du texte foncé
-          ink: '#46600F', // le même accent en texte et bordure (mode clair)
-          'ink-dark': '#BFF04A',
-          soft: '#E7F3C8',
-          'soft-dark': '#232A16',
-          pressed: '#A6D63F',
+          DEFAULT: '#1B7A45', // aplat d'action : TOUJOURS avec on-primary
+          dark: '#4FD68A',
+          pressed: '#16663A',
+          'pressed-dark': '#3FBF77',
+          ink: '#14160F', // l'accent en texte et bordure : la couleur du texte
+          'ink-dark': '#F2F4EF',
+          soft: '#E4E7DC', // fond d'une pastille, d'une ligne ouverte
+          'soft-dark': '#262923',
         },
+        // Le texte posé SUR l'aplat d'action : blanc sur le vert foncé du
+        // thème clair, foncé sur le vert vif du sombre.
+        'on-primary': { DEFAULT: '#FFFFFF', dark: '#14160F' },
+        // Un choix sélectionné (une période, un jour) : un aplat noir ou
+        // blanc. En vert, il se lirait comme une chose faite.
+        selected: { DEFAULT: '#14160F', dark: '#F2F4EF' },
+        'on-selected': { DEFAULT: '#F2F4EF', dark: '#14160F' },
         background: { DEFAULT: '#F6F7F3', dark: '#0E0F0D' },
         surface: { DEFAULT: '#FFFFFF', dark: '#191B17' },
         'surface-alt': { DEFAULT: '#EDEFE8', dark: '#141613' },

@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../src/domain/exercise/exercise';
@@ -242,7 +242,7 @@ export default function SessionSummaryScreen() {
             <Text className="self-start font-bold uppercase text-label text-muted dark:text-muted-dark">
               Travaillé
             </Text>
-            <BodyMap parts={muscles} scale={0.62} />
+            <BodyMap parts={muscles} scale={0.62} done />
           </Card>
         )}
 
@@ -585,11 +585,11 @@ function Figure({ value, label }: { value: string; label: string }) {
 }
 
 /**
- * Les records battus, en aplat citron : la seule carte pleine du bilan, parce
- * que c'est la seule nouvelle qui se fête.
+ * Les records battus, en aplat vert : la seule carte pleine du bilan, parce
+ * que c'est la seule nouvelle qui se fête -- et un record est une chose faite.
  *
- * L'aplat garde son texte foncé dans les deux thèmes -- c'est la règle du
- * citron, qui ne passe qu'avec lui.
+ * Texte blanc sur le vert foncé du thème clair, foncé sur le vert vif du
+ * sombre : chacun là où il se lit.
  */
 function RecordsCard({
   records,
@@ -603,6 +603,7 @@ function RecordsCard({
   /** Au bilan d'une séance qu'on vient de finir, la carte arrive en rebondissant. */
   celebrate: boolean;
 }) {
+  const dark = useColorScheme() === 'dark';
   // Le volume n'a pas d'unité : un indice, arrondi comme sur la fiche.
   const show = (record: SessionRecord, value: number) =>
     record.measurementId === null
@@ -610,10 +611,10 @@ function RecordsCard({
       : formatMeasure(value, unitOf(record.measurementId));
 
   return (
-    <Pop appear={celebrate} className="gap-3 rounded-2xl bg-primary p-4">
+    <Pop appear={celebrate} className="gap-3 rounded-2xl bg-success p-4 dark:bg-success-dark">
       <View className="flex-row items-center gap-2">
-        <Ionicons name="trophy" size={18} color={PALETTE.light.ink} />
-        <Text className="font-black uppercase text-label text-ink">
+        <Ionicons name="trophy" size={18} color={dark ? PALETTE.light.ink : '#FFFFFF'} />
+        <Text className="font-black uppercase text-label text-white dark:text-ink">
           {records.length > 1 ? `${records.length} nouveaux records` : 'Nouveau record'}
         </Text>
       </View>
@@ -623,11 +624,11 @@ function RecordsCard({
           key={`${record.exerciseId}-${record.measurementId ?? 'volume'}`}
           className="flex-row items-baseline justify-between gap-3"
         >
-          <Text className="shrink font-bold text-body text-ink" numberOfLines={1}>
+          <Text className="shrink font-bold text-body text-white dark:text-ink" numberOfLines={1}>
             {nameOf(record.exerciseId)}
             {record.measurementId === null ? ' · volume' : ''}
           </Text>
-          <Text className="shrink-0 text-ink" style={{ fontVariant: ['tabular-nums'] }}>
+          <Text className="shrink-0 text-white dark:text-ink" style={{ fontVariant: ['tabular-nums'] }}>
             <Text className="font-mono-bold text-lead">{show(record, record.value)}</Text>
             <Text className="font-mono text-caption"> avant {show(record, record.previous)}</Text>
           </Text>

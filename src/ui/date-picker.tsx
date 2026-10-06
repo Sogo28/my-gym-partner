@@ -148,14 +148,14 @@ export function DatePickerSheet({
                     onPress={() => pickDay(day)}
                     className={cn(
                       'h-11 items-center justify-center rounded-lg',
-                      isSelected && 'bg-primary',
+                      isSelected && 'bg-selected dark:bg-selected-dark',
                       !isSelected && isToday && 'bg-surface-alt dark:bg-surface-alt-dark',
                     )}
                   >
                     <Text
                       className={cn(
                         'font-mono text-lead',
-                        isSelected && 'font-mono-bold text-ink',
+                        isSelected && 'font-mono-bold text-on-selected dark:text-on-selected-dark',
                         !isSelected && 'text-ink dark:text-ink-dark',
                       )}
                       style={{ fontVariant: ['tabular-nums'] }}

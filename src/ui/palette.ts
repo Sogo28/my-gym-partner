@@ -13,9 +13,10 @@ import { useColorScheme } from 'react-native';
  */
 export const PALETTE = {
   light: {
-    primary: '#BFF04A',
-    primaryInk: '#46600F',
-    primarySoft: '#E7F3C8',
+    primary: '#1B7A45',
+    onPrimary: '#FFFFFF',
+    primaryInk: '#14160F',
+    primarySoft: '#E4E7DC',
     background: '#F6F7F3',
     surface: '#FFFFFF',
     surfaceAlt: '#EDEFE8',
@@ -28,9 +29,10 @@ export const PALETTE = {
     danger: '#B3261E',
   },
   dark: {
-    primary: '#BFF04A',
-    primaryInk: '#BFF04A',
-    primarySoft: '#232A16',
+    primary: '#4FD68A',
+    onPrimary: '#14160F',
+    primaryInk: '#F2F4EF',
+    primarySoft: '#262923',
     background: '#0E0F0D',
     surface: '#191B17',
     surfaceAlt: '#141613',
