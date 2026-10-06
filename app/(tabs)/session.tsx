@@ -34,6 +34,7 @@ import {
   scheduleWorkout,
 } from '../../src/use-cases/scheduling-actions';
 import { findActive } from '../../src/infra/workout-session-repository';
+import { findLastDoneByPlan } from '../../src/infra/session-history';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { DatePickerSheet } from '../../src/ui/date-picker';
@@ -66,7 +67,7 @@ import {
   formatTargets,
   formatTargetsShort,
 } from '../../src/ui/set-values';
-import { formatDateTime, isDuration } from '../../src/ui/format';
+import { formatDateTime, isDuration, lastDoneLabel } from '../../src/ui/format';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -121,7 +122,7 @@ const ROUND_LABEL = 32;
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
-  const { muted } = usePalette();
+  const { muted, primaryInk } = usePalette();
   const router = useRouter();
   /**
    * L'entraînement qu'on s'apprête à faire, passé par l'écran d'où l'on vient.
@@ -142,6 +143,8 @@ export default function SessionScreen() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
+  /** La dernière séance faite de chaque entraînement, pour choisir lequel refaire. */
+  const [lastDone, setLastDone] = useState<Map<string, Date>>(new Map());
   /**
    * L'exercice choisi pour une séance libre, tant qu'elle n'a pas commencé.
    *
@@ -240,22 +243,32 @@ export default function SessionScreen() {
   });
 
   const reload = useCallback(async () => {
-    const [active, allExercises, allPlans, allMeasurements, allSchedule, allMuscles, recent] =
-      await Promise.all([
-        findActive(),
-        findAllExercises(),
-        findAllPlans(),
-        findAllMeasurements(),
-        listSchedule(),
-        findAllMuscles(),
-        findRecentExerciseIds(),
-      ]);
+    const [
+      active,
+      allExercises,
+      allPlans,
+      allMeasurements,
+      allSchedule,
+      allMuscles,
+      recent,
+      done,
+    ] = await Promise.all([
+      findActive(),
+      findAllExercises(),
+      findAllPlans(),
+      findAllMeasurements(),
+      listSchedule(),
+      findAllMuscles(),
+      findRecentExerciseIds(),
+      findLastDoneByPlan(),
+    ]);
     setSession(active);
     setExercises(allExercises);
     setPlans(allPlans);
     setMeasurements(allMeasurements);
     setMuscles(allMuscles);
     setRecentIds(recent);
+    setLastDone(done);
     // Seules les intentions encore ouvertes intéressent l'écran.
     setSchedule(allSchedule.filter((entry) => entry.status === 'SCHEDULED'));
 
@@ -1457,8 +1470,10 @@ export default function SessionScreen() {
           {startable.map((plan) => (
             <Pressable key={plan.id} onPress={() => open(plan.id)}>
               <Card className="flex-row items-center gap-3">
-                <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
-                  <Ionicons name="clipboard-outline" size={20} color={muted} />
+                {/* Le vert pâle de la séance libre, en plus discret : le gris
+                    sur la carte sombre se voyait à peine. */}
+                <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft dark:bg-primary-soft-dark">
+                  <Ionicons name="clipboard-outline" size={20} color={primaryInk} />
                 </View>
                 <View className="shrink grow gap-0.5">
                   <Text
@@ -1467,8 +1482,11 @@ export default function SessionScreen() {
                   >
                     {plan.name}
                   </Text>
-                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                    {contentsOf(plan.id)}
+                  <Text
+                    className="font-mono text-caption text-muted dark:text-muted-dark"
+                    numberOfLines={1}
+                  >
+                    {contentsOf(plan.id)} · {lastDoneLabel(lastDone.get(plan.id), now)}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={muted} />

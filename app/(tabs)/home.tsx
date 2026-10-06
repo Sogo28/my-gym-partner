@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -17,7 +18,7 @@ import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { GoalCard } from '../../src/ui/goal-card';
-import { dayLabel, formatDateTime, formatTime } from '../../src/ui/format';
+import { dayLabel, formatDateTime, formatLongDate, formatTime } from '../../src/ui/format';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { SectionHeader } from '../../src/ui/screen-header';
@@ -44,6 +45,7 @@ import {
   type MuscleSummary,
 } from '../../src/use-cases/week-summary';
 import { WeekStrip } from '../../src/ui/week-strip';
+import { usePalette } from '../../src/ui/palette';
 
 const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerciseCount: 0 };
 
@@ -58,6 +60,7 @@ const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exe
  */
 export default function HomeScreen() {
   const { notify } = useNotifications();
+  const { success } = usePalette();
   const router = useRouter();
   const { account } = useAccount();
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -260,11 +263,9 @@ export default function HomeScreen() {
       <View className="px-5 pt-4">
         <SectionHeader
           title="Accueil"
-          subtitle={
-            week.exerciseCount === 0
-              ? 'aucun exercice travaillé cette semaine'
-              : `${week.exerciseCount} exercice${week.exerciseCount > 1 ? 's' : ''} travaillé${week.exerciseCount > 1 ? 's' : ''} cette semaine`
-          }
+          // La date et non un décompte : « travaillé cette semaine » est déjà
+          // le titre du bloc juste dessous, et le schéma le montre mieux.
+          subtitle={formatLongDate(new Date())}
           // Le profil s'atteint depuis l'accueil, et de nulle part ailleurs :
           // c'est le premier écran, et rien de ce qu'il contient ne se fait
           // au milieu d'une série.
@@ -370,7 +371,13 @@ export default function HomeScreen() {
                     router.push({ pathname: '/session-summary', params: { id: entry.id } })
                   }
                 >
-                  <Card density="titled" className="gap-2">
+                  {/* Un filet vert et une coche : FAITE se distingue d'un coup
+                      d'oeil de prévue, comme une série validée d'une série
+                      à faire. */}
+                  <Card
+                    density="titled"
+                    className="gap-2 border-l-[3px] border-l-success dark:border-l-success-dark"
+                  >
                     <View className="flex-row items-start justify-between gap-3">
                       <Text
                         className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
@@ -384,10 +391,13 @@ export default function HomeScreen() {
                         {formatTime(entry.startedAt)}
                       </Text>
                     </View>
-                    <Text className="text-small text-success dark:text-success-dark">
-                      Séance faite · {entry.completedSets} série
-                      {entry.completedSets > 1 ? 's' : ''}
-                    </Text>
+                    <View className="flex-row items-center gap-1.5">
+                      <Ionicons name="checkmark-circle" size={16} color={success} />
+                      <Text className="text-small text-success dark:text-success-dark">
+                        Séance faite · {entry.completedSets} série
+                        {entry.completedSets > 1 ? 's' : ''}
+                      </Text>
+                    </View>
                   </Card>
                 </Pressable>
               ))}

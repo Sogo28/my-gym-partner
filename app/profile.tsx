@@ -308,13 +308,13 @@ function Row({
   detail: string;
   onPress: () => void;
 }) {
-  const { muted } = usePalette();
+  const { muted, primaryInk } = usePalette();
 
   return (
     <Pressable onPress={onPress}>
       <Card density="titled" className="flex-row items-center gap-3">
-        <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
-          <Ionicons name={icon} size={20} color={muted} />
+        <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft dark:bg-primary-soft-dark">
+          <Ionicons name={icon} size={20} color={primaryInk} />
         </View>
         <View className="shrink grow gap-0.5">
           <Text className="font-extrabold text-body text-ink dark:text-ink-dark">{title}</Text>
