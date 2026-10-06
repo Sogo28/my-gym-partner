@@ -174,7 +174,7 @@ export default function EditSessionScreen() {
                 </Text>
               </View>
               <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">
-                modifier
+                Modifier
               </Text>
             </Card>
           </Pressable>

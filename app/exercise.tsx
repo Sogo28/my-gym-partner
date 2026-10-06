@@ -285,8 +285,8 @@ export default function ExerciseDetailScreen() {
           {exercise.secondaryMuscleIds.map((muscleId) => (
             <Tag key={muscleId} label={muscleNameOf(muscleId)} variant="accent-outline" />
           ))}
-          {exercise.isUnilateral && <Tag label="unilatéral" variant="accent" />}
-          {exercise.isArchived && <Tag label="archivé" />}
+          {exercise.isUnilateral && <Tag label="Unilatéral" variant="accent" />}
+          {exercise.isArchived && <Tag label="Archivé" />}
         </View>
 
         {/* Les démonstrations sont ce qu'on vient revoir AVANT de s'y mettre :
@@ -420,7 +420,7 @@ export default function ExerciseDetailScreen() {
                         {goal.name}
                       </Text>
                       <Text className="text-caption text-muted dark:text-muted-dark">
-                        {goal.status === 'ACTIVE' ? 'en cours' : 'archivé'}
+                        {goal.status === 'ACTIVE' ? 'En cours' : 'Archivé'}
                       </Text>
                     </Card>
                   ))}
@@ -494,7 +494,7 @@ export default function ExerciseDetailScreen() {
                 </Text>
               </View>
               <Text className="text-caption text-primary-ink dark:text-primary-ink-dark">
-                modifier
+                Modifier
               </Text>
             </Card>
           </Pressable>

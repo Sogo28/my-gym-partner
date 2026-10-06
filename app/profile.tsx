@@ -153,7 +153,7 @@ export default function ProfileScreen() {
                         {account.email}
                       </Text>
                       <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                        connecté
+                        Connecté
                       </Text>
                     </View>
                   </View>
@@ -176,9 +176,9 @@ export default function ProfileScreen() {
 
                   <Text className="font-mono text-small text-muted dark:text-muted-dark">
                     {cloud === null
-                      ? 'état inconnu · pas de réseau ?'
+                      ? 'État inconnu · pas de réseau ?'
                       : cloud.lastSavedAt === null
-                        ? 'aucune sauvegarde en ligne'
+                        ? 'Aucune sauvegarde en ligne'
                         : `${formatDateTime(cloud.lastSavedAt)} · ${formatSize(cloud.size)} · ${cloud.generations} copie${cloud.generations > 1 ? 's' : ''}`}
                   </Text>
 

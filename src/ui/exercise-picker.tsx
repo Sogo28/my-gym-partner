@@ -338,7 +338,7 @@ export function ExercisePicker({
           {onCreate && (query.trim() === '' ? exercises.length === 0 : !nameTaken) && (
             <CatalogueRow
               name={query.trim() === '' ? 'Créer un exercice' : `Créer « ${query.trim()} »`}
-              detail="ouvre le formulaire"
+              detail="Ouvre le formulaire"
               onPress={create}
             />
           )}

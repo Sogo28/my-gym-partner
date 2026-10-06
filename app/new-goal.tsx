@@ -32,6 +32,7 @@ import { takeCreated } from '../src/ui/created-exercise';
 import { BackHeader } from '../src/ui/screen-header';
 import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
+import { capitalize } from '../src/ui/format';
 
 /** Une entrée de l'écran : ce qui est visé, et ses conditions. */
 type Entry = { subject: GoalSubject; conditions: Condition[] };
@@ -331,7 +332,7 @@ export default function NewGoalScreen() {
         <View className="flex-row gap-2">
           <Choice
             label="Progressif"
-            hint="plusieurs étapes"
+            hint="Plusieurs étapes"
             selected={progressive}
             onPress={() => {
               setProgressive(true);
@@ -345,7 +346,7 @@ export default function NewGoalScreen() {
           />
           <Choice
             label="Simple"
-            hint="un seul exercice"
+            hint="Un seul exercice"
             selected={!progressive}
             onPress={() => {
               setProgressive(false);
@@ -371,7 +372,7 @@ export default function NewGoalScreen() {
                   {subjectName(entry.subject)}
                 </Text>
                 <Pressable onPress={() => removeEntry(index)} hitSlop={8}>
-                  <Text className="text-caption text-danger dark:text-danger-dark">retirer</Text>
+                  <Text className="text-caption text-danger dark:text-danger-dark">Retirer</Text>
                 </Pressable>
               </View>
 
@@ -388,8 +389,7 @@ export default function NewGoalScreen() {
                     className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
                   >
                     <Text className="shrink text-small text-muted dark:text-muted-dark">
-                      {conditionIndex > 0 ? 'et ' : ''}
-                      {what}
+                      {conditionIndex > 0 ? `Et ${what}` : capitalize(what)}
                     </Text>
                     <Text
                       className="font-mono-bold text-lead text-ink dark:text-ink-dark"
@@ -558,7 +558,7 @@ export default function NewGoalScreen() {
               )}
 
             <View className="flex-row items-end gap-3">
-              <Text className="mb-2 text-lead text-muted dark:text-muted-dark">au moins</Text>
+              <Text className="mb-2 text-lead text-muted dark:text-muted-dark">Au moins</Text>
               <MeasureField
                 compact
                 unit={targetUnit(editedCondition, unitOf)}

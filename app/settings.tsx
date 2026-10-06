@@ -147,7 +147,7 @@ export default function SettingsScreen() {
           </Text>
 
           <Text className="font-mono text-small text-muted dark:text-muted-dark">
-            {state.downloaded ? `téléchargé · ${formatSize(state.size)}` : 'pas encore téléchargé'}
+            {state.downloaded ? `Téléchargé · ${formatSize(state.size)}` : 'Pas encore téléchargé'}
           </Text>
 
           <Button

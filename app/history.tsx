@@ -35,9 +35,9 @@ const PERIODS: { label: string; days: number | null }[] = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'en cours',
-  COMPLETED: 'terminée',
-  CANCELLED: 'annulée',
+  ACTIVE: 'En cours',
+  COMPLETED: 'Terminée',
+  CANCELLED: 'Annulée',
 };
 
 export default function HistoryScreen() {

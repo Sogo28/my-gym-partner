@@ -182,7 +182,7 @@ export default function WorkoutDetailScreen() {
 
               {planned.sets.length === 0 ? (
                 <Text className="text-small text-muted dark:text-muted-dark">
-                  aucune série prévue
+                  Aucune série prévue
                 </Text>
               ) : (
                 /* Du texte, pas des cadres : cinq encadrés sous chaque exercice

@@ -191,7 +191,7 @@ export default function ExercisesScreen() {
             {query.trim() !== '' && !nameTaken && (
               <CatalogueRow
                 name={`Créer « ${query.trim()} »`}
-                detail="ouvre le formulaire, nom déjà rempli"
+                detail="Ouvre le formulaire, nom déjà rempli"
                 onPress={() =>
                   router.push({ pathname: '/new-exercise', params: { name: query.trim() } })
                 }
@@ -227,8 +227,8 @@ export default function ExercisesScreen() {
                   {item.secondaryMuscleIds.map((id) => (
                     <Tag key={id} label={muscleNameOf(id)} variant="accent-outline" />
                   ))}
-                  {item.isUnilateral && <Tag label="unilatéral" variant="accent" />}
-                  {item.isArchived && <Tag label="archivé" />}
+                  {item.isUnilateral && <Tag label="Unilatéral" variant="accent" />}
+                  {item.isArchived && <Tag label="Archivé" />}
                 </View>
               </Card>
             </Pressable>

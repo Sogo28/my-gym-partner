@@ -81,7 +81,7 @@ function Player({
         <Pressable onPress={onClose} hitSlop={8}>
           <Text className="text-lead text-white">Fermer</Text>
         </Pressable>
-        <Text className="text-caption text-white/70">ta série</Text>
+        <Text className="text-caption text-white/70">Ta série</Text>
       </View>
 
       <VideoView style={{ flex: 1 }} player={player} nativeControls contentFit="contain" />

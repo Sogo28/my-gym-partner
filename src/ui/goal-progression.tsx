@@ -4,6 +4,7 @@ import type { ConditionResult, RequirementEvaluation } from '../domain/goal/eval
 import type { GoalSubject, ProgressionStep } from '../domain/goal/goal';
 import { cn } from './cn';
 import { describeCondition, describeDemand, WINDOW_PHRASES } from './goal-labels';
+import { capitalize } from './format';
 
 /**
  * Une progression, lue comme un chemin.
@@ -86,7 +87,7 @@ export function GoalProgression({
 
               {state === 'todo' && (
                 <Text className="pt-0.5 font-mono text-small text-planned dark:text-planned-dark">
-                  {describeDemand(step.requirements, unitOf) || 'à valider à la main'}
+                  {describeDemand(step.requirements, unitOf) || 'À valider à la main'}
                 </Text>
               )}
             </View>
@@ -178,7 +179,7 @@ export function ConditionProgress({
     <View className="gap-1">
       <View className="flex-row items-end justify-between gap-3">
         <Text className="shrink text-small text-muted dark:text-muted-dark">
-          {describeCondition(result.condition, unitOf)}
+          {capitalize(describeCondition(result.condition, unitOf))}
         </Text>
         <Text
           className={cn(

@@ -85,8 +85,8 @@ export function GoalCard({
         ) : (
           <Text className="text-caption text-muted dark:text-muted-dark">
             {goal.isProgressive
-              ? `étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
-              : 'à valider à la main'}
+              ? `Étape ${goal.currentStepIndex + 1}/${goal.steps.length}`
+              : 'À valider à la main'}
           </Text>
         )}
       </Card>

@@ -1127,7 +1127,7 @@ export default function SessionScreen() {
       <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
         <BackHeader
           title="Séance libre"
-          subtitle="rien n'a encore commencé"
+          subtitle="Rien n'a encore commencé"
           onBack={() => setPending(null)}
           onMenu={() => setSheet('pending-menu')}
         />
@@ -1407,7 +1407,7 @@ export default function SessionScreen() {
             subtitle={
               schedule.length > 0
                 ? `${schedule.length} entraînement${schedule.length > 1 ? 's' : ''} programmé${schedule.length > 1 ? 's' : ''}`
-                : 'aucune séance en cours'
+                : 'Aucune séance en cours'
             }
             // Programmer appartient ICI : c'est la page des séances qui parle
             // du calendrier, pas la fiche d'un entraînement, qui décrit ce
@@ -1591,8 +1591,8 @@ export default function SessionScreen() {
 
   const position =
     activity?.plannedPosition != null && plan
-      ? `exercice ${activity.plannedPosition + 1}/${plan.exercises.length} · ${plannedExercise?.intervalSeconds ? 'round' : 'série'} ${nextSetIndex + (performance?.currentSet ? 0 : 1)} sur ${plannedExercise?.sets.length ?? '—'}`
-      : 'séance libre';
+      ? `Exercice ${activity.plannedPosition + 1}/${plan.exercises.length} · ${plannedExercise?.intervalSeconds ? 'round' : 'série'} ${nextSetIndex + (performance?.currentSet ? 0 : 1)} sur ${plannedExercise?.sets.length ?? '—'}`
+      : 'Séance libre';
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
@@ -1639,7 +1639,7 @@ export default function SessionScreen() {
             </Text>
             <View className="flex-row items-center gap-1">
               <Text className="font-mono text-small text-muted dark:text-muted-dark">
-                {showDetail ? 'réduire' : 'détail'}
+                {showDetail ? 'Réduire' : 'Détail'}
               </Text>
               <Ionicons name={showDetail ? 'chevron-up' : 'chevron-down'} size={14} color={muted} />
             </View>
@@ -1807,8 +1807,8 @@ export default function SessionScreen() {
                     {emom.pausedAt
                       ? 'EMOM en pause'
                       : isFinalEmomRound
-                        ? 'dernier round'
-                        : `prochain round dans ${emomState?.remainingSeconds ?? 0} s`}
+                        ? 'Dernier round'
+                        : `Prochain round dans ${emomState?.remainingSeconds ?? 0} s`}
                   </Text>
                 </View>
               ) : (

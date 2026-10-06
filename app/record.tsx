@@ -147,8 +147,8 @@ export default function RecordScreen() {
           <View className="items-center gap-2">
             <Text className="text-caption text-white/70">
               {recording
-                ? 'arrêter termine aussi la série'
-                : 'place le téléphone, puis recule'}
+                ? 'Arrêter termine aussi la série'
+                : 'Place le téléphone, puis recule'}
             </Text>
             {recording && (
               <Button

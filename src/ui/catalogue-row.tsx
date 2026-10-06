@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { Card } from './card';
+import { capitalize } from './format';
 
 /**
  * Une entrée d'un catalogue tiers, proposée sous tes propres exercices.
@@ -25,12 +26,14 @@ export function CatalogueRow({
           <Text className="font-bold text-body text-ink dark:text-ink-dark" numberOfLines={1}>
             {name}
           </Text>
+          {/* Le détail du catalogue arrive en minuscules (« barbell ») : il
+              ouvre sa ligne, il prend donc la capitale ici. */}
           <Text className="font-mono text-caption text-muted dark:text-muted-dark" numberOfLines={1}>
-            {detail}
+            {capitalize(detail)}
           </Text>
         </View>
         <Text className="shrink-0 text-small text-primary-ink dark:text-primary-ink-dark">
-          {busy ? '…' : 'ajouter'}
+          {busy ? '…' : 'Ajouter'}
         </Text>
       </Card>
     </Pressable>

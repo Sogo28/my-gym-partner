@@ -360,7 +360,7 @@ export default function HomeScreen() {
                 Séance en cours
               </Text>
               <Text className="font-mono text-small text-muted dark:text-muted-dark">
-                commencée à {formatDateTime(session.startedAt)}
+                Commencée à {formatDateTime(session.startedAt)}
               </Text>
               <Button label="Reprendre" size="md" onPress={() => router.push('/session')} />
             </Card>
@@ -501,7 +501,7 @@ export default function HomeScreen() {
               {goals.length > 0 && (
                 <Pressable onPress={() => router.push('/goals')} hitSlop={8}>
                   <Text className="text-small text-primary-ink dark:text-primary-ink-dark">
-                    tout voir
+                    Tout voir
                   </Text>
                 </Pressable>
               )}

@@ -193,7 +193,7 @@ export default function SessionSummaryScreen() {
                 ? `${summary.completedSetCount}/${plannedSets}`
                 : String(summary.completedSetCount)
             }
-            label={plannedSets > 0 ? 'séries prévues' : 'séries'}
+            label={plannedSets > 0 ? 'Séries prévues' : 'Séries'}
           />
         </View>
 

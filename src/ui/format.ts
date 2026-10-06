@@ -101,7 +101,8 @@ export function lastDoneLabel(done: Date | undefined, now: Date): string {
   });
 }
 
-function capitalize(text: string): string {
+/** La première lettre en capitale : « Moyenne dernière séance ». */
+export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
