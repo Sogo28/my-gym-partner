@@ -75,3 +75,35 @@ export async function findSessionsOn(day: Date): Promise<DaySession[]> {
     completedSets: row.completed,
   }));
 }
+
+/**
+ * Pour chaque entraînement, le début de la dernière séance qui l'a suivi.
+ *
+ * Ce qui aide à choisir lequel refaire : « fait jeudi » se compare d'un coup
+ * d'oeil, là où il faudrait sinon ouvrir l'historique.
+ *
+ * Même règle que le calendrier -- au moins une série VALIDÉE : une séance
+ * ouverte puis annulée n'a pas « fait » l'entraînement. Une projection, et
+ * non toutes les séances chargées pour n'en garder qu'une date chacune.
+ */
+export async function findLastDoneByPlan(): Promise<Map<string, Date>> {
+  const db = await getDatabase();
+
+  // MAX sur le texte suffit : les dates sont écrites en ISO, en UTC, donc
+  // l'ordre alphabétique est l'ordre du temps.
+  const rows = await db.getAllAsync<{ planned_workout_id: string; last: string }>(
+    `SELECT s.planned_workout_id, MAX(s.started_at) AS last
+     FROM workout_sessions s
+     WHERE s.planned_workout_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1
+         FROM session_activities a
+         JOIN performance_sets ps
+           ON ps.performance_id = a.performance_id AND ps.status = 'COMPLETED'
+         WHERE a.session_id = s.id
+       )
+     GROUP BY s.planned_workout_id;`,
+  );
+
+  return new Map(rows.map((row) => [row.planned_workout_id, new Date(row.last)]));
+}

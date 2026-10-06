@@ -58,6 +58,34 @@ export function dayLabel(day: Date, now: Date): string {
   return day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
 }
 
+/** La date du jour en toutes lettres : « mardi 6 octobre ». */
+export function formatLongDate(date: Date): string {
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/**
+ * Quand un entraînement a été fait pour la dernière fois, tel qu'on le dirait.
+ *
+ * Dans la semaine, le nom du jour suffit -- « fait jeudi » se lit sans
+ * calcul. Au-delà, un nom de jour deviendrait ambigu (lequel des jeudis ?) :
+ * la date prend le relais, avec l'année seulement quand ce n'est pas la
+ * nôtre.
+ */
+export function lastDoneLabel(done: Date | undefined, now: Date): string {
+  if (!done) return 'jamais fait';
+
+  const days = Math.round((atMidnight(now).getTime() - atMidnight(done).getTime()) / 86_400_000);
+  if (days <= 0) return "fait aujourd'hui";
+  if (days === 1) return 'fait hier';
+  if (days < 7) return `fait ${done.toLocaleDateString('fr-FR', { weekday: 'long' })}`;
+
+  return `fait le ${done.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    ...(done.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  })}`;
+}
+
 function atMidnight(date: Date): Date {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
