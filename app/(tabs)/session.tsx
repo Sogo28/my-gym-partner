@@ -1573,6 +1573,15 @@ export default function SessionScreen() {
       <SessionHeader
         workoutName={plan ? plan.name : 'Séance libre'}
         position={position}
+        progress={
+          plan && activity?.plannedPosition != null
+            ? {
+                segments: plan.exercises.length,
+                current: activity.plannedPosition,
+                fraction: totalSets > 0 ? completedCount / totalSets : 0,
+              }
+            : undefined
+        }
         onMenu={() => setSheet('menu')}
       />
 
