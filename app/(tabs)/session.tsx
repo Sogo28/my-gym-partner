@@ -48,7 +48,7 @@ import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
 import { feelSetDone, feelStart } from '../../src/ui/haptics';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
-import { usePalette } from '../../src/ui/palette';
+import { PALETTE, usePalette } from '../../src/ui/palette';
 import { SetupCountdown } from '../../src/ui/setup-countdown';
 import { emomSetupCountdown } from '../../src/use-cases/preferences';
 import { MeasureField } from '../../src/ui/measure-field';
@@ -162,6 +162,8 @@ export default function SessionScreen() {
   const [adjustingStart, setAdjustingStart] = useState(false);
   /** L'entraînement programmé qu'on est en train de déplacer. */
   const [moving, setMoving] = useState<ScheduledWorkout | null>(null);
+  /** L'entraînement programmé dont le menu est ouvert. */
+  const [managing, setManaging] = useState<ScheduledWorkout | null>(null);
   /** La programmation en cours : d'abord l'entraînement, puis sa date. */
   const [planning, setPlanning] = useState<{ plan: PlannedWorkout | null } | null>(null);
   const [values, setValues] = useState<ValuesBySide>({});
@@ -1313,40 +1315,60 @@ export default function SessionScreen() {
     const overdue = schedule.filter((entry) => entry.isOverdue(now) && !isToday(entry.scheduledAt));
     const today = schedule.filter((entry) => isToday(entry.scheduledAt));
     const upcoming = schedule.filter((entry) => entry.scheduledAt > now && !isToday(entry.scheduledAt));
+    const startable = plans.filter((candidate) => !candidate.isArchived);
 
     const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
 
-    const entryCard = (entry: ScheduledWorkout, note?: string) => (
-      <Card key={entry.id} density="titled" className="gap-2">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="shrink">
-            <Text className="font-extrabold text-body text-ink dark:text-ink-dark">
-              {planNameOf(entry.plannedWorkoutId)}
-            </Text>
-            <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-              {note ?? formatDateTime(entry.scheduledAt)}
-            </Text>
-          </View>
-          <View className="flex-row gap-3 pt-1">
-            <Pressable onPress={() => setMoving(entry)} hitSlop={8}>
-              <Text className="text-small text-primary-ink dark:text-primary-ink-dark">
-                déplacer
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => run(() => cancelScheduledWorkout(entry))} hitSlop={8}>
-              <Text className="text-caption text-danger dark:text-danger-dark">annuler</Text>
-            </Pressable>
-          </View>
+    /** Ce qu'un entraînement contient, en une ligne : de quoi choisir sans l'ouvrir. */
+    const contentsOf = (id: string) => {
+      const plan = plans.find((candidate) => candidate.id === id);
+      if (!plan) return '';
+      const sets = plan.exercises.reduce((total, entry) => total + entry.sets.length, 0);
+      return `${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${sets} série${sets > 1 ? 's' : ''}`;
+    };
+
+    /**
+     * Ouvrir l'écran d'attente d'un entraînement -- sans créer la séance, qui
+     * ne naît qu'au « Let's go ».
+     */
+    const open = (plannedWorkoutId: string, scheduledId = '') =>
+      router.setParams({ plan: plannedWorkoutId, scheduled: scheduledId });
+
+    /**
+     * Le menu d'une séance programmée, derrière un seul bouton.
+     *
+     * « déplacer » et « annuler » vivaient en liens de onze pixels, côte à
+     * côte : un pouce visait l'un et touchait l'autre, et l'autre détruisait.
+     */
+    const menuButton = (entry: ScheduledWorkout) => (
+      <Pressable
+        onPress={() => setManaging(entry)}
+        hitSlop={8}
+        accessibilityLabel="Options de la séance programmée"
+        className="h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+      >
+        <Ionicons name="ellipsis-horizontal" size={18} color={muted} />
+      </Pressable>
+    );
+
+    const agendaRow = (entry: ScheduledWorkout) => (
+      <Card key={entry.id} className="flex-row items-center gap-3">
+        <View className="shrink grow gap-0.5">
+          <Text className="font-bold text-body text-ink dark:text-ink-dark" numberOfLines={1}>
+            {planNameOf(entry.plannedWorkoutId)}
+          </Text>
+          <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+            {formatDateTime(entry.scheduledAt)}
+          </Text>
         </View>
-        <Button
-          label="Démarrer"
-          size="md"
-          // Pas de séance créée ici non plus : on va à l'écran d'attente.
-          onPress={() =>
-            router.setParams({ plan: entry.plannedWorkoutId, scheduled: entry.id })
-          }
-        />
+        {menuButton(entry)}
       </Card>
+    );
+
+    const sectionTitle = (title: string) => (
+      <Text className="mt-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
+        {title}
+      </Text>
     );
 
     return (
@@ -1359,49 +1381,144 @@ export default function SessionScreen() {
                 ? `${schedule.length} entraînement${schedule.length > 1 ? 's' : ''} programmé${schedule.length > 1 ? 's' : ''}`
                 : 'aucune séance en cours'
             }
+            // Programmer appartient ICI : c'est la page des séances qui parle
+            // du calendrier, pas la fiche d'un entraînement, qui décrit ce
+            // qu'il contient.
+            action={
+              startable.length > 0
+                ? { label: 'Programmer', onPress: () => setPlanning({ plan: null }) }
+                : undefined
+            }
           />
         </View>
 
+        {/* Le lanceur. Tout ce qui démarre une séance est ici, à un tap :
+            ce qui est prévu aujourd'hui d'abord, puis ce qui traîne, puis
+            n'importe lequel de tes entraînements, ou rien de prévu du tout.
+            L'accueil y mène, au lieu d'atterrir sur une liste de rendez-vous
+            avec le vrai choix relégué en bas. */}
         <ScrollView
-          contentContainerClassName="grow gap-3 px-5 pb-4"
+          contentContainerClassName="grow gap-3 px-5 pb-6"
           keyboardShouldPersistTaps="handled"
         >
-
-          {today.length > 0 && (
-            <>
-              <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-                Aujourd'hui
-              </Text>
-              {today.map((entry) => entryCard(entry, "aujourd'hui"))}
-            </>
-          )}
+          {today.map((entry) => (
+            <Card key={entry.id} density="accent" className="gap-3">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="shrink gap-0.5">
+                  <Text className="font-bold uppercase text-label text-primary-ink dark:text-primary-ink-dark">
+                    Prévu aujourd'hui
+                  </Text>
+                  <Text
+                    className="font-extrabold text-heading text-ink dark:text-ink-dark"
+                    numberOfLines={2}
+                  >
+                    {planNameOf(entry.plannedWorkoutId)}
+                  </Text>
+                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                    {contentsOf(entry.plannedWorkoutId)}
+                  </Text>
+                </View>
+                {menuButton(entry)}
+              </View>
+              <Button
+                label="Démarrer"
+                size="lg"
+                onPress={() => open(entry.plannedWorkoutId, entry.id)}
+              />
+            </Card>
+          ))}
 
           {/* En retard, jamais "manqué" : la séance reste à faire. */}
           {overdue.length > 0 && (
             <>
-              <Text className="mt-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
-                En retard
-              </Text>
-              {overdue.map((entry) => entryCard(entry))}
+              {sectionTitle('En retard')}
+              {overdue.map(agendaRow)}
             </>
+          )}
+
+          {sectionTitle('Démarrer')}
+
+          {/* Sans programme : l'exercice d'abord, le reste suit. */}
+          <Pressable onPress={() => setSheet('pick-exercise')}>
+            <Card className="flex-row items-center gap-3">
+              <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary">
+                <Ionicons name="flash" size={20} color={PALETTE.light.ink} />
+              </View>
+              <View className="shrink grow gap-0.5">
+                <Text className="font-bold text-body text-ink dark:text-ink-dark">Séance libre</Text>
+                <Text className="text-small text-muted dark:text-muted-dark">
+                  Choisis un exercice et vas-y, sans programme.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={muted} />
+            </Card>
+          </Pressable>
+
+          {startable.map((plan) => (
+            <Pressable key={plan.id} onPress={() => open(plan.id)}>
+              <Card className="flex-row items-center gap-3">
+                <View className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
+                  <Ionicons name="clipboard-outline" size={20} color={muted} />
+                </View>
+                <View className="shrink grow gap-0.5">
+                  <Text
+                    className="font-bold text-body text-ink dark:text-ink-dark"
+                    numberOfLines={1}
+                  >
+                    {plan.name}
+                  </Text>
+                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                    {contentsOf(plan.id)}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={muted} />
+              </Card>
+            </Pressable>
+          ))}
+
+          {startable.length === 0 && (
+            <EmptyState
+              inline
+              title="Aucun entraînement"
+              description="Un entraînement regroupe des exercices et leurs séries cibles, pour les refaire d'une séance à l'autre."
+              actionLabel="Créer un entraînement"
+              onAction={() => router.push('/new-workout')}
+            />
           )}
 
           {upcoming.length > 0 && (
             <>
-              <Text className="mt-2 font-bold uppercase text-label text-muted dark:text-muted-dark">
-                À venir
-              </Text>
-              {upcoming.map((entry) => entryCard(entry))}
+              {sectionTitle('À venir')}
+              {upcoming.map(agendaRow)}
             </>
           )}
-
-          {schedule.length === 0 && (
-            <EmptyState
-              title="Aucune séance en cours"
-              description="Programme un entraînement pour un autre jour, ou démarre-en un maintenant."
-            />
-          )}
         </ScrollView>
+
+        <Sheet
+          visible={managing !== null}
+          title={managing ? planNameOf(managing.plannedWorkoutId) : ''}
+          description={managing ? `Programmée ${formatDateTime(managing.scheduledAt)}` : undefined}
+          actions={
+            managing
+              ? [
+                  {
+                    label: 'Démarrer maintenant',
+                    onPress: () => open(managing.plannedWorkoutId, managing.id),
+                  },
+                  {
+                    label: 'Déplacer',
+                    onPress: () => setMoving(managing),
+                  },
+                  {
+                    label: 'Annuler cette séance programmée',
+                    tone: 'danger',
+                    onPress: () => run(() => cancelScheduledWorkout(managing)),
+                  },
+                ]
+              : []
+          }
+          onClose={() => setManaging(null)}
+        />
 
         <DatePickerSheet
           visible={moving !== null}
@@ -1416,47 +1533,16 @@ export default function SessionScreen() {
           onClose={() => setMoving(null)}
         />
 
-        <View className="gap-2 px-5 pb-2">
-          <View className="flex-row gap-2">
-            <Button
-              label="Entraînement"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              onPress={() => router.push('/workouts')}
-            />
-            {/* Programmer appartient ICI : c'est la page des séances qui parle
-                du calendrier, pas la fiche d'un entraînement, qui décrit ce
-                qu'il contient. */}
-            <Button
-              label="Programmer"
-              variant="secondary"
-              size="md"
-              className="flex-1"
-              disabled={plans.length === 0}
-              onPress={() => setPlanning({ plan: null })}
-            />
-          </View>
-          <Button
-            label="Séance libre"
-            variant="ghost"
-            size="md"
-            onPress={() => setSheet('pick-exercise')}
-          />
-        </View>
-
         {/* Programmer se fait en deux temps : quel entraînement, puis quand. */}
         <Sheet
           visible={planning !== null && planning.plan === null}
           title="Programmer un entraînement"
           description="Il sera à faire à la date choisie, sans démarrer maintenant."
           searchPlaceholder="Chercher un entraînement"
-          actions={plans
-            .filter((candidate) => !candidate.isArchived)
-            .map((candidate) => ({
-              label: candidate.name,
-              onPress: () => setPlanning({ plan: candidate }),
-            }))}
+          actions={startable.map((candidate) => ({
+            label: candidate.name,
+            onPress: () => setPlanning({ plan: candidate }),
+          }))}
           onClose={() => setPlanning(null)}
         />
 
