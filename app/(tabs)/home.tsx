@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Goal } from '../../src/domain/goal/goal';
 import type { PlannedWorkout } from '../../src/domain/planned-workout/planned-workout';
@@ -16,7 +16,7 @@ import { BodyMap } from '../../src/ui/body-map';
 import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
-import { GoalCard } from '../../src/ui/goal-card';
+import { GoalChecklist } from '../../src/ui/goal-checklist';
 import {
   dayLabel,
   formatDateTime,
@@ -73,6 +73,7 @@ export default function HomeScreen() {
   const { notify } = useNotifications();
   const router = useRouter();
   const { account } = useAccount();
+  const { width: screenWidth } = useWindowDimensions();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [week, setWeek] = useState<MuscleSummary>(EMPTY);
   const [done, setDone] = useState<Date[]>([]);
@@ -218,6 +219,14 @@ export default function HomeScreen() {
       ? (exercises.find((exercise) => exercise.id === subject.exerciseId)?.name ??
         subject.exerciseId)
       : (metrics.find((metric) => metric.id === subject.metricId)?.name ?? subject.metricId);
+
+  /** L'illustration d'un exercice visé : la première image, jamais une vidéo. */
+  const imageOf = (subject: GoalSubject) =>
+    subject.kind === 'exercise'
+      ? exercises
+          .find((exercise) => exercise.id === subject.exerciseId)
+          ?.media.find((media) => media.kind === 'image')
+      : undefined;
 
   const unitOf = (id: string | null) =>
     id === null
@@ -528,20 +537,25 @@ export default function HomeScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               // La rangée se règle sur son CONTENU, pas sur la page : sans
-              // cela, elle s'étirerait sur toute la hauteur qui défile, et
-              // les vignettes avec elle. Réglée sur son contenu, elle les met
-              // à la hauteur de la plus grande -- ce qu'elles cherchent.
+              // cela, elle s'étirerait sur toute la hauteur qui défile.
+              //
+              // Et chaque carte garde la hauteur du sien (`items-start`) : un
+              // objectif simple, sans liste d'étapes, n'a pas à s'étirer à la
+              // hauteur d'une progression pour finir sur un blanc.
               className="grow-0"
-              contentContainerClassName="gap-2 pb-1 pr-4"
+              contentContainerClassName="items-start gap-2 pb-1 pr-4"
             >
+              {/* Presque toute la largeur : la carte suivante dépasse au bord,
+                  ce qui dit qu'il y en a d'autres sans avoir à l'écrire. */}
               {goals.map((goal) => (
-                <GoalCard
+                <GoalChecklist
                   key={goal.id}
                   goal={goal}
                   evaluation={evaluations.get(goal.id)}
-                  subjectName={(entry) => subjectName(entry.currentSubject)}
+                  nameOf={subjectName}
+                  mediaOf={imageOf}
                   unitOf={unitOf}
-                  width={190}
+                  width={goals.length > 1 ? Math.round((screenWidth - 40) * 0.88) : screenWidth - 40}
                   onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
                 />
               ))}

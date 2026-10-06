@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { usePalette } from './palette';
+import { ProgressBar, type SessionProgress } from './progress-bar';
 
 type SectionHeaderProps = { title: string; subtitle?: string };
 
@@ -89,43 +90,6 @@ export function BackHeader({
           <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
         </Pressable>
       )}
-    </View>
-  );
-}
-
-/**
- * Où l'on en est dans le programme : un segment par exercice prévu.
- *
- * Les exercices passés sont pleins, celui en cours se remplit série après
- * série, les suivants attendent. La ligne de texte dit la même chose en
- * chiffres ; la barre la dit d'un coup d'oeil, de loin.
- */
-export type SessionProgress = {
-  /** Le nombre d'exercices du programme. */
-  readonly segments: number;
-  /** La place de l'exercice en cours, à partir de zéro. */
-  readonly current: number;
-  /** La part déjà faite de l'exercice en cours, entre 0 et 1. */
-  readonly fraction: number;
-};
-
-function ProgressBar({ segments, current, fraction }: SessionProgress) {
-  return (
-    <View className="flex-row gap-1" accessibilityLabel={`Exercice ${current + 1} sur ${segments}`}>
-      {Array.from({ length: segments }, (_, index) => {
-        const filled = index < current ? 1 : index === current ? Math.min(1, Math.max(0, fraction)) : 0;
-        return (
-          <View
-            key={index}
-            className="h-1.5 flex-1 overflow-hidden rounded-full bg-border dark:bg-border-dark"
-          >
-            <View
-              className="h-full rounded-full bg-primary-ink dark:bg-primary"
-              style={{ width: `${filled * 100}%` }}
-            />
-          </View>
-        );
-      })}
     </View>
   );
 }

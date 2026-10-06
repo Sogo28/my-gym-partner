@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { isRemote, sourceOf, type ExerciseMedia } from '../domain/exercise/media';
-import { cachedImage, mediaUri } from '../use-cases/media-actions';
+import { sourceOf, type ExerciseMedia } from '../domain/exercise/media';
+import { mediaUri } from '../use-cases/media-actions';
+import { useMediaImage } from './media-image';
 import { TrimmedVideo } from './trimmed-video';
 import { capitalize } from './format';
 
@@ -59,22 +59,7 @@ export function MediaStrip({
 
 /** Une image, d'ici ou d'ailleurs : dans le second cas, copiée au passage. */
 function ImageThumb({ media, onPress }: { media: ExerciseMedia; onPress?: () => void }) {
-  const [uri, setUri] = useState<string | null>(isRemote(media) ? null : mediaUri(media));
-
-  useEffect(() => {
-    if (!isRemote(media)) return;
-    let current = true;
-    cachedImage(media.uri)
-      .then((path) => {
-        if (current) setUri(path);
-      })
-      // Sans réseau, l'illustration manque : ce n'est pas une erreur à
-      // annoncer, c'est une image qui arrivera la prochaine fois.
-      .catch(() => {});
-    return () => {
-      current = false;
-    };
-  }, [media]);
+  const uri = useMediaImage(media);
 
   return (
     <Pressable
