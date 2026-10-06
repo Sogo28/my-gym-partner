@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePalette } from '../../src/ui/palette';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -14,7 +15,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
  */
 function tabIcon(filled: IconName, outline: IconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-    <Ionicons name={focused ? filled : outline} size={24} color={color} />
+    <Ionicons name={focused ? filled : outline} size={21} color={color} />
   );
 }
 
@@ -32,15 +33,24 @@ function tabIcon(filled: IconName, outline: IconName) {
  * cacher de la barre les aurait laissés onglets, avec le retour qui ramène
  * au premier de la liste plutôt qu'à l'écran d'où l'on vient.
  *
- * Chaque icône porte son nom. La barre n'en a longtemps porté aucun, et deux
- * pictogrammes -- une liste, une grille -- ne disaient pas lequel menait aux
- * exercices et lequel aux entraînements : un libellé coûte deux points
- * d'icône, deviner coûte un aller-retour.
+ * La barre ne porte que des icônes, et des icônes qui ressemblent à ce
+ * qu'elles ouvrent : un éclair pour la séance, une barre pour les exercices,
+ * un bloc-notes pour les entraînements. Une liste et une grille, elles, ne
+ * disaient pas lequel était lequel -- c'est ce qui avait fait ajouter des
+ * libellés, retirés depuis : quatre destinations visitées chaque jour n'ont
+ * pas besoin d'être nommées à chaque fois.
+ *
+ * Le nom reste dit à voix haute (`tabBarAccessibilityLabel`) : une icône
+ * seule ne se lit pas, et le repli sur `title` ne vaut que pour iOS.
  */
 export default function TabsLayout() {
   // La barre d'onglets est un composant natif : ses couleurs se règlent en
   // JavaScript, la variante `dark:` de NativeWind ne l'atteint pas.
   const palette = usePalette();
+  // La barre de gestes d'Android -- le trait qui ramène à l'accueil du
+  // téléphone -- occupe le bas de l'écran : la barre d'onglets se pose
+  // AU-DESSUS, avec sa propre marge, au lieu de coller ses libellés dessus.
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -49,30 +59,53 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: palette.primaryInk,
         tabBarInactiveTintColor: palette.muted,
-        tabBarLabelStyle: { fontFamily: 'Archivo_700Bold', fontSize: 11 },
+        tabBarShowLabel: false,
+        // Une hauteur FIXE et des marges égales en haut et en bas, la barre
+        // de gestes ajoutée dessous : l'icône tombe au milieu de la barre.
         tabBarStyle: {
           backgroundColor: palette.surfaceAlt,
           borderTopColor: palette.border,
-          paddingTop: 4,
+          height: 52 + bottom,
+          paddingTop: 8,
+          paddingBottom: 8 + bottom,
         },
+        // Un onglet empile son icône PUIS son libellé, alignés en haut : le
+        // libellé retiré, l'icône resterait collée au plafond. Deux marges
+        // automatiques lui font absorber le vide des deux côtés -- seul
+        // endroit d'où recentrer, l'alignement vivant dans un style interne
+        // que nulle option n'expose.
+        tabBarIconStyle: { marginVertical: 'auto' },
       }}
     >
       <Tabs.Screen
         name="home"
-        options={{ title: 'Accueil', tabBarIcon: tabIcon('home', 'home-outline') }}
+        options={{
+          title: 'Accueil',
+          tabBarAccessibilityLabel: 'Accueil',
+          tabBarIcon: tabIcon('home', 'home-outline'),
+        }}
       />
       <Tabs.Screen
         name="session"
-        options={{ title: 'Séance', tabBarIcon: tabIcon('flash', 'flash-outline') }}
+        options={{
+          title: 'Séance',
+          tabBarAccessibilityLabel: 'Séance',
+          tabBarIcon: tabIcon('flash', 'flash-outline'),
+        }}
       />
       <Tabs.Screen
         name="index"
-        options={{ title: 'Exercices', tabBarIcon: tabIcon('barbell', 'barbell-outline') }}
+        options={{
+          title: 'Exercices',
+          tabBarAccessibilityLabel: 'Exercices',
+          tabBarIcon: tabIcon('barbell', 'barbell-outline'),
+        }}
       />
       <Tabs.Screen
         name="workouts"
         options={{
           title: 'Entraînements',
+          tabBarAccessibilityLabel: 'Entraînements',
           tabBarIcon: tabIcon('clipboard', 'clipboard-outline'),
         }}
       />
