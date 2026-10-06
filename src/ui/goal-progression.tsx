@@ -8,6 +8,16 @@ import { capitalize } from './format';
 import { usePalette } from './palette';
 
 /**
+ * La hauteur de la ligne qui porte le nom d'une étape -- et donc le niveau où
+ * le point du rail doit tomber : au milieu de cette ligne, quelle que soit la
+ * taille du point ou du texte.
+ */
+const STEP_ROW = 24;
+
+/** Le point de l'étape en cours est plus gros que les autres. */
+const DOT_SIZE = { current: 16, other: 12 } as const;
+
+/**
  * Une progression, lue comme un chemin.
  *
  * Le rail remplace la carte « étape en cours » ET la liste des étapes, qui
@@ -49,16 +59,22 @@ export function GoalProgression({
             <Rail state={state} first={index === 0} last={index === steps.length - 1} />
 
             <View className={cn('flex-1', state === 'current' ? 'pb-5' : 'pb-3')}>
+              {/* Une hauteur FIXE, centrée : c'est elle qui aligne le nom de
+                  l'étape sur son point, le titre en cours étant plus grand
+                  que les autres. */}
               <Pressable
                 disabled={!onOpen}
                 onPress={() => onOpen?.(step.subject)}
                 className="flex-row items-center gap-2"
+                style={{ height: STEP_ROW }}
               >
                 <Text
                   className={cn(
                     'shrink',
+                    // Atténuée, pas barrée : dans l'app, le barré veut dire
+                    // « série abandonnée ».
                     state === 'past'
-                      ? 'text-body text-muted line-through dark:text-muted-dark'
+                      ? 'text-body text-muted dark:text-muted-dark'
                       : state === 'current'
                         ? 'font-extrabold text-heading text-ink dark:text-ink-dark'
                         : 'text-body text-ink dark:text-ink-dark',
@@ -109,9 +125,13 @@ function Rail({
   first: boolean;
   last: boolean;
 }) {
+  const dot = state === 'current' ? DOT_SIZE.current : DOT_SIZE.other;
+
   return (
     <View className="w-4 items-center">
-      <Segment hidden={first} travelled={state !== 'todo'} height={10} />
+      {/* Juste assez de trait pour que le CENTRE du point tombe au milieu de
+          la ligne du nom : la moitié de la ligne, moins la moitié du point. */}
+      <Segment hidden={first} travelled={state !== 'todo'} height={(STEP_ROW - dot) / 2} />
       <Dot state={state} />
       {/* Le segment du bas s'étire : c'est lui qui relie l'étape suivante,
           quelle que soit la hauteur de celle-ci. */}
@@ -161,7 +181,8 @@ function Dot({ state }: { state: 'past' | 'current' | 'todo' }) {
       className={cn(
         'h-3 w-3 rounded-full',
         state === 'past'
-          ? 'bg-primary-ink dark:bg-primary-ink-dark'
+          ? // Franchie : le vert des choses faites, comme le trait parcouru.
+            'bg-success dark:bg-success-dark'
           : 'border-2 border-planned bg-background dark:bg-background-dark',
       )}
     />
