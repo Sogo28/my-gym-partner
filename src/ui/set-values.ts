@@ -20,6 +20,11 @@ function measure(value: number, unit: string, separator: string): string {
   return isDuration(unit) ? formatDuration(value) : `${value}${separator}${unit}`;
 }
 
+/** Une valeur seule avec son unité : « 20 kg », « 1:30 ». */
+export function formatMeasure(value: number, unit: string): string {
+  return measure(value, unit, ' ');
+}
+
 export function formatSetValues(
   values: ValuesBySide,
   unitOf: (measurementId: string) => string,

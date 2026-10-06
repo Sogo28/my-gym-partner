@@ -31,3 +31,8 @@ export function feelStart(): void {
 export function feelSelection(): void {
   safely(() => Haptics.selectionAsync());
 }
+
+/** Un record vient de tomber : le même signal qu'une série, c'en est la suite. */
+export function feelRecord(): void {
+  safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
+}

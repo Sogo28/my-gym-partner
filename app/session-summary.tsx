@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Fragment, useCallback, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { Sheet } from '../src/ui/sheet';
 import { cn } from '../src/ui/cn';
 import {
   compareToPlan,
+  formatMeasure,
   formatSetValues,
   formatTargets,
   type PlanComparison,
@@ -31,7 +32,15 @@ import { detachSetVideo } from '../src/use-cases/set-video';
 import { attachSessionPhoto, detachSessionPhoto } from '../src/use-cases/session-photo';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
 import { eraseSession } from '../src/use-cases/erase-history';
-import { findSessionSummary, type SessionSummary } from '../src/use-cases/session-summary';
+import {
+  findSessionRecords,
+  findSessionSummary,
+  type SessionRecord,
+  type SessionSummary,
+} from '../src/use-cases/session-summary';
+import { feelRecord } from '../src/ui/haptics';
+import { PALETTE } from '../src/ui/palette';
+import { Pop } from '../src/ui/pop';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -51,6 +60,7 @@ export default function SessionSummaryScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
+  const [records, setRecords] = useState<SessionRecord[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm'>('none');
   /** La captation ouverte, et la série d'où elle vient. */
   const [watching, setWatching] = useState<{
@@ -75,7 +85,20 @@ export default function SessionSummaryScreen() {
     // acquis avant d'entrer dans la salle.
     const worked = [...new Set((found?.activities ?? []).map((entry) => entry.exerciseId))];
     setReached(await goalsReachedBy(worked));
+    setRecords(found ? await findSessionRecords(found) : []);
   }, [id]);
+
+  /**
+   * Une vibration pour les records, une seule fois, et seulement au bilan
+   * d'une séance qu'on VIENT de finir : relire une vieille séance ne fête
+   * rien.
+   */
+  const celebrated = useRef(false);
+  useEffect(() => {
+    if (!fresh || celebrated.current || records.length === 0) return;
+    celebrated.current = true;
+    feelRecord();
+  }, [fresh, records]);
 
   useFocusEffect(
     useCallback(() => {
@@ -173,6 +196,18 @@ export default function SessionSummaryScreen() {
             label={plannedSets > 0 ? 'séries prévues' : 'séries'}
           />
         </View>
+
+        {/* Ce que cette séance a fait de mieux que toutes celles d'avant.
+            Juste sous les chiffres : c'est la nouvelle qu'on vient chercher,
+            avant la photo et le détail. */}
+        {records.length > 0 && (
+          <RecordsCard
+            records={records}
+            nameOf={nameOf}
+            unitOf={unitOf}
+            celebrate={Boolean(fresh)}
+          />
+        )}
 
         {/* Un instantané, pas une mesure : optionnelle, elle ne vient jamais
             s'imposer entre les chiffres qu'on retient d'une séance. */}
@@ -546,5 +581,58 @@ function Figure({ value, label }: { value: string; label: string }) {
         {label}
       </Text>
     </Card>
+  );
+}
+
+/**
+ * Les records battus, en aplat citron : la seule carte pleine du bilan, parce
+ * que c'est la seule nouvelle qui se fête.
+ *
+ * L'aplat garde son texte foncé dans les deux thèmes -- c'est la règle du
+ * citron, qui ne passe qu'avec lui.
+ */
+function RecordsCard({
+  records,
+  nameOf,
+  unitOf,
+  celebrate,
+}: {
+  records: readonly SessionRecord[];
+  nameOf: (exerciseId: string) => string;
+  unitOf: (measurementId: string | null) => string;
+  /** Au bilan d'une séance qu'on vient de finir, la carte arrive en rebondissant. */
+  celebrate: boolean;
+}) {
+  // Le volume n'a pas d'unité : un indice, arrondi comme sur la fiche.
+  const show = (record: SessionRecord, value: number) =>
+    record.measurementId === null
+      ? `${Math.round(value * 10) / 10}`
+      : formatMeasure(value, unitOf(record.measurementId));
+
+  return (
+    <Pop appear={celebrate} className="gap-3 rounded-2xl bg-primary p-4">
+      <View className="flex-row items-center gap-2">
+        <Ionicons name="trophy" size={18} color={PALETTE.light.ink} />
+        <Text className="font-black uppercase text-label text-ink">
+          {records.length > 1 ? `${records.length} nouveaux records` : 'Nouveau record'}
+        </Text>
+      </View>
+
+      {records.map((record) => (
+        <View
+          key={`${record.exerciseId}-${record.measurementId ?? 'volume'}`}
+          className="flex-row items-baseline justify-between gap-3"
+        >
+          <Text className="shrink font-bold text-body text-ink" numberOfLines={1}>
+            {nameOf(record.exerciseId)}
+            {record.measurementId === null ? ' · volume' : ''}
+          </Text>
+          <Text className="shrink-0 text-ink" style={{ fontVariant: ['tabular-nums'] }}>
+            <Text className="font-mono-bold text-lead">{show(record, record.value)}</Text>
+            <Text className="font-mono text-caption"> avant {show(record, record.previous)}</Text>
+          </Text>
+        </View>
+      ))}
+    </Pop>
   );
 }

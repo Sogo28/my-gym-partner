@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, useColorScheme, View, type ViewStyle } from 'react-native';
 import { cn } from './cn';
 import { VideoBadge } from './set-video';
+import { Pop } from './pop';
 
 export type SetRowStatus = 'completed' | 'abandoned' | 'planned' | 'in-progress';
 
@@ -105,48 +106,58 @@ export function SetRow({
   const Row = onPress ? Pressable : View;
 
   return (
-    <Row
-      onPress={onPress}
-      className={cn(
-        'min-h-[44px] flex-row items-center gap-3 rounded-xl px-4',
-        status === 'completed' && 'bg-surface dark:bg-surface-dark',
-        status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
-        status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
-        selected && 'bg-primary-soft dark:bg-primary-soft-dark',
-      )}
-      // La bordure passe en style direct : appliquée par la feuille de styles,
-      // elle pouvait manquer au premier tracé d'une ligne qui vient
-      // d'apparaître, et ne revenir qu'au remontage de la liste.
-      style={outlineOf(selected ? 'in-progress' : status, outline)}
-    >
-      <Badge index={index} status={status} accent={accents[status]} />
-
-      <Text
+    // La ligne rebondit à la validation : le geste qui compte le plus se
+    // voit, en plus de se sentir.
+    //
+    // Le rebond l'ENVELOPPE, il n'est pas dedans : une série en cours n'est
+    // pas tapable et devient une vue tapable une fois validée -- deux
+    // composants différents, donc tout ce qu'elle contient renaît à la
+    // validation. Une animation logée à l'intérieur naissait déjà « validée »
+    // et n'avait plus de changement à montrer.
+    <Pop active={status === 'completed'} from={0.92}>
+      <Row
+        onPress={onPress}
         className={cn(
-          'flex-1 font-mono-bold text-heading',
-          status === 'completed' && 'text-ink dark:text-ink-dark',
-          status === 'planned' && 'text-planned dark:text-planned-dark',
-          status === 'abandoned' && 'text-muted line-through dark:text-muted-dark',
-          status === 'in-progress' && 'text-primary-ink dark:text-primary-ink-dark',
+          'min-h-[44px] flex-row items-center gap-3 rounded-xl px-4',
+          status === 'completed' && 'bg-surface dark:bg-surface-dark',
+          status === 'abandoned' && 'bg-surface-alt dark:bg-surface-alt-dark',
+          status === 'in-progress' && 'bg-surface dark:bg-surface-dark',
+          selected && 'bg-primary-soft dark:bg-primary-soft-dark',
         )}
-        style={{ fontVariant: ['tabular-nums'] }}
-        numberOfLines={1}
+        // La bordure passe en style direct : appliquée par la feuille de styles,
+        // elle pouvait manquer au premier tracé d'une ligne qui vient
+        // d'apparaître, et ne revenir qu'au remontage de la liste.
+        style={outlineOf(selected ? 'in-progress' : status, outline)}
       >
-        {values}
-      </Text>
+        <Badge index={index} status={status} accent={accents[status]} />
 
-      {onPlay && <VideoBadge onPress={onPlay} />}
-
-      {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
-      {LABELS[status] && (
         <Text
-          className="shrink-0 font-bold uppercase text-label"
-          style={{ color: accents[status] }}
+          className={cn(
+            'flex-1 font-mono-bold text-heading',
+            status === 'completed' && 'text-ink dark:text-ink-dark',
+            status === 'planned' && 'text-planned dark:text-planned-dark',
+            status === 'abandoned' && 'text-muted line-through dark:text-muted-dark',
+            status === 'in-progress' && 'text-primary-ink dark:text-primary-ink-dark',
+          )}
+          style={{ fontVariant: ['tabular-nums'] }}
+          numberOfLines={1}
         >
-          {LABELS[status]}
+          {values}
         </Text>
-      )}
-    </Row>
+
+        {onPlay && <VideoBadge onPress={onPlay} />}
+
+        {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
+        {LABELS[status] && (
+          <Text
+            className="shrink-0 font-bold uppercase text-label"
+            style={{ color: accents[status] }}
+          >
+            {LABELS[status]}
+          </Text>
+        )}
+      </Row>
+    </Pop>
   );
 }
 
