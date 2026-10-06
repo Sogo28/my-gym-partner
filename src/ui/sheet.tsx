@@ -107,9 +107,10 @@ export function Sheet({
                 : 'border-border bg-surface dark:border-border-dark dark:bg-surface-dark',
             )}
           >
+            {/* Ce sont des boutons : leur libellé est celui des boutons. */}
             <Text
               className={cn(
-                'font-bold text-strong',
+                'font-extrabold text-body',
                 action.tone === 'danger'
                   ? 'text-danger dark:text-danger-dark'
                   : 'text-ink dark:text-ink-dark',
@@ -122,7 +123,7 @@ export function Sheet({
         </ScrollView>
 
         <Pressable onPress={onClose} className="min-h-touch items-center justify-center">
-          <Text className="font-bold text-muted dark:text-muted-dark">Fermer</Text>
+          <Text className="font-extrabold text-body text-muted dark:text-muted-dark">Fermer</Text>
         </Pressable>
       </View>
       </KeyboardAvoidingView>

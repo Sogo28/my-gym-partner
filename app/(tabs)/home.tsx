@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -18,7 +17,13 @@ import { highlight } from '../../src/ui/body-slugs';
 import { Button } from '../../src/ui/button';
 import { Card } from '../../src/ui/card';
 import { GoalCard } from '../../src/ui/goal-card';
-import { dayLabel, formatDateTime, formatLongDate, formatTime } from '../../src/ui/format';
+import {
+  dayLabel,
+  formatDateTime,
+  formatLongDate,
+  formatMinutes,
+  formatTime,
+} from '../../src/ui/format';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { SectionHeader } from '../../src/ui/screen-header';
@@ -33,6 +38,12 @@ import type { GoalSubject } from '../../src/domain/goal/goal';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { BodyMetric } from '../../src/domain/body/body-metric';
 import { listSchedule, scheduleWorkout } from '../../src/use-cases/scheduling-actions';
+import {
+  findSessionRecords,
+  findSessionSummary,
+  type SessionRecord,
+  type SessionSummary,
+} from '../../src/use-cases/session-summary';
 import { DatePickerSheet } from '../../src/ui/date-picker';
 import { Sheet } from '../../src/ui/sheet';
 import {
@@ -45,7 +56,7 @@ import {
   type MuscleSummary,
 } from '../../src/use-cases/week-summary';
 import { WeekStrip } from '../../src/ui/week-strip';
-import { usePalette } from '../../src/ui/palette';
+import { MetaLine, type MetaItem } from '../../src/ui/meta-line';
 
 const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exerciseCount: 0 };
 
@@ -60,7 +71,6 @@ const EMPTY: MuscleSummary = { primaryMuscleIds: [], secondaryMuscleIds: [], exe
  */
 export default function HomeScreen() {
   const { notify } = useNotifications();
-  const { success } = usePalette();
   const router = useRouter();
   const { account } = useAccount();
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -71,6 +81,11 @@ export default function HomeScreen() {
   const [dayWork, setDayWork] = useState<MuscleSummary>(EMPTY);
   /** Les séances réellement FAITES le jour regardé. */
   const [daySessions, setDaySessions] = useState<DaySession[]>([]);
+  /** Le bilan de la dernière séance faite ce jour-là : ce que sa carte raconte. */
+  const [dayBilan, setDayBilan] = useState<{
+    summary: SessionSummary;
+    records: SessionRecord[];
+  } | null>(null);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -138,12 +153,59 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       findSessionsOn(day ?? new Date())
-        .then(setDaySessions)
+        .then(async (sessions) => {
+          setDaySessions(sessions);
+          // Seule la dernière s'affiche : c'est d'elle seule qu'on lit le bilan.
+          const last = sessions.at(-1);
+          const summary = last ? await findSessionSummary(last.id) : null;
+          setDayBilan(
+            summary ? { summary, records: await findSessionRecords(summary) } : null,
+          );
+        })
         .catch((e) => notify(messageOf(e)));
     }, [day]),
   );
 
   const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
+
+  /**
+   * Ce qu'une séance faite a donné : sa durée, ses exercices, ses séries, et
+   * ses records quand elle en a battu. La durée manque tant que le bilan
+   * n'est pas chargé, ou pour une séance qui n'a pas de fin.
+   */
+  const bilanOf = (entry: DaySession): MetaItem[] => {
+    const bilan = dayBilan?.summary.session.id === entry.id ? dayBilan : null;
+    const items: MetaItem[] = [];
+
+    if (bilan?.summary.duration != null) {
+      items.push({ icon: 'time-outline', label: formatMinutes(bilan.summary.duration) });
+    }
+    if (bilan) {
+      // Un exercice repris en fin de séance ne compte qu'une fois.
+      const exercises = new Set(
+        bilan.summary.activities
+          .filter((activity) => activity.completedSets.length > 0)
+          .map((activity) => activity.exerciseId),
+      ).size;
+      items.push({
+        icon: 'barbell-outline',
+        label: `${exercises} exercice${exercises > 1 ? 's' : ''}`,
+      });
+    }
+    items.push({
+      icon: 'layers-outline',
+      label: `${entry.completedSets} série${entry.completedSets > 1 ? 's' : ''}`,
+    });
+    if (bilan && bilan.records.length > 0) {
+      items.push({
+        icon: 'trophy',
+        label: `${bilan.records.length} record${bilan.records.length > 1 ? 's' : ''}`,
+        tone: 'accent',
+      });
+    }
+
+    return items;
+  };
 
   /**
    * L'unité de ce qui est évalué : celle d'une mesure de performance, ou
@@ -263,8 +325,8 @@ export default function HomeScreen() {
       <View className="px-5 pt-4">
         <SectionHeader
           title="Accueil"
-          // La date et non un décompte : « travaillé cette semaine » est déjà
-          // le titre du bloc juste dessous, et le schéma le montre mieux.
+          // La date et non un décompte d'exercices : le schéma juste dessous
+          // montre mieux ce qui a été travaillé.
           subtitle={formatLongDate(new Date())}
           // Le profil s'atteint depuis l'accueil, et de nulle part ailleurs :
           // c'est le premier écran, et rien de ce qu'il contient ne se fait
@@ -282,12 +344,6 @@ export default function HomeScreen() {
 
         {/* Ce qui a été fait -- la semaine, ou le jour qu'on a choisi. */}
         <View className="gap-3">
-          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-            {day
-              ? `Travaillé ${dayLabel(day, new Date())}`
-              : 'Travaillé cette semaine'}
-          </Text>
-
           {/* Le schéma reste, même vide : une silhouette sans couleur dit
               « rien ce jour-là » sans faire sauter la page, et garde le
               calendrier à la même place d'un jour à l'autre. */}
@@ -391,13 +447,11 @@ export default function HomeScreen() {
                         {formatTime(entry.startedAt)}
                       </Text>
                     </View>
-                    <View className="flex-row items-center gap-1.5">
-                      <Ionicons name="checkmark-circle" size={16} color={success} />
-                      <Text className="text-small text-success dark:text-success-dark">
-                        Séance faite · {entry.completedSets} série
-                        {entry.completedSets > 1 ? 's' : ''}
-                      </Text>
-                    </View>
+                    {/* Le filet dit déjà « faite » : la ligne dit ce qu'elle a
+                        donné. Pas de volume total : celui d'un exercice ne se
+                        compare qu'à lui-même, et additionner des tractions et
+                        des tenues ne donnerait aucun nombre qui ait un sens. */}
+                    <MetaLine items={bilanOf(entry)} />
                   </Card>
                 </Pressable>
               ))}

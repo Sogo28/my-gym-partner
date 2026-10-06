@@ -35,24 +35,26 @@ const button = cva('flex-row items-center justify-center px-4', {
   defaultVariants: { variant: 'primary', size: 'lg', disabled: false },
 });
 
-const label = cva('text-center', {
+/**
+ * Le libellé : UNE taille et UNE graisse pour tous les boutons, celles d'un
+ * titre de carte (`body`, extra-gras).
+ *
+ * La taille d'un bouton règle sa hauteur -- la cible du pouce --, pas son
+ * texte. Un libellé qui grossissait avec le bouton faisait de « Démarrer une
+ * séance » le plus gros texte de l'accueil, au-dessus des titres qu'il
+ * suit. Seule la couleur change d'une variante à l'autre.
+ */
+const label = cva('text-center text-body font-extrabold', {
   variants: {
     variant: {
-      primary: 'text-ink font-black',
-      secondary: 'text-ink dark:text-ink-dark font-bold',
-      ghost: 'text-muted dark:text-muted-dark font-medium',
-      danger: 'text-danger dark:text-danger-dark font-bold',
-    },
-    size: {
-      xl: 'text-heading',
-      '2xl': 'text-value',
-      lg: 'text-strong',
-      md: 'text-lead',
-      sm: 'text-small',
+      primary: 'text-ink',
+      secondary: 'text-ink dark:text-ink-dark',
+      ghost: 'text-muted dark:text-muted-dark',
+      danger: 'text-danger dark:text-danger-dark',
     },
     disabled: { true: 'text-planned', false: '' },
   },
-  defaultVariants: { variant: 'primary', size: 'lg', disabled: false },
+  defaultVariants: { variant: 'primary', disabled: false },
 });
 
 /**
@@ -106,7 +108,7 @@ export function Button({
           color={disabled ? '#A8AD9E' : ICON_COLORS[dark ? 'dark' : 'light'][variant ?? 'primary']}
         />
       ) : (
-        <Text className={label({ variant, size, disabled })}>{text}</Text>
+        <Text className={label({ variant, disabled })}>{text}</Text>
       )}
     </Pressable>
   );

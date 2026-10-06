@@ -50,6 +50,7 @@ import { feelSetDone, feelStart } from '../../src/ui/haptics';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
 import { PALETTE, usePalette } from '../../src/ui/palette';
+import { MetaLine, type MetaItem } from '../../src/ui/meta-line';
 import { SetupCountdown } from '../../src/ui/setup-countdown';
 import { emomSetupCountdown } from '../../src/use-cases/preferences';
 import { MeasureField } from '../../src/ui/measure-field';
@@ -1332,12 +1333,26 @@ export default function SessionScreen() {
 
     const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
 
-    /** Ce qu'un entraînement contient, en une ligne : de quoi choisir sans l'ouvrir. */
-    const contentsOf = (id: string) => {
+    /**
+     * Ce qu'un entraînement contient, et quand il a été fait pour la dernière
+     * fois : de quoi choisir sans l'ouvrir. `withLastDone` à faux pour ce qui
+     * est prévu aujourd'hui -- le choix est déjà fait.
+     */
+    const contentsOf = (id: string, withLastDone = true): MetaItem[] => {
       const plan = plans.find((candidate) => candidate.id === id);
-      if (!plan) return '';
+      if (!plan) return [];
       const sets = plan.exercises.reduce((total, entry) => total + entry.sets.length, 0);
-      return `${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''} · ${sets} série${sets > 1 ? 's' : ''}`;
+      const items: MetaItem[] = [
+        {
+          icon: 'barbell-outline',
+          label: `${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''}`,
+        },
+        { icon: 'layers-outline', label: `${sets} série${sets > 1 ? 's' : ''}` },
+      ];
+      if (withLastDone) {
+        items.push({ icon: 'calendar-outline', label: lastDoneLabel(lastDone.get(id), now) });
+      }
+      return items;
     };
 
     /**
@@ -1427,9 +1442,7 @@ export default function SessionScreen() {
                   >
                     {planNameOf(entry.plannedWorkoutId)}
                   </Text>
-                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                    {contentsOf(entry.plannedWorkoutId)}
-                  </Text>
+                  <MetaLine items={contentsOf(entry.plannedWorkoutId, false)} />
                 </View>
                 {menuButton(entry)}
               </View>
@@ -1482,12 +1495,7 @@ export default function SessionScreen() {
                   >
                     {plan.name}
                   </Text>
-                  <Text
-                    className="font-mono text-caption text-muted dark:text-muted-dark"
-                    numberOfLines={1}
-                  >
-                    {contentsOf(plan.id)} · {lastDoneLabel(lastDone.get(plan.id), now)}
-                  </Text>
+                  <MetaLine items={contentsOf(plan.id)} />
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={muted} />
               </Card>
