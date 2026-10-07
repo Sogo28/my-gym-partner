@@ -38,6 +38,7 @@ import {
 } from '../src/use-cases/session-summary';
 import { feelRecord } from '../src/ui/haptics';
 import { PALETTE } from '../src/ui/palette';
+import { PhotoViewer } from '../src/ui/photo-viewer';
 import { RecordsCard } from '../src/ui/records-card';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 import { SetIndex } from '../src/ui/set-index';
@@ -61,7 +62,9 @@ export default function SessionSummaryScreen() {
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
   const [records, setRecords] = useState<SessionRecord[]>([]);
-  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm'>('none');
+  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm' | 'photo'>('none');
+  /** La photo de la séance, ouverte en plein écran. */
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   /** La captation ouverte, et la série d'où elle vient. */
   const [watching, setWatching] = useState<{
     performanceId: string;
@@ -113,13 +116,17 @@ export default function SessionSummaryScreen() {
   function addPhoto() {
     pickSessionPhoto()
       .then((name) => (name ? attachSessionPhoto(id, name) : undefined))
+      // Remplacée, l'ancienne n'est plus réclamée par personne.
+      .then(forgetUnusedMedia)
       .then(reload)
       .catch((e) => notify(messageOf(e)));
   }
 
   function removePhoto() {
     detachSessionPhoto(id)
+      .then(forgetUnusedMedia)
       .then(reload)
+      .then(() => notify('Photo supprimée.', 'success'))
       .catch((e) => notify(messageOf(e)));
   }
 
@@ -210,9 +217,12 @@ export default function SessionSummaryScreen() {
 
         {/* Un instantané, pas une mesure : optionnelle, elle ne vient jamais
             s'imposer entre les chiffres qu'on retient d'une séance. */}
+        {/* La toucher l'ouvre en grand ; le crayon la remplace ou la retire.
+            Toucher la photo pour la REMPLACER surprenait : on voulait la
+            voir, et la galerie s'ouvrait. */}
         {summary.session.photoUri ? (
           <View>
-            <Pressable onPress={addPhoto}>
+            <Pressable onPress={() => setViewingPhoto(true)} accessibilityLabel="Voir la photo">
               <Image
                 source={{ uri: fileUri(summary.session.photoUri) }}
                 className="h-52 w-full rounded-2xl"
@@ -220,11 +230,12 @@ export default function SessionSummaryScreen() {
               />
             </Pressable>
             <Pressable
-              onPress={removePhoto}
+              onPress={() => setSheet('photo')}
               hitSlop={8}
-              className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-full bg-black/60"
+              accessibilityLabel="Modifier la photo"
+              className="absolute right-2 top-2 h-9 w-9 items-center justify-center rounded-full bg-black/60 active:opacity-60"
             >
-              <Ionicons name="close" size={16} color="#F2F4EF" />
+              <Ionicons name="pencil" size={16} color="#FFFFFF" />
             </Pressable>
           </View>
         ) : (
@@ -481,6 +492,26 @@ export default function SessionSummaryScreen() {
           },
         ]}
         onClose={() => setSheet('none')}
+      />
+
+      <Sheet
+        visible={sheet === 'photo'}
+        title="Photo de la séance"
+        actions={[
+          { label: 'Remplacer la photo', icon: 'images-outline', onPress: addPhoto },
+          {
+            label: 'Supprimer la photo',
+            icon: 'trash-outline',
+            tone: 'danger',
+            onPress: removePhoto,
+          },
+        ]}
+        onClose={() => setSheet('none')}
+      />
+
+      <PhotoViewer
+        uri={viewingPhoto && summary.session.photoUri ? fileUri(summary.session.photoUri) : null}
+        onClose={() => setViewingPhoto(false)}
       />
 
       <SetVideoViewer
