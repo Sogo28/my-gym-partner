@@ -5,7 +5,6 @@ import type {
   EvaluationWindow,
   Requirement,
 } from '../domain/goal/goal';
-import { capitalize } from './format';
 
 /**
  * Le vocabulaire des objectifs, en français.
@@ -136,36 +135,6 @@ export function conditionParts(
     what: AGGREGATION_PHRASES[condition.aggregation],
     target: value(unitOf(condition.measurementId!)),
   };
-}
-
-/** Les mêmes mots, en abrégé, pour une vignette qui n'a pas la place. */
-const AGGREGATION_SHORT: Record<Aggregation, string> = {
-  average: 'moyenne',
-  max: 'meilleure',
-  min: 'plus faible',
-  total: 'cumul',
-  setCount: 'séries',
-};
-
-const WINDOW_SHORT: Record<EvaluationWindow, string> = {
-  LAST_SESSION: 'dernière séance',
-  ALL_TIME: "tout l'historique",
-  LATEST_READING: 'dernier relevé',
-};
-
-/**
- * « Moyenne dernière séance » : de quoi situer la valeur sans la phrase.
- *
- * Avec sa capitale : elle s'affiche seule, sur sa propre ligne, et une ligne
- * commence par une majuscule.
- *
- * La forme longue -- « moyenne des valeurs lors de la dernière séance » --
- * est juste, mais tronquée elle ne dit plus rien : sur l'accueil, elle
- * s'arrêtait à « der. ».
- */
-export function describeSourceShort(condition: Condition): string {
-  if (condition.window === 'LATEST_READING') return capitalize(WINDOW_SHORT.LATEST_READING);
-  return capitalize(`${AGGREGATION_SHORT[condition.aggregation]} ${WINDOW_SHORT[condition.window]}`);
 }
 
 /**

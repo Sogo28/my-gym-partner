@@ -9,7 +9,7 @@ import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/e
 import { listMetrics } from '../src/use-cases/body-actions';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
-import { GoalCard } from '../src/ui/goal-card';
+import { GoalChecklist } from '../src/ui/goal-checklist';
 import { EmptyState } from '../src/ui/empty-state';
 import { SearchField } from '../src/ui/search';
 import { fold } from '../src/text';
@@ -71,6 +71,14 @@ export default function GoalsScreen() {
       ? nameOf(subject.exerciseId)
       : (metricOf(subject.metricId)?.name ?? subject.metricId);
 
+  /** L'illustration d'un exercice visé : la première image, jamais une vidéo. */
+  const imageOf = (subject: GoalSubject) =>
+    subject.kind === 'exercise'
+      ? exercises
+          .find((exercise) => exercise.id === subject.exerciseId)
+          ?.media.find((media) => media.kind === 'image')
+      : undefined;
+
   const active = goals.filter((goal) => goal.status === 'ACTIVE');
   // La recherche porte sur le nom de l'objectif ET sur ce qu'il vise : on se
   // souvient plus souvent de l'exercice que du titre qu'on lui a donné.
@@ -89,7 +97,7 @@ export default function GoalsScreen() {
     // qu'on ne sait plus où chercher.
     <ListLayout
       title="Objectifs"
-      subtitle={`${active.length} en cours · évalués sur tes performances`}
+      subtitle={`${active.length} en cours`}
       onBack={() => router.back()}
       toolbar={<SearchField value={query} onChange={setQuery} placeholder="Chercher un objectif" />}
     >
@@ -109,11 +117,12 @@ export default function GoalsScreen() {
         )}
 
         {shown.map((goal) => (
-          <GoalCard
+          <GoalChecklist
             key={goal.id}
             goal={goal}
             evaluation={evaluations.get(goal.id)}
-            subjectName={(entry) => subjectName(entry.currentSubject)}
+            nameOf={subjectName}
+            mediaOf={imageOf}
             unitOf={unitOf}
             onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
           />

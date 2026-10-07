@@ -12,7 +12,7 @@ import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
 import { formatClock, formatDateTime, formatDuration, isDuration } from '../src/ui/format';
-import { GoalCard } from '../src/ui/goal-card';
+import { GoalChecklist } from '../src/ui/goal-checklist';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
 import { Sheet } from '../src/ui/sheet';
@@ -254,13 +254,18 @@ export default function SessionSummaryScreen() {
             </Text>
             {reached.map(({ goal, evaluation }) => (
               <View key={goal.id} className="gap-2">
-                <GoalCard
+                {/* La même carte que sur l'accueil et dans la liste : un
+                    objectif se reconnaît d'un écran à l'autre. */}
+                <GoalChecklist
                   goal={goal}
                   evaluation={evaluation}
-                  subjectName={(entry) =>
-                    entry.currentSubject.kind === 'exercise'
-                      ? nameOf(entry.currentSubject.exerciseId)
-                      : entry.currentSubject.metricId
+                  nameOf={(subject) =>
+                    subject.kind === 'exercise' ? nameOf(subject.exerciseId) : subject.metricId
+                  }
+                  mediaOf={(subject) =>
+                    subject.kind === 'exercise'
+                      ? exerciseOf(subject.exerciseId)?.media.find((media) => media.kind === 'image')
+                      : undefined
                   }
                   unitOf={unitOf}
                   onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
