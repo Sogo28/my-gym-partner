@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
@@ -30,6 +31,9 @@ import {
   type CatalogueState,
 } from '../src/use-cases/repdb-actions';
 import { ListContent, ListLayout } from '../src/ui/list-layout';
+import { MetaLine } from '../src/ui/meta-line';
+import { usePalette } from '../src/ui/palette';
+import { Segmented } from '../src/ui/segmented';
 
 /** « 2,1 Mo » : la taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -94,195 +98,123 @@ export default function SettingsScreen() {
     }
   }
 
+  const seconds = (value: number) => (value === 0 ? 'Immédiat' : `${value} s`);
+
   return (
     <ListLayout title="Réglages" onBack={() => router.back()}>
-      <ListContent className="pb-8">
+      <ListContent className="gap-6 pb-8">
+        <Section title="Objectifs">
+          <Setting
+            icon="trophy-outline"
+            title="Évaluation"
+            description="Sur quoi tes objectifs se jugent. Le changer réévalue aussitôt tous tes objectifs, y compris ceux en cours."
+          >
+            <Segmented
+              segments={SELECTABLE_WINDOWS.map((value) => ({
+                value,
+                label: WINDOW_LABELS.find((entry) => entry.value === value)?.label ?? value,
+              }))}
+              value={window}
+              onChange={chooseWindow}
+            />
+          </Setting>
+        </Section>
 
-        <Card density="titled" className="gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Évaluation des objectifs
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Sur quoi tes objectifs se jugent. Le choix vaut pour TOUS, y compris ceux que tu as
-            déjà : le basculer les réévalue tout de suite.
-          </Text>
+        <Section title="Séance">
+          <Setting
+            icon="videocam-outline"
+            title="Filmer une série"
+            description="Le temps pour poser le téléphone et te mettre en place avant que l'enregistrement démarre. Il s'arrête seul au bout de deux minutes."
+          >
+            <Segmented
+              segments={COUNTDOWN_CHOICES.map((value) => ({ value, label: seconds(value) }))}
+              value={countdown}
+              onChange={chooseCountdown}
+            />
+          </Setting>
 
-          <View className="flex-row flex-wrap gap-2 pt-1">
-            {SELECTABLE_WINDOWS.map((value) => (
-              <Pressable
-                key={value}
-                onPress={() => chooseWindow(value)}
-                className={
-                  window === value
-                    ? 'min-h-touch justify-center rounded-full border border-primary-ink bg-primary-soft px-4 dark:border-primary-ink-dark dark:bg-primary-soft-dark'
-                    : 'min-h-touch justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                }
-              >
-                <Text
-                  className={
-                    window === value
-                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
-                      : 'font-medium text-body text-muted dark:text-muted-dark'
-                  }
-                >
-                  {WINDOW_LABELS.find((entry) => entry.value === value)?.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Card>
+          <Setting
+            icon="timer-outline"
+            title="Mise en place d'un EMOM"
+            description="Le temps avant le premier round, pour te mettre en position. Les rounds suivants s'enchaînent sans délai."
+          >
+            <Segmented
+              segments={SETUP_CHOICES.map((value) => ({ value, label: seconds(value) }))}
+              value={setup}
+              onChange={chooseSetup}
+            />
+          </Setting>
+        </Section>
 
-        <Card density="titled" className="mt-2 gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Catalogue d exercices
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            601 exercices avec leurs muscles, pour remplir un nouvel exercice sans tout saisir. Le
-            fichier est copié sur ce téléphone : une fois téléchargé, il fonctionne sans réseau.
-          </Text>
-
-          <Text className="font-mono text-small text-muted dark:text-muted-dark">
-            {state.downloaded ? `Téléchargé · ${formatSize(state.size)}` : 'Pas encore téléchargé'}
-          </Text>
-
-          <Button
-            label={busy ? 'Téléchargement…' : state.downloaded ? 'Mettre à jour' : 'Télécharger'}
-            size="md"
-            disabled={busy}
-            onPress={fetchCatalogue}
-          />
-          {state.downloaded && (
+        <Section title="Catalogue d'exercices">
+          <Setting
+            icon="library-outline"
+            title="601 exercices avec leurs muscles"
+            description="Pour remplir un nouvel exercice sans tout saisir. Une fois téléchargé, il fonctionne sans réseau. Tes sauvegardes ne le contiennent pas : il se retélécharge d'un bouton."
+          >
+            <MetaLine
+              items={[
+                state.downloaded
+                  ? { icon: 'checkmark-circle-outline', label: `Téléchargé · ${formatSize(state.size)}`, tone: 'done' }
+                  : { icon: 'cloud-download-outline', label: 'Pas encore téléchargé' },
+              ]}
+            />
             <Button
-              label="Effacer le catalogue"
+              label={busy ? 'Téléchargement…' : state.downloaded ? 'Mettre à jour' : 'Télécharger'}
+              size="md"
+              disabled={busy}
+              onPress={fetchCatalogue}
+            />
+            {state.downloaded && (
+              <Button
+                label="Effacer le catalogue"
+                variant="danger"
+                size="md"
+                onPress={() => setConfirming(true)}
+              />
+            )}
+            {/* L'attribution que sa licence exige, là où le catalogue sert. */}
+            <Pressable
+              onPress={() => Linking.openURL(ATTRIBUTION_URL).catch(() => {})}
+              className="active:opacity-50"
+            >
+              <Text className="text-small text-muted underline dark:text-muted-dark">
+                {ATTRIBUTION}
+              </Text>
+            </Pressable>
+          </Setting>
+        </Section>
+
+        {/* Ce qui ne se défait pas, à part et en dernier. */}
+        <Section title="Données">
+          <Setting
+            icon="time-outline"
+            tone="danger"
+            title="Effacer l'historique"
+            description="Tes séances passées et leurs performances disparaissent. Exercices, entraînements, objectifs et relevés restent ; tes objectifs gardent l'étape où ils en sont."
+          >
+            <Button
+              label="Effacer l'historique"
               variant="danger"
               size="md"
-              onPress={() => setConfirming(true)}
+              onPress={() => setErasing(true)}
             />
-          )}
+          </Setting>
 
-          {/* L'attribution que sa licence exige, là où le catalogue sert. */}
-          <Pressable onPress={() => Linking.openURL(ATTRIBUTION_URL).catch(() => {})}>
-            <Text className="pt-1 text-small text-primary-ink dark:text-primary-ink-dark">
-              {ATTRIBUTION}
-            </Text>
-          </Pressable>
-        </Card>
-
-        <Text className="px-1 text-small text-muted dark:text-muted-dark">
-          Tes sauvegardes ne contiennent pas ce catalogue : il se retélécharge d'un bouton, et
-          l'alourdir n'aurait servi personne.
-        </Text>
-
-        <Card density="titled" className="mt-2 gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Filmer une série
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Le temps dont tu disposes, entre le départ et le début de l'enregistrement, pour poser
-            le téléphone et rejoindre la barre. L'enregistrement s'arrête seul au bout de deux
-            minutes.
-          </Text>
-
-          <View className="flex-row flex-wrap gap-2 pt-1">
-            {COUNTDOWN_CHOICES.map((value) => (
-              <Pressable
-                key={value}
-                onPress={() => chooseCountdown(value)}
-                className={
-                  countdown === value
-                    ? 'min-h-touch justify-center rounded-full border border-primary-ink bg-primary-soft px-4 dark:border-primary-ink-dark dark:bg-primary-soft-dark'
-                    : 'min-h-touch justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                }
-              >
-                <Text
-                  className={
-                    countdown === value
-                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
-                      : 'font-medium text-body text-muted dark:text-muted-dark'
-                  }
-                >
-                  {value === 0 ? 'Immédiat' : `${value} s`}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Card>
-
-        <Card density="titled" className="mt-2 gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Se mettre en place
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Le temps que l'EMOM te laisse, après l'avoir démarré, avant que le premier round ne
-            parte : de quoi poser le téléphone et te mettre en position. Les rounds suivants
-            s'enchaînent sans délai, puisque tu y es déjà.
-          </Text>
-
-          <View className="flex-row flex-wrap gap-2 pt-1">
-            {SETUP_CHOICES.map((value) => (
-              <Pressable
-                key={value}
-                onPress={() => chooseSetup(value)}
-                className={
-                  setup === value
-                    ? 'min-h-touch justify-center rounded-full border border-primary-ink bg-primary-soft px-4 dark:border-primary-ink-dark dark:bg-primary-soft-dark'
-                    : 'min-h-touch justify-center rounded-full border border-border bg-surface px-4 dark:border-border-dark dark:bg-surface-dark'
-                }
-              >
-                <Text
-                  className={
-                    setup === value
-                      ? 'font-medium text-body text-primary-ink dark:text-primary-ink-dark'
-                      : 'font-medium text-body text-muted dark:text-muted-dark'
-                  }
-                >
-                  {value === 0 ? 'Immédiat' : `${value} s`}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Card>
-
-        <Card density="titled" className="mt-2 gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Historique
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Efface tes séances passées et tout ce qu elles ont produit. Tes exercices,
-            entraînements, objectifs et relevés restent : ce sont tes outils, pas ton historique.
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Tes objectifs gardent l étape où ils en sont -- tu l as franchie --, mais n auront plus
-            de performances à évaluer.
-          </Text>
-          <Button
-            label="Effacer l'historique"
-            variant="danger"
-            size="md"
-            onPress={() => setErasing(true)}
-          />
-        </Card>
-
-        <Card density="titled" className="mt-2 gap-2">
-          <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-            Repartir de zéro
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Efface tes exercices, entraînements, séances, objectifs et relevés. Les mesures, les
-            muscles et les mensurations de départ restent : ce sont le vocabulaire de
-            l application, pas tes données.
-          </Text>
-          <Text className="text-small text-muted dark:text-muted-dark">
-            Fais une sauvegarde d abord si tu veux pouvoir revenir en arrière : rien d autre ne le
-            permettra.
-          </Text>
-          <Button
-            label="Tout effacer"
-            variant="danger"
-            size="md"
-            onPress={() => setResetting(true)}
-          />
-        </Card>
+          <Setting
+            icon="refresh-outline"
+            tone="danger"
+            title="Repartir de zéro"
+            description="Tout ce que tu as saisi disparaît ; seuls restent les mesures, les muscles et les mensurations de départ. Fais une sauvegarde d'abord : rien d'autre ne permettra de revenir en arrière."
+          >
+            <Button
+              label="Tout effacer"
+              variant="danger"
+              size="md"
+              onPress={() => setResetting(true)}
+            />
+          </Setting>
+        </Section>
       </ListContent>
 
       <Sheet
@@ -334,5 +266,51 @@ export default function SettingsScreen() {
         onClose={() => setConfirming(false)}
       />
     </ListLayout>
+  );
+}
+
+/** Une section de la page : son titre en capitales, puis ses réglages. */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View className="gap-2">
+      <Text className="px-1 font-bold uppercase text-label text-muted dark:text-muted-dark">
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Un réglage : une icône qui dit de quoi il s'agit, un titre, une phrase
+ * qui dit ce que le choix change, puis le choix lui-même. Une action qui ne
+ * se défait pas porte son icône en rouge.
+ */
+function Setting({
+  icon,
+  title,
+  description,
+  tone = 'default',
+  children,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  tone?: 'default' | 'danger';
+  children: ReactNode;
+}) {
+  const { ink, danger } = usePalette();
+
+  return (
+    <Card density="titled" className="gap-3">
+      <View className="flex-row items-center gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
+          <Ionicons name={icon} size={18} color={tone === 'danger' ? danger : ink} />
+        </View>
+        <Text className="shrink font-extrabold text-body text-ink dark:text-ink-dark">{title}</Text>
+      </View>
+      <Text className="text-small text-muted dark:text-muted-dark">{description}</Text>
+      {children}
+    </Card>
   );
 }
