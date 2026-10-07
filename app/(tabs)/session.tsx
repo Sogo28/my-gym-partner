@@ -60,6 +60,7 @@ import {
   type RestSignal,
 } from '../../src/use-cases/preferences';
 import { RestRing } from '../../src/ui/rest-ring';
+import { SetPulse } from '../../src/ui/set-pulse';
 import { nextPlannedPosition } from '../../src/domain/workout-session/next-planned';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
@@ -518,9 +519,13 @@ export default function SessionScreen() {
 
   // Un rendu par seconde, et seulement pendant le repos.
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
+  /** Le départ de la série en cours, hors EMOM : son temps s'affiche au centre. */
+  const liveSetStartedAt = !emom ? (performance?.currentSet?.startedAt.getTime() ?? null) : null;
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (restStartedAt === null && !emom && !arming && !getReady) return;
+    if (restStartedAt === null && liveSetStartedAt === null && !emom && !arming && !getReady) {
+      return;
+    }
     // Quatre fois par seconde pendant un EMOM, et pendant le décompte qui le
     // précède : le décompte sonore se déclenche sur ce qu'affiche l'écran, et
     // une seconde jamais rendue -- le battement n'est pas calé sur celui de
@@ -530,7 +535,7 @@ export default function SessionScreen() {
       emom || arming || getReady ? 250 : 1000,
     );
     return () => clearInterval(interval);
-  }, [restStartedAt, emom, arming, getReady]);
+  }, [restStartedAt, liveSetStartedAt, emom, arming, getReady]);
   const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -2096,6 +2101,15 @@ export default function SessionScreen() {
                 );
               }}
             >
+              {/* La série en cours respire au centre : l'écran dit qu'elle
+                  tourne, et depuis combien de temps. */}
+              {!resting && liveSetStartedAt !== null && editing === null && (
+                <SetPulse
+                  elapsedSeconds={Math.max(0, Math.floor((Date.now() - liveSetStartedAt) / 1000))}
+                  values={format(shown)}
+                  size={ringSizeIn(ringBox)}
+                />
+              )}
               {/* Pendant qu'on corrige une série, les champs prennent la
                   place : le chrono seul suffit à dire le repos. */}
               {resting &&

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, useColorScheme, View, type ViewStyle } from 'react-native';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Pressable, Text, useColorScheme, View, type ViewStyle } from 'react-native';
 import { cn } from './cn';
 import { VideoBadge } from './set-video';
 import { Pop } from './pop';
@@ -101,22 +102,20 @@ export function SetRow({
   // celle qu'on est en train de faire.
   const outline = accents[selected ? 'in-progress' : status];
 
-  // Une ligne tapable est un Pressable, sinon une simple vue : pas de zone
-  // interactive là où il n'y a rien à ouvrir.
-  const Row = onPress ? Pressable : View;
+  // Toujours le MÊME composant, désactivé quand il n'y a rien à ouvrir :
+  // passer d'une vue à un Pressable à la validation faisait renaître tout le
+  // contenu, et la coche naissait « déjà là », sans rebond à montrer.
+  const Row = Pressable;
 
   return (
     // La ligne rebondit à la validation : le geste qui compte le plus se
     // voit, en plus de se sentir.
-    //
-    // Le rebond l'ENVELOPPE, il n'est pas dedans : une série en cours n'est
-    // pas tapable et devient une vue tapable une fois validée -- deux
-    // composants différents, donc tout ce qu'elle contient renaît à la
-    // validation. Une animation logée à l'intérieur naissait déjà « validée »
-    // et n'avait plus de changement à montrer.
-    <Pop active={status === 'completed'} from={0.92}>
+    // La ligne entière rebondit un peu, la coche beaucoup : l'une dit que
+    // le tap a pris, l'autre ce qu'il a fait.
+    <Pop active={status === 'completed'} from={0.88}>
       <Row
         onPress={onPress}
+        disabled={!onPress}
         className={cn(
           'min-h-[44px] flex-row items-center gap-3 rounded-xl px-4',
           status === 'completed' && 'bg-surface dark:bg-surface-dark',
@@ -149,22 +148,54 @@ export function SetRow({
 
         {/* Faite : une coche au bout de la ligne, là où les autres états
             disent leur nom. */}
-        {status === 'completed' && (
-          <Ionicons name="checkmark-circle" size={20} color={accents.completed} />
-        )}
+        {/* La coche arrive d'un rebond plus franc que la ligne : c'est elle
+            qui dit « fait ». Son emplacement existe avant elle, vide, pour
+            que le rebond ait un changement à montrer. */}
+        <Pop active={status === 'completed'} from={0.2}>
+          {status === 'completed' && (
+            <Ionicons name="checkmark-circle" size={20} color={accents.completed} />
+          )}
+        </Pop>
 
         {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
         {LABELS[status] && (
-          <Text
-            className="shrink-0 font-bold uppercase text-label"
-            style={{ color: accents[status] }}
-          >
-            {LABELS[status]}
-          </Text>
+          <Blink active={status === 'in-progress'}>
+            <Text
+              className="shrink-0 font-bold uppercase text-label"
+              style={{ color: accents[status] }}
+            >
+              {LABELS[status]}
+            </Text>
+          </Blink>
         )}
       </Row>
     </Pop>
   );
+}
+
+/**
+ * « En cours » qui bat doucement, comme le voyant d'un enregistrement : la
+ * série tourne. Les autres états restent immobiles.
+ */
+function Blink({ active, children }: { active: boolean; children: ReactNode }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!active) {
+      opacity.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.35, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, opacity]);
+
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
 }
 
 /**
