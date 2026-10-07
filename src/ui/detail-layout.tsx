@@ -96,14 +96,16 @@ export function CenteredHeader({
   onBack: () => void;
   onMenu?: () => void;
 }) {
-  const { muted } = usePalette();
-  const button =
-    'h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark';
+  const { ink } = usePalette();
+  // Des icônes seules, sans pastille : la zone de toucher garde sa taille,
+  // c'est le fond qui s'en va. Un appui les efface un instant -- seul signe
+  // qu'il a pris, faute de fond qui change.
+  const button = 'h-12 w-12 shrink-0 items-center justify-center active:opacity-50';
 
   return (
     <View className="flex-row items-center gap-3">
       <Pressable onPress={onBack} accessibilityLabel="Retour" className={button}>
-        <Ionicons name="chevron-back" size={22} color={muted} />
+        <Ionicons name="chevron-back" size={24} color={ink} />
       </Pressable>
 
       <View className="shrink grow items-center gap-0.5">
@@ -122,7 +124,7 @@ export function CenteredHeader({
 
       {onMenu ? (
         <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel="Menu" className={button}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
+          <Ionicons name="ellipsis-horizontal" size={22} color={ink} />
         </Pressable>
       ) : (
         <View className="h-12 w-12 shrink-0" />

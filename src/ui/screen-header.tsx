@@ -23,7 +23,7 @@ export function SectionHeader({
       raccourci textuel ni un menu ne conviennent -- l'avatar, par exemple. */
   right?: ReactNode;
 }) {
-  const { muted } = usePalette();
+  const { ink } = usePalette();
 
   return (
     <View className="flex-row items-start justify-between gap-3 pb-2">
@@ -46,9 +46,9 @@ export function SectionHeader({
         <Pressable
           onPress={onMenu}
           hitSlop={8}
-          className="h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+          className="h-11 w-11 shrink-0 items-center justify-center active:opacity-50"
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
+          <Ionicons name="ellipsis-horizontal" size={22} color={ink} />
         </Pressable>
       )}
       {right}
@@ -63,15 +63,15 @@ export function BackHeader({
   onBack,
   onMenu,
 }: SectionHeaderProps & { onBack: () => void; onMenu?: () => void }) {
-  const { muted } = usePalette();
+  const { ink } = usePalette();
 
   return (
     <View className="flex-row items-center gap-3 pb-2">
       <Pressable
         onPress={onBack}
-        className="h-12 w-12 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+        className="h-12 w-12 items-center justify-center active:opacity-50"
       >
-        <Ionicons name="chevron-back" size={22} color={muted} />
+        <Ionicons name="chevron-back" size={24} color={ink} />
       </Pressable>
       <View className="shrink grow gap-0.5">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark" numberOfLines={1}>
@@ -85,9 +85,9 @@ export function BackHeader({
         <Pressable
           onPress={onMenu}
           hitSlop={8}
-          className="h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+          className="h-12 w-12 shrink-0 items-center justify-center active:opacity-50"
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
+          <Ionicons name="ellipsis-horizontal" size={22} color={ink} />
         </Pressable>
       )}
     </View>
@@ -107,7 +107,7 @@ export function SessionHeader({
   progress?: SessionProgress;
   onMenu: () => void;
 }) {
-  const { muted } = usePalette();
+  const { ink } = usePalette();
 
   return (
     // Une hauteur FIXE, barre ou pas : c'est celle qu'avait l'en-tête avant
@@ -128,9 +128,9 @@ export function SessionHeader({
         <Pressable
           onPress={onMenu}
           hitSlop={8}
-          className="h-12 w-12 items-center justify-center rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+          className="h-12 w-12 items-center justify-center active:opacity-50"
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color={muted} />
+          <Ionicons name="ellipsis-horizontal" size={22} color={ink} />
         </Pressable>
       </View>
       {progress && progress.segments > 1 && <ProgressBar {...progress} />}
