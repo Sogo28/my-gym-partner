@@ -43,6 +43,9 @@ module.exports = {
         muted: { DEFAULT: '#5F6459', dark: '#8B9086' },
         planned: { DEFAULT: '#A8AD9E', dark: '#8B9086' },
         success: { DEFAULT: '#1B7A45', dark: '#4FD68A' },
+        // Le même vert, à plat : le fond de ce qui est fait sans être une action
+        // -- la carte des records, la pastille d'une séance terminée.
+        'success-soft': { DEFAULT: '#E3F4EA', dark: '#16261C' },
         danger: { DEFAULT: '#B3261E', dark: '#FF7A66' },
       },
 

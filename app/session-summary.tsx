@@ -38,7 +38,7 @@ import {
 } from '../src/use-cases/session-summary';
 import { feelRecord } from '../src/ui/haptics';
 import { PALETTE } from '../src/ui/palette';
-import { Pop } from '../src/ui/pop';
+import { RecordsCard } from '../src/ui/records-card';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 
 /**
@@ -124,6 +124,12 @@ export default function SessionSummaryScreen() {
 
   const exerciseOf = (exerciseId: string) => exercises.find((e) => e.id === exerciseId);
   const nameOf = (exerciseId: string) => exerciseOf(exerciseId)?.name ?? exerciseId;
+  /** Le volume n'a pas d'unité : un indice, arrondi comme sur la fiche. */
+  const showRecord = (measurementId: string | null, value: number) =>
+    measurementId === null
+      ? `${Math.round(value * 10) / 10}`
+      : formatMeasure(value, unitOf(measurementId));
+
   const unitOf = (measurementId: string | null) =>
     measurementId === null
       ? ''
@@ -190,9 +196,13 @@ export default function SessionSummaryScreen() {
             avant la photo et le détail. */}
         {records.length > 0 && (
           <RecordsCard
-            records={records}
-            nameOf={nameOf}
-            unitOf={unitOf}
+            title={records.length > 1 ? `${records.length} nouveaux records` : 'Nouveau record'}
+            rows={records.map((record) => ({
+              key: `${record.exerciseId}-${record.measurementId ?? 'volume'}`,
+              label: `${nameOf(record.exerciseId)}${record.measurementId === null ? ' · volume' : ''}`,
+              from: showRecord(record.measurementId, record.previous),
+              to: showRecord(record.measurementId, record.value),
+            }))}
             celebrate={Boolean(fresh)}
           />
         )}
@@ -572,59 +582,5 @@ function Figure({ value, label }: { value: string; label: string }) {
         {label}
       </Text>
     </Card>
-  );
-}
-
-/**
- * Les records battus, en aplat vert : la seule carte pleine du bilan, parce
- * que c'est la seule nouvelle qui se fête -- et un record est une chose faite.
- *
- * Texte blanc sur le vert foncé du thème clair, foncé sur le vert vif du
- * sombre : chacun là où il se lit.
- */
-function RecordsCard({
-  records,
-  nameOf,
-  unitOf,
-  celebrate,
-}: {
-  records: readonly SessionRecord[];
-  nameOf: (exerciseId: string) => string;
-  unitOf: (measurementId: string | null) => string;
-  /** Au bilan d'une séance qu'on vient de finir, la carte arrive en rebondissant. */
-  celebrate: boolean;
-}) {
-  const dark = useColorScheme() === 'dark';
-  // Le volume n'a pas d'unité : un indice, arrondi comme sur la fiche.
-  const show = (record: SessionRecord, value: number) =>
-    record.measurementId === null
-      ? `${Math.round(value * 10) / 10}`
-      : formatMeasure(value, unitOf(record.measurementId));
-
-  return (
-    <Pop appear={celebrate} className="gap-3 rounded-2xl bg-success p-4 dark:bg-success-dark">
-      <View className="flex-row items-center gap-2">
-        <Ionicons name="trophy" size={18} color={dark ? PALETTE.light.ink : '#FFFFFF'} />
-        <Text className="font-black uppercase text-label text-white dark:text-ink">
-          {records.length > 1 ? `${records.length} nouveaux records` : 'Nouveau record'}
-        </Text>
-      </View>
-
-      {records.map((record) => (
-        <View
-          key={`${record.exerciseId}-${record.measurementId ?? 'volume'}`}
-          className="flex-row items-baseline justify-between gap-3"
-        >
-          <Text className="shrink font-bold text-body text-white dark:text-ink" numberOfLines={1}>
-            {nameOf(record.exerciseId)}
-            {record.measurementId === null ? ' · volume' : ''}
-          </Text>
-          <Text className="shrink-0 text-white dark:text-ink" style={{ fontVariant: ['tabular-nums'] }}>
-            <Text className="font-mono-bold text-lead">{show(record, record.value)}</Text>
-            <Text className="font-mono text-caption"> avant {show(record, record.previous)}</Text>
-          </Text>
-        </View>
-      ))}
-    </Pop>
   );
 }

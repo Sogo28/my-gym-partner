@@ -3,6 +3,7 @@ import type { PerformanceSet } from '../domain/performance/exercise-performance'
 import {
   bestByMeasurement,
   bestVolume,
+  previousBest,
   type PerformanceRecord,
 } from '../domain/performance/records';
 import type { Goal } from '../domain/goal/goal';
@@ -21,13 +22,16 @@ export type ExerciseSessionEntry = {
   readonly sets: readonly PerformanceSet[];
 };
 
+/** Un record, et celui qu'il a battu -- null s'il est la toute première valeur. */
+export type ExerciseRecord = PerformanceRecord & { readonly previous: number | null };
+
 export type ExerciseDetail = {
   readonly exercise: Exercise;
   /** De la plus récente à la plus ancienne. */
   readonly sessions: readonly ExerciseSessionEntry[];
-  readonly records: readonly PerformanceRecord[];
+  readonly records: readonly ExerciseRecord[];
   /** Null quand l'exercice ne porte qu'une mesure : il n'a pas de volume. */
-  readonly volume: { value: number; at: Date } | null;
+  readonly volume: { value: number; at: Date; previous: number | null } | null;
   /** Les objectifs dont une étape vise cet exercice. */
   readonly goals: readonly Goal[];
 };
@@ -69,6 +73,7 @@ export async function getExerciseDetail(exerciseId: string): Promise<ExerciseDet
   const allSets = sessions.flatMap((entry) => entry.sets);
   const measures = exercise.measurementIds;
   const best = bestByMeasurement(allSets);
+  const volume = bestVolume(allSets);
 
   const goals = (await findAllGoals()).filter((goal) =>
     goal.steps.some(
@@ -82,8 +87,12 @@ export async function getExerciseDetail(exerciseId: string): Promise<ExerciseDet
     // Dans l'ordre déclaré par l'exercice : c'est celui de la saisie.
     records: measures
       .map((id) => best.find((record) => record.measurementId === id))
-      .filter((record): record is PerformanceRecord => record !== undefined),
-    volume: bestVolume(allSets),
+      .filter((record): record is PerformanceRecord => record !== undefined)
+      .map((record) => ({
+        ...record,
+        previous: previousBest(allSets, record.measurementId, record.value),
+      })),
+    volume: volume && { ...volume, previous: previousBest(allSets, null, volume.value) },
     goals,
   };
 }

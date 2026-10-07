@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PerformanceSet } from './exercise-performance';
-import { averageVolume, bestVolume, recordsBeaten, volumeOf } from './records';
+import { averageVolume, bestVolume, previousBest, recordsBeaten, volumeOf } from './records';
 
 const at = new Date(2026, 8, 13, 18, 0);
 
@@ -117,5 +117,43 @@ describe('Les records battus', () => {
     );
 
     expect(beaten).toEqual([{ measurementId: 'duration', value: 20, previous: 10 }]);
+  });
+});
+
+/**
+ * Le record d'avant : ce que le record actuel a battu, pour dire « 13 reps →
+ * 14 reps ».
+ */
+describe('Le record d avant', () => {
+  const on = (day: number, values: Record<string, number>) =>
+    ({
+      status: 'COMPLETED',
+      values: { BOTH: values },
+      startedAt: new Date(2026, 8, day, 18, 0),
+      endedAt: new Date(2026, 8, day, 18, 1),
+      videoUri: null,
+    }) as PerformanceSet;
+
+  it('est le meilleur des séries finies avant le record', () => {
+    const sets = [on(1, { reps: 12 }), on(3, { reps: 13 }), on(5, { reps: 14 }), on(7, { reps: 11 })];
+
+    expect(previousBest(sets, 'reps', 14)).toBe(13);
+  });
+
+  it('se compte depuis la PREMIÈRE fois que le record a été atteint', () => {
+    // Égalé le 5, mais établi le 3 : avant le 3, c'était 10 -- pas 12.
+    const sets = [on(5, { reps: 12 }), on(3, { reps: 12 }), on(1, { reps: 10 })];
+
+    expect(previousBest(sets, 'reps', 12)).toBe(10);
+  });
+
+  it('n existe pas quand le record est la toute première valeur', () => {
+    expect(previousBest([on(1, { reps: 12 }), on(2, { reps: 12 })], 'reps', 12)).toBeNull();
+  });
+
+  it('se calcule aussi pour le volume', () => {
+    const sets = [on(1, { reps: 10, weight: 40 }), on(3, { reps: 8, weight: 60 })];
+
+    expect(previousBest(sets, null, 480)).toBe(400);
   });
 });

@@ -26,6 +26,7 @@ export const PALETTE = {
     muted: '#5F6459',
     planned: '#A8AD9E',
     success: '#1B7A45',
+    successSoft: '#E3F4EA',
     danger: '#B3261E',
   },
   dark: {
@@ -42,6 +43,7 @@ export const PALETTE = {
     muted: '#8B9086',
     planned: '#8B9086',
     success: '#4FD68A',
+    successSoft: '#16261C',
     danger: '#FF7A66',
   },
 } as const;

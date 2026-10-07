@@ -181,3 +181,43 @@ export function recordsBeaten(
 
   return beaten;
 }
+
+/**
+ * Le record qui tenait AVANT celui d'aujourd'hui : le meilleur des séries
+ * finies avant la PREMIÈRE fois que `record` a été atteint.
+ *
+ * C'est ce qui permet de dire « 13 reps → 14 reps » sur la fiche d'un
+ * exercice : la dernière fois que le record est tombé, et de combien. Null
+ * quand rien ne le précédait -- le record est alors la première valeur.
+ *
+ * La première fois, et non celle où le record a été lu : égaler un record
+ * ne le bat pas. Partir d'une égalité donnait « 12 reps → 12 reps ».
+ *
+ * `measurementId` null : le volume.
+ */
+export function previousBest(
+  sets: readonly PerformanceSet[],
+  measurementId: string | null,
+  record: number,
+): number | null {
+  const valueOf = (set: PerformanceSet): number | null =>
+    measurementId === null
+      ? volumeOf(set)
+      : set.status === 'COMPLETED'
+        ? (weakestValues(set.values)[measurementId] ?? null)
+        : null;
+
+  const reachedAt = sets
+    .filter((set) => {
+      const value = valueOf(set);
+      return value !== null && value >= record;
+    })
+    .map((set) => endOf(set).getTime());
+  if (reachedAt.length === 0) return null;
+
+  const first = Math.min(...reachedAt);
+  const before = sets.filter((set) => endOf(set).getTime() < first);
+  return measurementId === null
+    ? (bestVolume(before)?.value ?? null)
+    : bestValue(before, measurementId);
+}

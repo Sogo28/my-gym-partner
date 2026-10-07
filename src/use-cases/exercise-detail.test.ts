@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { anExercise, useCleanDatabase } from '../../test/support';
 import { getExerciseDetail } from './exercise-detail';
 import {
@@ -76,5 +76,56 @@ describe('Détail d un exercice', () => {
     const detail = await getExerciseDetail(exercise.id);
 
     expect(detail?.sessions).toHaveLength(1);
+  });
+});
+
+/**
+ * Le record d'avant : ce que le record actuel a battu.
+ *
+ * L'horloge est figée d'une séance à l'autre : « avant » se décide à
+ * l'instant de la série, et deux séances dans la même milliseconde ne le
+ * diraient pas.
+ */
+describe('Record d avant d un exercice', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function onDay(day: number, exerciseId: string, values: number[]) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, day, 18, 0));
+    await aSessionOf(exerciseId, values);
+  }
+
+  it('dit ce que le record actuel a battu', async () => {
+    const exercise = await anExercise();
+    await onDay(1, exercise.id, [10]);
+    await onDay(3, exercise.id, [12]);
+    await onDay(5, exercise.id, [14]);
+    await onDay(7, exercise.id, [11]);
+
+    const [record] = (await getExerciseDetail(exercise.id))?.records ?? [];
+
+    expect(record).toEqual(expect.objectContaining({ value: 14, previous: 12 }));
+  });
+
+  it('ne se compare pas à un record seulement égalé', async () => {
+    const exercise = await anExercise();
+    await onDay(1, exercise.id, [10]);
+    await onDay(3, exercise.id, [12]);
+    await onDay(5, exercise.id, [12]);
+
+    const [record] = (await getExerciseDetail(exercise.id))?.records ?? [];
+
+    expect(record).toEqual(expect.objectContaining({ value: 12, previous: 10 }));
+  });
+
+  it('n en a pas quand le record est la première valeur', async () => {
+    const exercise = await anExercise();
+    await onDay(1, exercise.id, [10]);
+
+    const [record] = (await getExerciseDetail(exercise.id))?.records ?? [];
+
+    expect(record?.previous).toBeNull();
   });
 });

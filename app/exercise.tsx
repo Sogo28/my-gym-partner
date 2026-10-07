@@ -43,7 +43,7 @@ import { formatDateTime, formatDuration, isDuration } from '../src/ui/format';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { cn } from '../src/ui/cn';
-import { formatSetValues } from '../src/ui/set-values';
+import { formatMeasure, formatSetValues } from '../src/ui/set-values';
 import { Sheet } from '../src/ui/sheet';
 import { MediaStrip } from '../src/ui/media-strip';
 import { Tag } from '../src/ui/tag';
@@ -52,6 +52,7 @@ import { discardExercise, unarchiveExercise } from '../src/use-cases/edit-catalo
 import { averageValue, averageVolume } from '../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
 import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
+import { RecordsCard } from '../src/ui/records-card';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
 const PAGE = 5;
@@ -302,34 +303,38 @@ export default function ExerciseDetailScreen() {
           </>
         ) : (
           <>
-            {/* Les records en bandeau : trois nombres qui se lisent d'un coup
-                d'oeil, là où trois cartes empilées se lisaient une par une.
-                Le titre est ce qui les dit RECORDS : sans lui, ce ne sont que
-                des nombres posés sous les illustrations. */}
-            <Section title="Records">
-            <View className="flex-row gap-2">
-              {records.map((record) => (
-                <Stat
-                  key={record.measurementId}
-                  label={measurementNameOf(record.measurementId)}
-                  value={`${record.value}`}
-                  unit={unitOf(record.measurementId)}
-                />
-              ))}
-              {/* Le volume n'apparaît qu'à partir de deux mesures : avec une
-                  seule, son produit répéterait cette mesure.
-
-                  Et sans unité : des kilos par répétition ne sont une
-                  grandeur d'aucune physique. « kg » était faux. */}
-              {volume && (
-                <Stat
-                  label="Volume/série"
-                  value={`${Math.round(volume.value * 10) / 10}`}
-                  unit=""
-                />
-              )}
-            </View>
-            </Section>
+            {/* La même carte que le bilan d'une séance : chaque record dit ce
+                qu'il a battu, « 13 reps → 14 reps ». Le volume n'apparaît
+                qu'à partir de deux mesures -- avec une seule, son produit
+                répéterait cette mesure --, et sans unité : des kilos par
+                répétition ne sont une grandeur d'aucune physique. */}
+            <RecordsCard
+              title="Records"
+              rows={[
+                ...records.map((record) => ({
+                  key: record.measurementId,
+                  label: measurementNameOf(record.measurementId),
+                  from:
+                    record.previous === null
+                      ? null
+                      : formatMeasure(record.previous, unitOf(record.measurementId)),
+                  to: formatMeasure(record.value, unitOf(record.measurementId)),
+                })),
+                ...(volume
+                  ? [
+                      {
+                        key: 'volume',
+                        label: 'Volume/série',
+                        from:
+                          volume.previous === null
+                            ? null
+                            : `${Math.round(volume.previous * 10) / 10}`,
+                        to: `${Math.round(volume.value * 10) / 10}`,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
 
             {/* Ce que la courbe suit se DIT, au lieu de se choisir : à
                 plusieurs mesures c'est le volume, à une seule c'est cette
