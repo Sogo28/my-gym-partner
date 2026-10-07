@@ -15,8 +15,18 @@ import {
   captureCountdown,
   captureLimit,
   CAPTURE_LIMIT_CHOICES,
+  BEFORE_SET_CHOICES,
   COUNTDOWN_CHOICES,
+  countdownBeforeSet,
   emomSetupCountdown,
+  REST_EVERY_CHOICES,
+  REST_SIGNAL_CHOICES,
+  restSignal,
+  restSignalEvery,
+  setCountdownBeforeSet,
+  setRestSignal,
+  setRestSignalEvery,
+  type RestSignal,
   evaluationWindow,
   setCaptureCountdown,
   setCaptureLimit,
@@ -37,6 +47,12 @@ import { ListContent, ListLayout } from '../src/ui/list-layout';
 import { MetaLine } from '../src/ui/meta-line';
 import { usePalette } from '../src/ui/palette';
 import { Segmented } from '../src/ui/segmented';
+
+const REST_SIGNAL_LABELS: Record<RestSignal, string> = {
+  none: 'Aucun',
+  vibration: 'Vibration',
+  sound: 'Son + vibration',
+};
 
 /** « 2,1 Mo » : la taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -65,6 +81,9 @@ export default function SettingsScreen() {
   const [setup, setSetup] = useState(10);
   /** La durée maximale d'une vidéo, en secondes ; zéro, aucune. */
   const [limit, setLimit] = useState(0);
+  const [beforeSet, setBeforeSet] = useState(3);
+  const [signal, setSignal] = useState<RestSignal>('vibration');
+  const [every, setEvery] = useState(60);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,6 +92,9 @@ export default function SettingsScreen() {
       captureCountdown().then(setCountdown).catch((e) => notify(messageOf(e)));
       emomSetupCountdown().then(setSetup).catch((e) => notify(messageOf(e)));
       captureLimit().then(setLimit).catch((e) => notify(messageOf(e)));
+      countdownBeforeSet().then(setBeforeSet).catch((e) => notify(messageOf(e)));
+      restSignal().then(setSignal).catch((e) => notify(messageOf(e)));
+      restSignalEvery().then(setEvery).catch((e) => notify(messageOf(e)));
     }, []),
   );
 
@@ -84,6 +106,21 @@ export default function SettingsScreen() {
   function chooseLimit(next: number) {
     setLimit(next);
     setCaptureLimit(next).catch((e) => notify(messageOf(e)));
+  }
+
+  function chooseBeforeSet(next: number) {
+    setBeforeSet(next);
+    setCountdownBeforeSet(next).catch((e) => notify(messageOf(e)));
+  }
+
+  function chooseSignal(next: RestSignal) {
+    setSignal(next);
+    setRestSignal(next).catch((e) => notify(messageOf(e)));
+  }
+
+  function chooseEvery(next: number) {
+    setEvery(next);
+    setRestSignalEvery(next).catch((e) => notify(messageOf(e)));
   }
 
   function chooseSetup(next: number) {
@@ -132,6 +169,46 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Séance">
+          <Setting
+            icon="play-outline"
+            title="Décompte avant une série"
+            description="Après « Démarrer », le temps de te mettre en place. La série ne commence qu'à zéro."
+          >
+            <Segmented
+              segments={BEFORE_SET_CHOICES.map((value) => ({ value, label: seconds(value) }))}
+              value={beforeSet}
+              onChange={chooseBeforeSet}
+            />
+          </Setting>
+
+          <Setting
+            icon="notifications-outline"
+            title="Signal pendant le repos"
+            description="À chaque tour de l'anneau du repos, pour savoir depuis combien de temps tu souffles sans regarder l'écran."
+          >
+            <Segmented
+              segments={REST_SIGNAL_CHOICES.map((value) => ({
+                value,
+                label: REST_SIGNAL_LABELS[value],
+              }))}
+              value={signal}
+              onChange={chooseSignal}
+            />
+            {signal !== 'none' && (
+              <View className="gap-1.5">
+                <Text className="text-small text-muted dark:text-muted-dark">Toutes les</Text>
+              <Segmented
+                segments={REST_EVERY_CHOICES.map((value) => ({
+                  value,
+                  label: value < 60 ? `${value} s` : `${value / 60} min`,
+                }))}
+                value={every}
+                onChange={chooseEvery}
+              />
+              </View>
+            )}
+          </Setting>
+
           <Setting
             icon="videocam-outline"
             title="Filmer une série"

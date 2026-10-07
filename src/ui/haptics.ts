@@ -36,3 +36,13 @@ export function feelSelection(): void {
 export function feelRecord(): void {
   safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
 }
+
+/**
+ * Un tour de repos de plus : le seul signal qui arrive sans qu'on ait rien
+ * touché. Plus appuyé qu'un tap pris -- trois impulsions --, il doit se
+ * sentir à travers une poche et ne pas se confondre avec le départ d'une
+ * série.
+ */
+export function feelRestLap(): void {
+  safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning));
+}

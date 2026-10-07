@@ -4,9 +4,15 @@ import {
   captureCountdown,
   captureLimit,
   emomSetupCountdown,
+  restSignal,
+  restSignalEvery,
   setCaptureCountdown,
   setCaptureLimit,
+  countdownBeforeSet,
   setEmomSetupCountdown,
+  setRestSignal,
+  setRestSignalEvery,
+  setCountdownBeforeSet,
 } from './preferences';
 
 useCleanDatabase();
@@ -56,5 +62,37 @@ describe('La durée maximale d une vidéo', () => {
   it('ignore une durée qui n est pas au menu', async () => {
     await setCaptureLimit(45);
     expect(await captureLimit()).toBe(0);
+  });
+});
+
+describe('Le décompte avant une série', () => {
+  it('dure trois secondes par défaut', async () => {
+    expect(await countdownBeforeSet()).toBe(3);
+  });
+
+  it('rend le choix fait, y compris immédiat', async () => {
+    await setCountdownBeforeSet(0);
+    expect(await countdownBeforeSet()).toBe(0);
+  });
+});
+
+describe('Le signal du repos', () => {
+  it('vibre toutes les minutes par défaut', async () => {
+    expect(await restSignal()).toBe('vibration');
+    expect(await restSignalEvery()).toBe(60);
+  });
+
+  it('rend les choix faits', async () => {
+    await setRestSignal('none');
+    await setRestSignalEvery(180);
+    expect(await restSignal()).toBe('none');
+    expect(await restSignalEvery()).toBe(180);
+  });
+
+  it('ignore ce qui n est pas au menu', async () => {
+    await setRestSignal('fanfare' as never);
+    await setRestSignalEvery(45);
+    expect(await restSignal()).toBe('vibration');
+    expect(await restSignalEvery()).toBe(60);
   });
 });

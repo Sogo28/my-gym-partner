@@ -46,13 +46,20 @@ import { Sheet, type SheetAction } from '../../src/ui/sheet';
 import { SetChip } from '../../src/ui/set-chip';
 import { SlideIn } from '../../src/ui/slide-in';
 import { playRoundCountdown, playRoundStart } from '../../src/ui/round-sound';
-import { feelSetDone, feelStart } from '../../src/ui/haptics';
+import { feelRestLap, feelSetDone, feelStart } from '../../src/ui/haptics';
 import { SET_ROW_GAP, SET_ROW_HEIGHT, SetRow, type SetRowStatus } from '../../src/ui/set-row';
 import { ScrollHint } from '../../src/ui/scroll-hint';
 import { usePalette } from '../../src/ui/palette';
 import { MetaLine, type MetaItem } from '../../src/ui/meta-line';
 import { SetupCountdown } from '../../src/ui/setup-countdown';
-import { emomSetupCountdown } from '../../src/use-cases/preferences';
+import {
+  countdownBeforeSet,
+  emomSetupCountdown,
+  restSignal,
+  restSignalEvery,
+  type RestSignal,
+} from '../../src/use-cases/preferences';
+import { RestRing } from '../../src/ui/rest-ring';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
@@ -214,6 +221,31 @@ export default function SessionScreen() {
    */
   const [arming, setArming] = useState<Arming | null>(null);
   const [setupSeconds, setSetupSeconds] = useState(10);
+  /**
+   * Une série décidée, qui attend la fin de son décompte pour partir.
+   *
+   * Rien n'est écrit pendant qu'il tourne : la série ne commence qu'à zéro,
+   * et le repos court jusque-là. Annuler ne laisse donc rien derrière.
+   * `go` est le geste qu'on a tapé -- démarrer la série, ou la séance avec
+   * sa première série --, simplement remis à plus tard.
+   */
+  const [getReady, setGetReady] = useState<{
+    armedAt: Date;
+    seconds: number;
+    caption: string;
+    /** Rend la main une fois la série À L'ÉCRAN : le décompte la couvre jusque-là. */
+    go: () => Promise<unknown>;
+  } | null>(null);
+  /** Même rôle que `launchingEmom`, pour le départ d'une série. */
+  const launchingSet = useRef(false);
+  const [beforeSetSeconds, setBeforeSetSeconds] = useState(3);
+  const [restSignalChoice, setRestSignalChoice] = useState<RestSignal>('vibration');
+  const [restEvery, setRestEvery] = useState(60);
+  /** Les tours de repos déjà signalés, repos par repos : on ne vibre pas deux fois. */
+  const signaledLaps = useRef<{ startedAt: number | null; laps: number }>({
+    startedAt: null,
+    laps: 0,
+  });
   /** Empêche l'avance automatique de se déclencher deux fois pour le même round. */
   const advancingEmomRound = useRef(false);
   /** Même rôle, pour le départ qui suit le décompte de mise en place. */
@@ -289,6 +321,9 @@ export default function SessionScreen() {
     useCallback(() => {
       reload().catch((e) => notify(messageOf(e)));
       emomSetupCountdown().then(setSetupSeconds).catch((e) => notify(messageOf(e)));
+      countdownBeforeSet().then(setBeforeSetSeconds).catch((e) => notify(messageOf(e)));
+      restSignal().then(setRestSignalChoice).catch((e) => notify(messageOf(e)));
+      restSignalEvery().then(setRestEvery).catch((e) => notify(messageOf(e)));
 
       // Couper l'enregistrement, c'est dire qu'on a fini la série : on ne
       // s'arrête pas de filmer au milieu d'un mouvement.
@@ -314,6 +349,7 @@ export default function SessionScreen() {
         // L'EMOM armé n'a rien écrit : le laisser courir ferait naître une
         // séance pendant qu'on regarde un autre onglet.
         setArming(null);
+        setGetReady(null);
       };
     }, [reload]),
   );
@@ -467,17 +503,17 @@ export default function SessionScreen() {
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (restStartedAt === null && !emom && !arming) return;
+    if (restStartedAt === null && !emom && !arming && !getReady) return;
     // Quatre fois par seconde pendant un EMOM, et pendant le décompte qui le
     // précède : le décompte sonore se déclenche sur ce qu'affiche l'écran, et
     // une seconde jamais rendue -- le battement n'est pas calé sur celui de
     // l'horloge -- serait un bip qui saute.
     const interval = setInterval(
       () => setTick((value) => value + 1),
-      emom || arming ? 250 : 1000,
+      emom || arming || getReady ? 250 : 1000,
     );
     return () => clearInterval(interval);
-  }, [restStartedAt, emom, arming]);
+  }, [restStartedAt, emom, arming, getReady]);
   const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
@@ -556,6 +592,10 @@ export default function SessionScreen() {
   /** Où en est le décompte de mise en place, s'il y en a un. */
   const setup = arming
     ? setupCountdown({ seconds: arming.seconds, armedAt: arming.armedAt, now: new Date() })
+    : null;
+  /** Où en est le décompte avant une série, s'il y en a un. */
+  const readying = getReady
+    ? setupCountdown({ seconds: getReady.seconds, armedAt: getReady.armedAt, now: new Date() })
     : null;
   /**
    * L'exercice qu'on s'apprête à faire : celui qu'on vient de choisir en
@@ -659,7 +699,9 @@ export default function SessionScreen() {
    */
   const countingDown = arming
     ? setup?.remainingSeconds
-    : emom && !emom.pausedAt
+    : readying
+      ? readying.remainingSeconds
+      : emom && !emom.pausedAt
       ? emomState?.remainingSeconds
       : undefined;
 
@@ -696,6 +738,57 @@ export default function SessionScreen() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arming, setup?.ready]);
+
+  /**
+   * La série part quand son décompte tombe à zéro -- c'est là qu'elle
+   * commence, et non au tap. Le double bip du départ d'un round dit la même
+   * chose ici : c'est parti.
+   */
+  useEffect(() => {
+    if (!getReady || !readying?.ready || launchingSet.current) return;
+
+    // Le décompte reste affiché, sur son zéro, jusqu'à ce que la série soit
+    // écrite et relue. Retiré aussitôt, il découvrait l'écran d'AVANT -- la
+    // fiche de l'entraînement, le temps que la séance naisse.
+    launchingSet.current = true;
+    playRoundStart();
+    getReady.go().finally(() => {
+      setGetReady(null);
+      launchingSet.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getReady, readying?.ready]);
+
+  /**
+   * Décompter, puis faire ce qu'on a tapé. Sans décompte réglé, tout de
+   * suite, comme avant.
+   */
+  function afterCountdown(caption: string, go: () => Promise<unknown>) {
+    if (beforeSetSeconds <= 0) {
+      go();
+      return;
+    }
+    feelStart();
+    setGetReady({ armedAt: new Date(), seconds: beforeSetSeconds, caption, go });
+  }
+
+  /**
+   * Le signal du repos, à chaque tour de l'anneau.
+   *
+   * Sur le NOMBRE de tours écoulés, comme le son d'un round sur le nombre de
+   * rounds : un rendu qui saute une seconde ne fait pas rater le signal. Et
+   * seulement pour un tour franchi SOUS NOS YEUX -- revenir sur l'écran au
+   * milieu d'un repos de trois minutes ne doit pas vibrer pour rattraper.
+   */
+  const restLaps = restStartedAt === null ? 0 : Math.floor(restElapsed / restEvery);
+  useEffect(() => {
+    const previous = signaledLaps.current;
+    signaledLaps.current = { startedAt: restStartedAt, laps: restLaps };
+    if (restStartedAt === null || previous.startedAt !== restStartedAt) return;
+    if (restLaps <= previous.laps || restSignalChoice === 'none') return;
+    feelRestLap();
+    if (restSignalChoice === 'sound') playRoundStart();
+  }, [restStartedAt, restLaps, restSignalChoice]);
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.
@@ -886,7 +979,7 @@ export default function SessionScreen() {
     feelStart();
     // Aucune valeur à mémoriser : le socle les fournit, la saisie locale
     // repart donc de zéro à chaque série.
-    run(async () => {
+    return run(async () => {
       closeEditing();
       await startPerformanceSet();
     });
@@ -1052,7 +1145,7 @@ export default function SessionScreen() {
    */
   function beginFree(exerciseId: string) {
     feelStart();
-    startWorkoutSession()
+    return startWorkoutSession()
       .then(() => startActivity(exerciseId))
       .then(() => startPerformanceSet())
       .then(reload)
@@ -1168,7 +1261,7 @@ export default function SessionScreen() {
    */
   function begin(plannedWorkoutId: string, scheduledId?: string) {
     feelStart();
-    beginWorkoutSession(plannedWorkoutId, scheduledId ?? null)
+    return beginWorkoutSession(plannedWorkoutId, scheduledId ?? null)
       .then(reload)
       // Le paramètre a fait son office : le garder ramènerait sur l'écran
       // d'attente si la séance était annulée. Mais il ne se vide qu'APRÈS
@@ -1178,6 +1271,28 @@ export default function SessionScreen() {
   }
 
   const waiting = planParam ? plans.find((candidate) => candidate.id === planParam) : undefined;
+
+  /**
+   * Le décompte, posé en DERNIER et sur toute la surface : pendant qu'il
+   * tourne on ne lit plus l'écran, on range le téléphone et on se met en
+   * place. Le même pour les trois écrans d'où une série peut partir.
+   */
+  const countdownOverlay =
+    arming && setup ? (
+      <SetupCountdown
+        remainingSeconds={setup.remainingSeconds}
+        title="Mise en place"
+        caption={`${armingName} · le premier round part à zéro`}
+        onCancel={() => setArming(null)}
+      />
+    ) : getReady && readying ? (
+      <SetupCountdown
+        remainingSeconds={readying.remainingSeconds}
+        title="Prépare-toi"
+        caption={getReady.caption}
+        onCancel={() => setGetReady(null)}
+      />
+    ) : null;
 
   /**
    * L'exercice choisi pour une séance libre, avant qu'elle ne commence.
@@ -1205,7 +1320,7 @@ export default function SessionScreen() {
         />
 
         <Text
-          className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
+          className="font-black uppercase text-[32px] leading-[33px] tracking-tighter text-ink dark:text-ink-dark"
           numberOfLines={2}
         >
           {pendingExercise.name}
@@ -1258,7 +1373,11 @@ export default function SessionScreen() {
                 label="Let's go"
                 icon="play"
                 size="xl"
-                onPress={() => beginFree(pendingExercise.id)}
+                onPress={() =>
+                  afterCountdown(`${pendingExercise.name} · série 1`, () =>
+                    beginFree(pendingExercise.id),
+                  )
+                }
               />
               {/* La cible réglée juste au-dessus vaut pour chaque round : rien
                   d'autre à répéter ici. */}
@@ -1322,15 +1441,7 @@ export default function SessionScreen() {
 
         {exercisePicker(choose)}
 
-        {/* Posé en DERNIER et sur toute la surface : pendant le décompte on
-            ne lit plus l'écran, on range le téléphone et on marche. */}
-        {arming && setup && (
-          <SetupCountdown
-            remainingSeconds={setup.remainingSeconds}
-            exerciseName={armingName}
-            onCancel={() => setArming(null)}
-          />
-        )}
+        {countdownOverlay}
       </SafeAreaView>
     );
   }
@@ -1391,9 +1502,17 @@ export default function SessionScreen() {
             label="Let's go"
             icon="play"
             size="xl"
-            onPress={() => begin(waiting.id, scheduledParam || undefined)}
+            onPress={() => {
+              const start = () => begin(waiting.id, scheduledParam || undefined);
+              const first = waiting.exercises[0];
+              // Un premier exercice en EMOM a sa propre mise en place, qui
+              // part quand on lance le rythme : pas de décompte en double.
+              if (!first || first.intervalSeconds) start();
+              else afterCountdown(`${nameOf(first.exerciseId)} · série 1`, start);
+            }}
           />
         </View>
+        {countdownOverlay}
       </SafeAreaView>
     );
   }
@@ -1704,8 +1823,11 @@ export default function SessionScreen() {
           // toute la hauteur pour que ses boutons restent en bas.
           style={{ flex: 1 }}
         >
+          {/* De l'air sous la barre de progression : collé à elle, le nom
+              se lisait comme sa légende. Un cran plus petit pour rendre la
+              place prise -- l'anneau, en dessous, vit de ce qui reste. */}
           <Text
-            className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
+            className="mt-4 font-black uppercase text-[32px] leading-[33px] tracking-tighter text-ink dark:text-ink-dark"
             numberOfLines={2}
           >
             {nameOf(activity.exerciseId)}
@@ -1921,8 +2043,31 @@ export default function SessionScreen() {
             <Pressable
               className="flex-1 items-center justify-center"
               onPress={() => editing !== null && toggleEditing(editing)}
+              // Mesurée comme celle de l'anneau d'un EMOM, pour la même
+              // raison : l'anneau du repos prend la place qu'il reste.
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setRingBox((current) =>
+                  current &&
+                  Math.abs(current.width - width) < 1 &&
+                  Math.abs(current.height - height) < 1
+                    ? current
+                    : { width, height },
+                );
+              }}
             >
-              {resting && <Timer seconds={restElapsed} large />}
+              {/* Pendant qu'on corrige une série, les champs prennent la
+                  place : le chrono seul suffit à dire le repos. */}
+              {resting &&
+                (editing !== null ? (
+                  <Timer seconds={restElapsed} />
+                ) : (
+                  <RestRing
+                    elapsedSeconds={restElapsed}
+                    lapSeconds={restEvery}
+                    size={ringSizeIn(ringBox)}
+                  />
+                ))}
             </Pressable>
           )}
 
@@ -2076,7 +2221,14 @@ export default function SessionScreen() {
                     variant={plannedDone ? 'secondary' : 'primary'}
                     size="lg"
                     className={plannedDone ? undefined : 'flex-1'}
-                    onPress={beginSet}
+                    onPress={() =>
+                      afterCountdown(
+                        `${nameOf(activity.exerciseId)} · série ${nextSetIndex + 1}${
+                          plannedExercise && !plannedDone ? ` sur ${plannedExercise.sets.length}` : ''
+                        }`,
+                        beginSet,
+                      )
+                    }
                   />
                   {plannedDone && (
                     // Une flèche, là où le round suivant porte un saut de
@@ -2152,15 +2304,7 @@ export default function SessionScreen() {
         onClose={() => setSheet('none')}
       />
 
-      {/* Posé en DERNIER et sur toute la surface : pendant le décompte on ne
-          lit plus l'écran, on range le téléphone et on marche. */}
-      {arming && setup && (
-        <SetupCountdown
-          remainingSeconds={setup.remainingSeconds}
-          exerciseName={armingName}
-          onCancel={() => setArming(null)}
-        />
-      )}
+      {countdownOverlay}
     </SafeAreaView>
   );
 }

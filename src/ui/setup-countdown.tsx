@@ -2,7 +2,8 @@ import { Text, View } from 'react-native';
 import { Button } from './button';
 
 /**
- * Le décompte avant le premier round d'un EMOM.
+ * Le décompte avant le premier round d'un EMOM -- et, depuis le 2026-10-07,
+ * avant chaque série ordinaire.
  *
  * Il occupe l'écran entier, et c'est voulu : à cet instant on ne lit plus
  * rien, on range le téléphone et on marche. Un grand chiffre se voit encore
@@ -14,17 +15,21 @@ import { Button } from './button';
  */
 export function SetupCountdown({
   remainingSeconds,
-  exerciseName,
+  title,
+  caption,
   onCancel,
 }: {
   remainingSeconds: number;
-  exerciseName: string;
+  /** « Mise en place », « Prépare-toi ». */
+  title: string;
+  /** Ce qui part à zéro : « Tractions · série 3 sur 4 ». */
+  caption: string;
   onCancel: () => void;
 }) {
   return (
     <View className="absolute inset-0 items-center justify-center gap-5 bg-background px-5 dark:bg-background-dark">
       <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
-        Mise en place
+        {title}
       </Text>
 
       <Text
@@ -38,7 +43,7 @@ export function SetupCountdown({
         className="text-center text-body text-muted dark:text-muted-dark"
         numberOfLines={2}
       >
-        {exerciseName} · le premier round part à zéro
+        {caption}
       </Text>
 
       <View className="pt-2">

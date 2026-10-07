@@ -139,3 +139,80 @@ function chosenSeconds(
 export async function setEmomSetupCountdown(seconds: number): Promise<void> {
   await writeSetting(SETUP_KEY, String(seconds));
 }
+
+/**
+ * Le décompte avant CHAQUE série (décidé le 2026-10-07).
+ *
+ * Le pendant, pour une série ordinaire, de la mise en place d'un EMOM : on
+ * tape « Démarrer » sur le banc, et la série ne compte qu'une fois en place.
+ * Court par défaut -- trois secondes --, parce qu'il revient à chaque série
+ * et que la barre est rarement loin.
+ *
+ * Un réglage à part des deux autres décomptes : celui-ci se subit dix fois
+ * par séance, eux une fois.
+ */
+const SET_COUNTDOWN_KEY = 'set.countdown';
+
+/** En secondes. Zéro : la série part au tap, comme avant. */
+export const BEFORE_SET_CHOICES = [0, 3, 5, 10] as const;
+
+const SET_COUNTDOWN_FALLBACK = 3;
+
+export async function countdownBeforeSet(): Promise<number> {
+  return chosenSeconds(
+    await readSetting(SET_COUNTDOWN_KEY),
+    BEFORE_SET_CHOICES,
+    SET_COUNTDOWN_FALLBACK,
+  );
+}
+
+export async function setCountdownBeforeSet(seconds: number): Promise<void> {
+  await writeSetting(SET_COUNTDOWN_KEY, String(seconds));
+}
+
+/**
+ * Ce que le repos fait sentir à intervalle régulier (décidé le 2026-10-07).
+ *
+ * Le téléphone est posé loin, la musique couvre tout : sans signal, on ne
+ * sait pas depuis combien de temps on souffle sans aller le lire. Une
+ * vibration par défaut -- elle se sent dans la poche et ne dérange personne.
+ */
+const REST_SIGNAL_KEY = 'rest.signal';
+
+export type RestSignal = 'none' | 'vibration' | 'sound';
+
+export const REST_SIGNAL_CHOICES: readonly RestSignal[] = ['none', 'vibration', 'sound'];
+
+const REST_SIGNAL_FALLBACK: RestSignal = 'vibration';
+
+export async function restSignal(): Promise<RestSignal> {
+  const stored = await readSetting(REST_SIGNAL_KEY);
+  return REST_SIGNAL_CHOICES.includes(stored as RestSignal)
+    ? (stored as RestSignal)
+    : REST_SIGNAL_FALLBACK;
+}
+
+export async function setRestSignal(signal: RestSignal): Promise<void> {
+  await writeSetting(REST_SIGNAL_KEY, signal);
+}
+
+/**
+ * Le rythme de ce signal, et le tour de l'anneau du repos.
+ *
+ * Une minute par défaut ; plus long pour l'endurance, où l'on récupère
+ * plusieurs minutes et où un signal par minute deviendrait du bruit.
+ */
+const REST_EVERY_KEY = 'rest.every';
+
+/** En secondes. */
+export const REST_EVERY_CHOICES = [30, 60, 120, 180] as const;
+
+const REST_EVERY_FALLBACK = 60;
+
+export async function restSignalEvery(): Promise<number> {
+  return chosenSeconds(await readSetting(REST_EVERY_KEY), REST_EVERY_CHOICES, REST_EVERY_FALLBACK);
+}
+
+export async function setRestSignalEvery(seconds: number): Promise<void> {
+  await writeSetting(REST_EVERY_KEY, String(seconds));
+}
