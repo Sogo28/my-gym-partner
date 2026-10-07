@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   PanResponder,
-  Platform,
   Pressable,
   View,
 } from 'react-native';
@@ -71,7 +70,10 @@ export function SheetFrame({
     >
       <Pressable className="flex-1 bg-black/50" onPress={onClose} />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Sur les deux systèmes : Android ne redimensionne pas une fenêtre
+          posée par-dessus l'app quand le clavier sort, et le champ d'un
+          panneau -- le nom d'une copie d'entraînement -- finissait dessous. */}
+      <KeyboardAvoidingView behavior="padding">
         {/* La vue animée ne porte que le déplacement ; l'apparence vit sur
             une vue ordinaire : la version web n'applique pas les classes
             d'une vue animée. */}

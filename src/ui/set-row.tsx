@@ -147,6 +147,12 @@ export function SetRow({
 
         {onPlay && <VideoBadge onPress={onPlay} />}
 
+        {/* Faite : une coche au bout de la ligne, là où les autres états
+            disent leur nom. */}
+        {status === 'completed' && (
+          <Ionicons name="checkmark-circle" size={20} color={accents.completed} />
+        )}
+
         {/* shrink-0 : cette mention ne doit jamais rogner la valeur. */}
         {LABELS[status] && (
           <Text
@@ -162,9 +168,10 @@ export function SetRow({
 }
 
 /**
- * La pastille porte le NUMÉRO de la série tant qu'elle est en cours, et sa
- * marque de clôture ensuite : une fois la série finie, ce qui compte est de
- * savoir si elle a été faite, pas son rang -- que la liste donne déjà.
+ * La pastille porte le NUMÉRO de la série, quel que soit son état : au
+ * quatrième round d'un EMOM, des coches toutes pareilles ne disaient plus
+ * lequel était lequel. L'état se lit à sa couleur et à son trait, et la
+ * coche d'une série faite passe au bout de la ligne.
  */
 function Badge({
   index,
@@ -184,16 +191,12 @@ function Badge({
         borderStyle: status === 'planned' ? 'dashed' : 'solid',
       }}
     >
-      {status === 'completed' && <Ionicons name="checkmark" size={15} color={accent} />}
-      {status === 'abandoned' && <Ionicons name="close" size={14} color={accent} />}
-      {status === 'in-progress' && (
-        <Text
-          className="font-mono text-small"
-          style={{ color: accent, fontVariant: ['tabular-nums'] }}
-        >
-          {index}
-        </Text>
-      )}
+      <Text
+        className="font-mono text-small"
+        style={{ color: accent, fontVariant: ['tabular-nums'] }}
+      >
+        {index}
+      </Text>
     </View>
   );
 }

@@ -88,6 +88,7 @@ import {
 
 import { defaultTargets } from '../../src/ui/set-defaults';
 import { takeStoppedByHand } from '../../src/ui/filmed-set';
+import { takeCreated } from '../../src/ui/created-exercise';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
@@ -234,6 +235,12 @@ export default function SessionScreen() {
    * seul ne dirait pas.
    */
   const [comingFrom, setComingFrom] = useState<'right' | 'left'>('right');
+  /**
+   * Ce que le sélecteur d'exercice devait faire de son choix, quand il a
+   * ouvert le formulaire de création à la place : choisir le premier
+   * exercice d'une séance libre, ou en ajouter un.
+   */
+  const pickedBy = useRef<((exerciseId: string) => void) | null>(null);
   /** Le rang du round déjà annoncé au son : on ne sonne pas deux fois. */
   const soundedRound = useRef(0);
   /** La seconde du décompte déjà sonnée, pour la même raison. */
@@ -286,6 +293,14 @@ export default function SessionScreen() {
       // Couper l'enregistrement, c'est dire qu'on a fini la série : on ne
       // s'arrête pas de filmer au milieu d'un mouvement.
       if (takeStoppedByHand()) setFinishAfterFilm(true);
+
+      // Revenir du formulaire d'exercice reprend le geste interrompu : un
+      // exercice créé depuis le sélecteur est celui qu'on voulait choisir,
+      // il n'a pas à être recherché et recoché.
+      const created = takeCreated();
+      const pick = pickedBy.current;
+      pickedBy.current = null;
+      if (created && pick) pick(created);
 
       // Un exercice choisi et non démarré n'engage rien, et n'a donc pas à
       // survivre au départ de l'écran : revenir sur les séances repart de
@@ -344,6 +359,9 @@ export default function SessionScreen() {
    */
   const listOffset = useRef(new Animated.Value(0)).current;
   const [listBox, setListBox] = useState({ visible: 0, content: 0 });
+  const listRef = useRef<ScrollView>(null);
+  const chipsRef = useRef<ScrollView>(null);
+
 
   const liveSessionId = session?.id ?? null;
   useFocusEffect(
@@ -388,14 +406,62 @@ export default function SessionScreen() {
   const resting = Boolean(session?.currentRest);
   const completedCount = sets.filter((set) => set.status === 'COMPLETED').length;
   // Toutes les séries prévues sont faites : la suivante serait une série en
-  // plus du plan. Un exercice hors programme est dans ce cas dès le départ.
-  const plannedDone = !plannedExercise || nextSetIndex >= plannedExercise.sets.length;
+  // plus du plan. Un exercice hors programme l'est dès sa première série --
+  // pas avant : tout juste ajouté, il propose une série, et la démarrer est
+  // ce qu'on vient faire, pas passer au suivant.
+  const plannedDone = plannedExercise
+    ? nextSetIndex >= plannedExercise.sets.length
+    : nextSetIndex > 0;
   // Reste-t-il un exercice après celui-ci dans le programme ?
   const hasNextExercise =
     activity?.plannedPosition != null &&
     plan !== undefined &&
     activity.plannedPosition + 1 < plan.exercises.length;
-  const totalSets = Math.max(sets.length, plannedExercise?.sets.length ?? 0);
+  /**
+   * Les séries à venir, en pointillés sous celles déjà faites.
+   *
+   * Celles du programme ; et pour un exercice hors programme qui n'a encore
+   * rien produit, une série proposée avec ses valeurs par défaut -- les
+   * mêmes que prendra la série au démarrage. Sans elle, un exercice ajouté
+   * arrivait sans aucune ligne, comme s'il n'y avait rien à faire. Rien
+   * n'est écrit tant qu'on ne l'a pas démarrée.
+   */
+  const activityExercise = activity
+    ? exercises.find((exercise) => exercise.id === activity.exerciseId)
+    : undefined;
+  const upcoming: readonly { targets: TargetValues }[] = plannedExercise
+    ? plannedExercise.sets.slice(nextSetIndex)
+    : sets.length === 0 && activityExercise
+      ? [{ targets: defaultTargets(activityExercise.measurementIds) }]
+      : [];
+  const totalSets = Math.max(
+    sets.length,
+    plannedExercise?.sets.length ?? 0,
+    sets.length + (plannedExercise ? 0 : upcoming.length),
+  );
+
+  /**
+   * À chaque série qui commence, la liste défile jusqu'à elle.
+   *
+   * Pas tout en bas : les séries prévues suivent celle en cours, et c'est
+   * elle qu'on cherche. La dernière série commencée se pose donc au BAS de
+   * la zone visible -- au quatrième round d'un EMOM, la liste restait en
+   * haut et on ne savait plus où l'on en était.
+   */
+  useEffect(() => {
+    if (sets.length === 0) return;
+    const visible = listBox.visible || 4 * (SET_ROW_HEIGHT + SET_ROW_GAP);
+    // Le haut du contenu porte un rembourrage de deux points.
+    const bottom = 2 + sets.length * (SET_ROW_HEIGHT + SET_ROW_GAP);
+    const timer = setTimeout(() => {
+      listRef.current?.scrollTo({ y: Math.max(0, bottom - visible), animated: true });
+      // Repliées, les pastilles n'ont pas de hauteur fixe à viser : tout au
+      // bout, sauf quand des séries prévues suivent.
+      if (upcoming.length === 0) chipsRef.current?.scrollToEnd({ animated: true });
+    }, 60);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sets.length, activity?.performanceId, showDetail]);
 
   // Un rendu par seconde, et seulement pendant le repos.
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
@@ -1055,7 +1121,12 @@ export default function SessionScreen() {
       // Adopter depuis le catalogue crée un exercice : la liste locale doit
       // en tenir compte tout de suite.
       catalogue={catalogue}
-      onCreate={(name) => router.push({ pathname: '/new-exercise', params: { name } })}
+      onCreate={(name) => {
+        // Le geste interrompu -- choisir, ou ajouter -- reprendra au retour
+        // avec l'exercice créé (voir l'effet de focus).
+        pickedBy.current = onPick;
+        router.push({ pathname: '/new-exercise', params: { name, announce: '1' } });
+      }}
       onOpenSettings={() => {
         setSheet('none');
         router.push('/settings');
@@ -1628,7 +1699,10 @@ export default function SessionScreen() {
         <SlideIn
           token={activity.performanceId ?? activity.exerciseId}
           from={comingFrom}
-          className="flex-1"
+          // En style direct, et non en classe : la version web n'applique
+          // pas les classes d'une vue animée, et l'exercice doit occuper
+          // toute la hauteur pour que ses boutons restent en bas.
+          style={{ flex: 1 }}
         >
           <Text
             className="font-black uppercase text-display tracking-tighter text-ink dark:text-ink-dark"
@@ -1656,6 +1730,7 @@ export default function SessionScreen() {
           {showDetail ? (
             <View className="shrink grow-0">
             <ScrollView
+              ref={listRef}
               key={activity.performanceId ?? 'none'}
               keyboardShouldPersistTaps="handled"
               // Quatre lignes, pas une hauteur en pourcentage : au-delà, la
@@ -1720,7 +1795,7 @@ export default function SessionScreen() {
                   }
                 />
               ))}
-              {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
+              {upcoming.map((set, index) => (
                 <SetRow
                   key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
@@ -1737,6 +1812,7 @@ export default function SessionScreen() {
             </View>
           ) : (
             <ScrollView
+              ref={chipsRef}
               key={activity.performanceId ?? 'none'}
               keyboardShouldPersistTaps="handled"
               horizontal
@@ -1759,7 +1835,7 @@ export default function SessionScreen() {
                   values={formatShort(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
                 />
               ))}
-              {plannedExercise?.sets.slice(nextSetIndex).map((set, index) => (
+              {upcoming.map((set, index) => (
                 <SetChip
                   key={`${activity.performanceId}-planned-${index}`}
                   index={nextSetIndex + index + 1}
