@@ -62,14 +62,32 @@ export async function setCaptureCountdown(seconds: number): Promise<void> {
 }
 
 /**
- * La durée maximale d'une captation, en secondes.
+ * La durée maximale d'une captation, en secondes (décidé le 2026-10-07).
  *
- * Pas un réglage : c'est un garde-fou contre l'oubli, pas une contrainte sur
- * la série. Deux minutes couvrent large -- le temps de reculer, de faire une
- * série longue et de revenir -- sans qu'un enregistrement laissé ouvert
- * remplisse le téléphone.
+ * Un réglage, et SANS LIMITE par défaut : un handstand kick-up, une série
+ * longue au mur ne tiennent pas dans deux minutes, et l'arrêt automatique
+ * coupait la vidéo au milieu du mouvement. Une limite reste possible pour
+ * qui veut un garde-fou contre l'oubli -- un enregistrement laissé ouvert
+ * remplit le téléphone.
  */
-export const CAPTURE_MAX_SECONDS = 120;
+const CAPTURE_LIMIT_KEY = 'capture.limit';
+
+/** En secondes. Zéro : aucune limite. */
+export const CAPTURE_LIMIT_CHOICES = [0, 60, 120, 300] as const;
+
+const CAPTURE_LIMIT_FALLBACK = 0;
+
+export async function captureLimit(): Promise<number> {
+  return chosenSeconds(
+    await readSetting(CAPTURE_LIMIT_KEY),
+    CAPTURE_LIMIT_CHOICES,
+    CAPTURE_LIMIT_FALLBACK,
+  );
+}
+
+export async function setCaptureLimit(seconds: number): Promise<void> {
+  await writeSetting(CAPTURE_LIMIT_KEY, String(seconds));
+}
 
 /**
  * Le décompte de MISE EN PLACE avant le premier round d'un EMOM (décidé le

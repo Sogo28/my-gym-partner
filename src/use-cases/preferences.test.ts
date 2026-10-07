@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { useCleanDatabase } from '../../test/support';
 import {
   captureCountdown,
+  captureLimit,
   emomSetupCountdown,
   setCaptureCountdown,
+  setCaptureLimit,
   setEmomSetupCountdown,
 } from './preferences';
 
@@ -34,5 +36,25 @@ describe('Les délais de décompte', () => {
   it('ignorent une valeur qui n est pas au menu', async () => {
     await setEmomSetupCountdown(7);
     expect(await emomSetupCountdown()).toBe(10);
+  });
+});
+
+/**
+ * La durée maximale d'une vidéo : sans limite tant qu'on n'en a pas fixé
+ * une -- une série longue ne doit pas être coupée au milieu.
+ */
+describe('La durée maximale d une vidéo', () => {
+  it('est sans limite par défaut', async () => {
+    expect(await captureLimit()).toBe(0);
+  });
+
+  it('rend la limite choisie', async () => {
+    await setCaptureLimit(120);
+    expect(await captureLimit()).toBe(120);
+  });
+
+  it('ignore une durée qui n est pas au menu', async () => {
+    await setCaptureLimit(45);
+    expect(await captureLimit()).toBe(0);
   });
 });

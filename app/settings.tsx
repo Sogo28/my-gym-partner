@@ -13,10 +13,13 @@ import type { EvaluationWindow } from '../src/domain/goal/goal';
 import { WINDOW_LABELS } from '../src/ui/goal-labels';
 import {
   captureCountdown,
+  captureLimit,
+  CAPTURE_LIMIT_CHOICES,
   COUNTDOWN_CHOICES,
   emomSetupCountdown,
   evaluationWindow,
   setCaptureCountdown,
+  setCaptureLimit,
   setEmomSetupCountdown,
   setEvaluationWindow,
   SELECTABLE_WINDOWS,
@@ -60,6 +63,8 @@ export default function SettingsScreen() {
   /** Le décompte avant qu'une captation ne démarre, en secondes. */
   const [countdown, setCountdown] = useState(5);
   const [setup, setSetup] = useState(10);
+  /** La durée maximale d'une vidéo, en secondes ; zéro, aucune. */
+  const [limit, setLimit] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,12 +72,18 @@ export default function SettingsScreen() {
       evaluationWindow().then(setWindow).catch((e) => notify(messageOf(e)));
       captureCountdown().then(setCountdown).catch((e) => notify(messageOf(e)));
       emomSetupCountdown().then(setSetup).catch((e) => notify(messageOf(e)));
+      captureLimit().then(setLimit).catch((e) => notify(messageOf(e)));
     }, []),
   );
 
   function chooseCountdown(next: number) {
     setCountdown(next);
     setCaptureCountdown(next).catch((e) => notify(messageOf(e)));
+  }
+
+  function chooseLimit(next: number) {
+    setLimit(next);
+    setCaptureLimit(next).catch((e) => notify(messageOf(e)));
   }
 
   function chooseSetup(next: number) {
@@ -124,12 +135,27 @@ export default function SettingsScreen() {
           <Setting
             icon="videocam-outline"
             title="Filmer une série"
-            description="Le temps pour poser le téléphone et te mettre en place avant que l'enregistrement démarre. Il s'arrête seul au bout de deux minutes."
+            description="Le temps pour poser le téléphone et te mettre en place avant que l'enregistrement démarre."
           >
             <Segmented
               segments={COUNTDOWN_CHOICES.map((value) => ({ value, label: seconds(value) }))}
               value={countdown}
               onChange={chooseCountdown}
+            />
+          </Setting>
+
+          <Setting
+            icon="stopwatch-outline"
+            title="Durée maximale d'une vidéo"
+            description="Au-delà, l'enregistrement s'arrête seul, après cinq bips. Sans limite, il ne s'arrête que quand tu le coupes."
+          >
+            <Segmented
+              segments={CAPTURE_LIMIT_CHOICES.map((value) => ({
+                value,
+                label: value === 0 ? 'Aucune' : `${value / 60} min`,
+              }))}
+              value={limit}
+              onChange={chooseLimit}
             />
           </Setting>
 
