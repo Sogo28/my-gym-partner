@@ -217,7 +217,15 @@ export async function cachedImage(uri: string): Promise<string> {
  * que l'exercice enregistré référence toujours.
  */
 export async function forgetUnusedMedia(): Promise<void> {
-  const directory = mediaDirectory();
+  // Pas de système de fichiers -- la version web, qui ne sert qu'à regarder
+  // les écrans --, donc rien à ramasser : la passe s'arrête là au lieu de
+  // faire échouer l'enregistrement qui l'a déclenchée.
+  let directory: ReturnType<typeof mediaDirectory>;
+  try {
+    directory = mediaDirectory();
+  } catch {
+    return;
+  }
   if (!directory.exists) return;
   // Les captations de séries comptent AUSSI parmi les fichiers réclamés :
   // sans cela, la première passe de ramassage les effacerait toutes, alors
