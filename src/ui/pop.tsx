@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, type ViewProps } from 'react-native';
+import { Animated, View, type ViewProps } from 'react-native';
 
 /**
  * Un petit rebond : ce qu'il enveloppe part d'un peu plus petit et revient à
@@ -15,9 +15,12 @@ export function Pop({
   active = true,
   appear = false,
   from = 0.6,
+  className,
   children,
   ...props
 }: ViewProps & {
+  /** L'apparence de ce qui rebondit : portée par une vue ordinaire (voir plus bas). */
+  className?: string;
   active?: boolean;
   appear?: boolean;
   /**
@@ -45,8 +48,10 @@ export function Pop({
   }, [active, from, scale]);
 
   return (
+    // L'échelle sur la vue animée, l'apparence sur une vue ordinaire : la
+    // version web n'applique pas les classes d'une vue animée.
     <Animated.View {...props} style={[props.style, { transform: [{ scale }] }]}>
-      {children}
+      {className ? <View className={className}>{children}</View> : children}
     </Animated.View>
   );
 }

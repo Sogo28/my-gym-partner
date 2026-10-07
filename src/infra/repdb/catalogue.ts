@@ -36,14 +36,28 @@ function catalogueFile(): File {
   return new File(new Directory(Paths.document, FOLDER), FILE);
 }
 
+/**
+ * Le fichier, s'il existe -- null sinon, ou quand il n'y a pas de système de
+ * fichiers où le chercher : la version web de l'app, qui ne sert qu'à
+ * regarder les écrans pendant le développement, n'en a pas. Le catalogue y
+ * est simplement absent, au lieu de faire tomber l'écran qui le consulte.
+ */
+function existingFile(): File | null {
+  try {
+    const file = catalogueFile();
+    return file.exists ? file : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isDownloaded(): boolean {
-  return catalogueFile().exists;
+  return existingFile() !== null;
 }
 
 /** Sa taille sur le disque, pour que l'écran de réglages puisse la dire. */
 export function downloadedSize(): number {
-  const file = catalogueFile();
-  return file.exists ? file.size : 0;
+  return existingFile()?.size ?? 0;
 }
 
 export async function download(): Promise<void> {

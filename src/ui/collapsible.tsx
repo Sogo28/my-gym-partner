@@ -80,8 +80,9 @@ export function Collapsible({
       </Pressable>
 
       {open && (
+        // Le mouvement sur la vue animée, les marges sur une vue ordinaire :
+        // la version web n'applique pas les classes d'une vue animée.
         <Animated.View
-          className="gap-1 px-4 pb-4"
           style={{
             opacity: progress,
             transform: [
@@ -89,7 +90,7 @@ export function Collapsible({
             ],
           }}
         >
-          {children}
+          <View className="gap-1 px-4 pb-4">{children}</View>
         </Animated.View>
       )}
     </View>
