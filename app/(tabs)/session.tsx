@@ -91,6 +91,7 @@ import { takeStoppedByHand } from '../../src/ui/filmed-set';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
+import { SetIndex } from '../../src/ui/set-index';
 
 /**
  * L'étiquette du verrou qui garde l'écran allumé.
@@ -1080,7 +1081,7 @@ export default function SessionScreen() {
     // passé la première série, revenir en arrière perdrait ce qui vient
     // d'être fait plutôt que de simplement rattraper le clic de trop.
     ...(activity && session?.previousActivity && performance?.sets.length === 0
-      ? [{ label: "Revenir à l'exercice précédent", onPress: previousExercise }]
+      ? [{ label: "Revenir à l'exercice précédent", icon: 'play-skip-back-outline' as const, onPress: previousExercise }]
       : []),
     // Le repos s'enchaîne tout seul après une série ; ici on le commande à
     // la main, pour souffler avant d'attaquer ou pour couper court.
@@ -1287,7 +1288,7 @@ export default function SessionScreen() {
         >
 
           {waiting.exercises.map((planned, position) => (
-            <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-1">
+            <Card key={`${planned.exerciseId}-${position}`} density="titled" className="gap-2">
               <Text className="font-bold text-body text-ink dark:text-ink-dark" numberOfLines={1}>
                 {position + 1}. {nameOf(planned.exerciseId)}
               </Text>
@@ -1300,13 +1301,15 @@ export default function SessionScreen() {
                 </Text>
               ) : null}
               {planned.sets.map((set, index) => (
-                <Text
-                  key={index}
-                  className="font-mono text-caption text-planned dark:text-planned-dark"
-                  style={{ fontVariant: ['tabular-nums'] }}
-                >
-                  {index + 1}.  {formatTargets(set.targets, unitOf)}
-                </Text>
+                <View key={index} className="flex-row items-center gap-2.5">
+                  <SetIndex index={index + 1} />
+                  <Text
+                    className="shrink font-mono text-small text-planned dark:text-planned-dark"
+                    style={{ fontVariant: ['tabular-nums'] }}
+                  >
+                    {formatTargets(set.targets, unitOf)}
+                  </Text>
+                </View>
               ))}
             </Card>
           ))}

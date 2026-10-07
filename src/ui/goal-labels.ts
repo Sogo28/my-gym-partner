@@ -65,10 +65,11 @@ function qualifying(condition: Condition): readonly Clause[] {
 }
 
 /**
- * La description d'une série : « 10 reps · 60 kg ».
+ * La description d'une série : « 10 reps × 60 kg ».
  *
- * Les cibles sont séparées par un point médian et non par « et » : elles ne
- * sont pas deux exigences, mais une seule série vue sous deux mesures.
+ * Les cibles sont séparées par « × » et non par « et » : elles ne sont pas
+ * deux exigences, mais une seule série vue sous deux mesures -- écrite
+ * comme toutes les séries de l'app.
  */
 export function describeClauses(
   clauses: readonly Clause[],
@@ -79,7 +80,7 @@ export function describeClauses(
       const prefix = clause.operator === '>=' ? '' : `${clause.operator} `;
       return `${prefix}${clause.target} ${unitOf(clause.measurementId)}`;
     })
-    .join(' · ');
+    .join(' × ');
 }
 
 /** L'unité de la cible : un décompte se compte en séries. */

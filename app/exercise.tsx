@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -39,7 +40,8 @@ const WINDOWS: { label: string; sessions: number | null }[] = [
 import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
-import { formatDateTime, formatDuration, isDuration } from '../src/ui/format';
+import { formatDateTime, formatDuration, formatTime, isDuration } from '../src/ui/format';
+import { usePalette } from '../src/ui/palette';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
 import { cn } from '../src/ui/cn';
@@ -53,6 +55,7 @@ import { averageValue, averageVolume } from '../src/domain/performance/records';
 import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercise-detail';
 import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 import { RecordsCard } from '../src/ui/records-card';
+import { SetIndex } from '../src/ui/set-index';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
 const PAGE = 5;
@@ -297,9 +300,6 @@ export default function ExerciseDetailScreen() {
               title="Aucune performance"
               description="Cet exercice n'a encore été travaillé dans aucune séance."
             />
-            {canLogQuickSet && (
-              <Button label="Enregistrer une série" variant="secondary" onPress={openQuickLog} />
-            )}
           </>
         ) : (
           <>
@@ -348,13 +348,11 @@ export default function ExerciseDetailScreen() {
                     ? 'Volume moyen par séance'
                     : `Moyenne par séance · ${unitOf(charted)}`}
                 </Text>
-                <Text className="text-caption text-muted dark:text-muted-dark">
-                  {charted === VOLUME
-                    ? `Le volume d'une série est le produit de ce qu'elle mesure : ${exercise.measurementIds
-                        .map((id) => measurementNameOf(id).toLowerCase())
-                        .join(' × ')}.`
-                    : 'La moyenne de ses séries, séance par séance.'}
-                </Text>
+                {charted !== VOLUME && (
+                  <Text className="text-caption text-muted dark:text-muted-dark">
+                    La moyenne de ses séries, séance par séance.
+                  </Text>
+                )}
               </View>
 
               {points.length > 1 ? (
@@ -405,9 +403,6 @@ export default function ExerciseDetailScreen() {
               )}
             </Card>
 
-            {canLogQuickSet && (
-              <Button label="Enregistrer une série" variant="secondary" onPress={openQuickLog} />
-            )}
 
             {goals.length > 0 && (
               <Section title="Objectifs">
@@ -618,50 +613,50 @@ function SessionCard({
   durations?: (string | null)[];
   open?: boolean;
 }) {
+  const { muted } = usePalette();
+
   return (
     <Collapsible
       defaultOpen={open}
       title={
-        <Text className="font-mono text-small text-muted dark:text-muted-dark">
-          {formatDateTime(at)}
-        </Text>
-      }
-      summary={`${lines.length} série${lines.length > 1 ? 's' : ''}`}
-    >
-      {lines.map((line, index) => (
-        <View key={index} className="flex-row items-baseline justify-between gap-2">
-          <Text
-            className="font-mono text-small text-ink dark:text-ink-dark"
-            style={{ fontVariant: ['tabular-nums'] }}
-          >
-            {index + 1}.  {line}
-          </Text>
-          {durations?.[index] && (
-            <Text className="font-mono text-micro text-muted dark:text-muted-dark">
-              {durations[index]}
+        // Le jour et l'heure, chacun derrière son icône : deux informations
+        // qu'on cherche séparément, plutôt qu'une date et une heure collées.
+        <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="calendar-outline" size={14} color={muted} />
+            <Text className="font-mono text-small text-ink dark:text-ink-dark">
+              {at.toLocaleDateString('fr-FR')}
             </Text>
-          )}
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="time-outline" size={14} color={muted} />
+            <Text className="font-mono text-small text-ink dark:text-ink-dark">
+              {formatTime(at)}
+            </Text>
+          </View>
         </View>
-      ))}
+      }
+    >
+      <View className="gap-2">
+        {lines.map((line, index) => (
+          <View key={index} className="flex-row items-center justify-between gap-2">
+            <View className="shrink flex-row items-center gap-2.5">
+              <SetIndex index={index + 1} />
+              <Text
+                className="shrink font-mono text-small text-ink dark:text-ink-dark"
+                style={{ fontVariant: ['tabular-nums'] }}
+              >
+                {line}
+              </Text>
+            </View>
+            {durations?.[index] && (
+              <Text className="font-mono text-micro text-muted dark:text-muted-dark">
+                {durations[index]}
+              </Text>
+            )}
+          </View>
+        ))}
+      </View>
     </Collapsible>
-  );
-}
-
-/** Un record en bandeau : le nombre d'abord, ce qu'il mesure en dessous. */
-function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
-  return (
-    <Card className="flex-1 gap-0.5">
-      <Text
-        className="font-mono-bold text-heading text-ink dark:text-ink-dark"
-        numberOfLines={1}
-        style={{ fontVariant: ['tabular-nums'] }}
-      >
-        {value}
-        <Text className="font-sans text-caption text-muted dark:text-muted-dark"> {unit}</Text>
-      </Text>
-      <Text className="text-micro text-muted dark:text-muted-dark" numberOfLines={1}>
-        {label}
-      </Text>
-    </Card>
   );
 }

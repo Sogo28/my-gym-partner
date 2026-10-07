@@ -40,6 +40,7 @@ import { feelRecord } from '../src/ui/haptics';
 import { PALETTE } from '../src/ui/palette';
 import { RecordsCard } from '../src/ui/records-card';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
+import { SetIndex } from '../src/ui/set-index';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -417,12 +418,7 @@ export default function SessionSummaryScreen() {
                               <RestLine seconds={done.restBefore} />
                             )}
                             <View className="flex-row items-center gap-2 rounded-lg bg-surface-alt px-3 py-2.5 dark:bg-surface-alt-dark">
-                              <Text
-                                className="font-mono text-caption text-muted dark:text-muted-dark"
-                                style={{ fontVariant: ['tabular-nums'] }}
-                              >
-                                {position + 1}.
-                              </Text>
+                              <SetIndex index={position + 1} />
                               <Text
                                 className="flex-1 font-mono-bold text-body text-ink dark:text-ink-dark"
                               >

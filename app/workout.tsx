@@ -21,6 +21,7 @@ import { describeWorkout } from '../src/use-cases/share-workout';
 import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 import { usePalette } from '../src/ui/palette';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
+import { SetIndex } from '../src/ui/set-index';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -184,7 +185,7 @@ export default function WorkoutDetailScreen() {
                    pesaient plus que ce qu'ils contenaient. La hiérarchie tient
                    au corps et à la couleur -- le nom en gras sombre, les séries
                    en chiffres alignés. */
-                <View className="gap-0.5">
+                <View className="gap-2">
                   {/* Une annotation au-dessus de la liste, et non à sa place :
                       des rounds se lisent comme des séries, seule leur cadence
                       demande à être dite. */}
@@ -193,14 +194,20 @@ export default function WorkoutDetailScreen() {
                       {formatEmomPace(planned.intervalSeconds)}
                     </Text>
                   ) : null}
+                  {/* Le rang dans sa pastille, la cible en gris « prévu » : le
+                      même dessin que les séries faites de la fiche d'un
+                      exercice, la couleur en moins -- une cible n'est pas
+                      un fait. */}
                   {planned.sets.map((set, index) => (
-                    <Text
-                      key={index}
-                      className="font-mono text-small text-planned dark:text-planned-dark"
-                      style={{ fontVariant: ['tabular-nums'] }}
-                    >
-                      {index + 1}.  {formatTargets(set.targets, unitOf)}
-                    </Text>
+                    <View key={index} className="flex-row items-center gap-2.5">
+                      <SetIndex index={index + 1} />
+                      <Text
+                        className="shrink font-mono text-small text-planned dark:text-planned-dark"
+                        style={{ fontVariant: ['tabular-nums'] }}
+                      >
+                        {formatTargets(set.targets, unitOf)}
+                      </Text>
+                    </View>
                   ))}
                 </View>
               )}

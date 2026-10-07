@@ -28,18 +28,25 @@ export function formatMeasure(value: number, unit: string): string {
 export function formatSetValues(
   values: ValuesBySide,
   unitOf: (measurementId: string) => string,
+  /**
+   * Ce qui sépare les mesures d'un même côté. « 12 reps × 17.5 kg » se lit
+   * comme ce qu'est une série -- tant de fois tant -- là où le point
+   * médian les posait côte à côte comme deux faits. Les CÔTÉS, eux, restent
+   * séparés par le point : gauche et droite ne se multiplient pas.
+   */
+  between = ' × ',
 ): string {
   return Object.entries(values)
     .filter(([, sideValues]) => sideValues && Object.keys(sideValues).length > 0)
     .map(([side, sideValues]) =>
       Object.entries(sideValues!)
         .map(([id, value]) => `${measure(value, unitOf(id), ' ')}${SIDE_SUFFIX[side] ?? ''}`)
-        .join(' · '),
+        .join(between),
     )
     .join(' · ');
 }
 
-/** Version courte, pour les pastilles : « 12s g · 9s d ». */
+/** Version courte, pour les pastilles : « 12reps×20kg », « 12s g · 9s d ». */
 export function formatSetValuesShort(
   values: ValuesBySide,
   unitOf: (measurementId: string) => string,
@@ -49,13 +56,13 @@ export function formatSetValuesShort(
     .map(([side, sideValues]) =>
       Object.entries(sideValues!)
         .map(([id, value]) => `${measure(value, unitOf(id), '')}${SIDE_SUFFIX[side] ?? ''}`)
-        .join('·'),
+        .join('×'),
     )
     .join(' · ');
 }
 
 /**
- * Ce qu'une série PRÉVUE annonce : « 10 reps · 20 kg ».
+ * Ce qu'une série PRÉVUE annonce : « 10 reps × 20 kg ».
  *
  * Le plan ne distingue pas les côtés -- les mêmes cibles valent pour chacun --
  * là où une série faite les porte séparément. Sans cette conversion, les
@@ -65,8 +72,9 @@ export function formatSetValuesShort(
 export function formatTargets(
   targets: TargetValues,
   unitOf: (measurementId: string) => string,
+  between = ' × ',
 ): string {
-  return formatSetValues({ BOTH: targets }, unitOf);
+  return formatSetValues({ BOTH: targets }, unitOf, between);
 }
 
 /**

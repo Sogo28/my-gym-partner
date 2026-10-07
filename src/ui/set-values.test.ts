@@ -13,7 +13,7 @@ describe('mise en forme des valeurs', () => {
   it('lit une série prévue, dont les cibles ne portent pas de côté', () => {
     // Passées au formateur des séries faites, ces cibles ressortaient vides :
     // leurs clés sont des mesures, pas des côtés.
-    expect(formatTargets({ reps: 10, weight: 20 }, unitOf)).toBe('10 reps · 20 kg');
+    expect(formatTargets({ reps: 10, weight: 20 }, unitOf)).toBe('10 reps × 20 kg');
   });
 });
 
