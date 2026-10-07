@@ -591,6 +591,7 @@ export default function NewGoalScreen() {
         searchPlaceholder="Rechercher une mensuration"
         actions={metrics.map((metric) => ({
           label: `${metric.name} (${metric.unit})`,
+          icon: 'resize-outline' as const,
           onPress: () => addEntry({ kind: 'body', metricId: metric.id }),
         }))}
         onClose={() => setPicking('none')}

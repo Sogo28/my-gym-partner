@@ -186,6 +186,7 @@ export default function GoalScreen() {
         actions={[
           {
             label: 'Archiver cet objectif',
+            icon: 'archive-outline',
             tone: 'danger' as const,
             onPress: () => setSheet('confirm-archive'),
           },
@@ -200,6 +201,7 @@ export default function GoalScreen() {
         actions={[
           {
             label: 'Archiver',
+            icon: 'archive-outline',
             tone: 'danger',
             onPress: () =>
               archiveGoal(goal)

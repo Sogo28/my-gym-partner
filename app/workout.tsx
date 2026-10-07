@@ -222,28 +222,32 @@ export default function WorkoutDetailScreen() {
             ? [
                 {
                   label: 'Remettre au catalogue',
+                  icon: 'arrow-undo-outline',
                   onPress: () =>
                     unarchiveWorkout(plan)
                       .then(() => router.back())
                       .catch((e) => notify(messageOf(e))),
                 },
-                { label: 'Partager', onPress: share },
+                { label: 'Partager', icon: 'share-outline', onPress: share },
               ]
             : [
                 {
                   label: 'Modifier',
+                  icon: 'create-outline',
                   onPress: () => router.push({ pathname: '/new-workout', params: { id } }),
                 },
                 {
                   label: 'Dupliquer',
+                  icon: 'copy-outline',
                   onPress: () => {
                     setDuplicateName(`${plan.name} copie`);
                     setSheet('duplicate');
                   },
                 },
-                { label: 'Partager', onPress: share },
+                { label: 'Partager', icon: 'share-outline', onPress: share },
                 {
                   label: 'Retirer du catalogue',
+                  icon: 'archive-outline',
                   tone: 'danger' as const,
                   onPress: () => setSheet('confirm-discard'),
                 },
@@ -259,7 +263,7 @@ export default function WorkoutDetailScreen() {
         visible={sheet === 'confirm-discard'}
         title="Retirer cet entraînement ?"
         description="S'il a déjà produit des séances, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
-        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        actions={[{ label: 'Retirer', icon: 'trash-outline', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
 

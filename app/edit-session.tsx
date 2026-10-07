@@ -245,16 +245,18 @@ export default function EditSessionScreen() {
             ? [
                 ...(edited?.videoUri
                   ? [
-                      { label: 'Voir la vidéo', onPress: () => setWatching(editing) },
+                      { label: 'Voir la vidéo', icon: 'play-circle-outline' as const, onPress: () => setWatching(editing) },
                       {
                         label: 'Supprimer la vidéo',
+                        icon: 'trash-outline' as const,
                         tone: 'danger' as const,
                         onPress: () => removeVideo(editing),
                       },
                     ]
-                  : [{ label: 'Ajouter une vidéo', onPress: () => addVideo(editing) }]),
+                  : [{ label: 'Ajouter une vidéo', icon: 'videocam-outline' as const, onPress: () => addVideo(editing) }]),
                 {
                   label: 'Retirer cette série',
+                  icon: 'remove-circle-outline' as const,
                   tone: 'danger' as const,
                   onPress: () => removeSet(editing),
                 },

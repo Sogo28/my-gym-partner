@@ -1071,11 +1071,11 @@ export default function SessionScreen() {
   );
 
   const menuActions: SheetAction[] = [
-    { label: 'Terminer la séance', onPress: finish },
+    { label: 'Terminer la séance', icon: 'flag-outline' as const, onPress: finish },
     ...(performance?.currentSet
-      ? [{ label: 'Abandonner la série', onPress: () => run(abandonPerformanceSet) }]
+      ? [{ label: 'Abandonner la série', icon: 'ban-outline' as const, onPress: () => run(abandonPerformanceSet) }]
       : []),
-    ...(activity ? [{ label: "Passer à l'exercice suivant", onPress: nextExercise }] : []),
+    ...(activity ? [{ label: "Passer à l'exercice suivant", icon: 'play-skip-forward-outline' as const, onPress: nextExercise }] : []),
     // Uniquement tant que rien n'a encore été fait sur l'exercice en cours :
     // passé la première série, revenir en arrière perdrait ce qui vient
     // d'être fait plutôt que de simplement rattraper le clic de trop.
@@ -1085,9 +1085,9 @@ export default function SessionScreen() {
     // Le repos s'enchaîne tout seul après une série ; ici on le commande à
     // la main, pour souffler avant d'attaquer ou pour couper court.
     ...(session?.currentRest
-      ? [{ label: 'Arrêter le repos', onPress: () => run(stopRest) }]
-      : [{ label: 'Démarrer un repos', onPress: () => run(startRest) }]),
-    { label: 'Annuler la séance', tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
+      ? [{ label: 'Arrêter le repos', icon: 'stop-circle-outline' as const, onPress: () => run(stopRest) }]
+      : [{ label: 'Démarrer un repos', icon: 'timer-outline' as const, onPress: () => run(startRest) }]),
+    { label: 'Annuler la séance', icon: 'close-circle-outline' as const, tone: 'danger' as const, onPress: () => setSheet('confirm-cancel') },
   ];
 
   /**
@@ -1235,9 +1235,10 @@ export default function SessionScreen() {
           visible={sheet === 'pending-menu'}
           title="Avant de commencer"
           actions={[
-            { label: "Changer d'exercice", onPress: () => setSheet('pick-exercise') },
+            { label: "Changer d'exercice", icon: 'swap-horizontal-outline' as const, onPress: () => setSheet('pick-exercise') },
             {
               label: 'Ne pas commencer',
+              icon: 'close-outline' as const,
               onPress: () => {
                 setSheet('none');
                 setPending(null);
@@ -1344,13 +1345,13 @@ export default function SessionScreen() {
       const sets = plan.exercises.reduce((total, entry) => total + entry.sets.length, 0);
       const items: MetaItem[] = [
         {
-          icon: 'barbell-outline',
+          icon: 'barbell-outline' as const,
           label: `${plan.exercises.length} exercice${plan.exercises.length > 1 ? 's' : ''}`,
         },
-        { icon: 'layers-outline', label: `${sets} série${sets > 1 ? 's' : ''}` },
+        { icon: 'layers-outline' as const, label: `${sets} série${sets > 1 ? 's' : ''}` },
       ];
       if (withLastDone) {
-        items.push({ icon: 'calendar-outline', label: lastDoneLabel(lastDone.get(id), now) });
+        items.push({ icon: 'calendar-outline' as const, label: lastDoneLabel(lastDone.get(id), now) });
       }
       return items;
     };
@@ -1529,14 +1530,17 @@ export default function SessionScreen() {
               ? [
                   {
                     label: 'Démarrer maintenant',
+                    icon: 'play-outline' as const,
                     onPress: () => open(managing.plannedWorkoutId, managing.id),
                   },
                   {
                     label: 'Déplacer',
+                    icon: 'calendar-outline' as const,
                     onPress: () => setMoving(managing),
                   },
                   {
                     label: 'Annuler cette séance programmée',
+                    icon: 'close-circle-outline' as const,
                     tone: 'danger',
                     onPress: () => run(() => cancelScheduledWorkout(managing)),
                   },
@@ -1567,6 +1571,7 @@ export default function SessionScreen() {
           searchPlaceholder="Chercher un entraînement"
           actions={startable.map((candidate) => ({
             label: candidate.name,
+            icon: 'clipboard-outline' as const,
             onPress: () => setPlanning({ plan: candidate }),
           }))}
           onClose={() => setPlanning(null)}
@@ -2035,8 +2040,8 @@ export default function SessionScreen() {
         title="Programme terminé"
         description="Tous les exercices prévus sont faits. Tu peux t'arrêter là ou continuer librement."
         actions={[
-          { label: 'Terminer la séance', onPress: finish },
-          { label: 'Ajouter un exercice', onPress: () => setSheet('pick-exercise') },
+          { label: 'Terminer la séance', icon: 'flag-outline' as const, onPress: finish },
+          { label: 'Ajouter un exercice', icon: 'add-circle-outline' as const, onPress: () => setSheet('pick-exercise') },
         ]}
         onClose={() => setSheet('none')}
       />
@@ -2060,6 +2065,7 @@ export default function SessionScreen() {
         actions={[
           {
             label: 'Annuler la séance',
+            icon: 'close-circle-outline' as const,
             tone: 'danger',
             onPress: () => run(cancelWorkoutSession),
           },

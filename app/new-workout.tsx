@@ -433,6 +433,7 @@ export default function NewWorkoutScreen() {
         actions={[
           {
             label: 'Retirer du catalogue',
+            icon: 'archive-outline',
             tone: 'danger' as const,
             onPress: () => setSheet('confirm-discard'),
           },
@@ -447,7 +448,7 @@ export default function NewWorkoutScreen() {
         visible={sheet === 'confirm-discard'}
         title="Retirer cet entraînement ?"
         description="S'il a déjà produit des séances, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
-        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        actions={[{ label: 'Retirer', icon: 'trash-outline', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
 

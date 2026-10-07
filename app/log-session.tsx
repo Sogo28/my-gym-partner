@@ -367,8 +367,12 @@ export default function LogSessionScreen() {
         // que de le repérer dans une liste qui défile.
         searchPlaceholder={plans.length > 6 ? 'Chercher un entraînement' : undefined}
         actions={[
-          ...plans.map((plan) => ({ label: plan.name, onPress: () => startFrom(plan) })),
-          { label: 'Aucun · séance libre', onPress: () => startFrom(null) },
+          ...plans.map((plan) => ({
+            label: plan.name,
+            icon: 'clipboard-outline' as const,
+            onPress: () => startFrom(plan),
+          })),
+          { label: 'Aucun · séance libre', icon: 'flash-outline', onPress: () => startFrom(null) },
         ]}
         onClose={() => setSheet('none')}
       />
@@ -416,6 +420,7 @@ export default function LogSessionScreen() {
             ? [
                 {
                   label: 'Retirer cette série',
+                  icon: 'remove-circle-outline',
                   tone: 'danger' as const,
                   onPress: () => removeSet(editingSet.key, editingSet.setIndex),
                 },

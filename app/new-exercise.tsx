@@ -310,6 +310,7 @@ export default function NewExerciseScreen() {
             ? [
                 {
                   label: 'Remettre au catalogue',
+                  icon: 'arrow-undo-outline',
                   onPress: () =>
                     unarchiveExercise(existing)
                       .then(() => router.back())
@@ -319,6 +320,7 @@ export default function NewExerciseScreen() {
             : [
                 {
                   label: 'Retirer du catalogue',
+                  icon: 'archive-outline',
                   tone: 'danger' as const,
                   onPress: () => setSheet('confirm-discard'),
                 },
@@ -334,7 +336,7 @@ export default function NewExerciseScreen() {
         visible={sheet === 'confirm-discard'}
         title="Retirer cet exercice ?"
         description="S'il a déjà servi, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
-        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        actions={[{ label: 'Retirer', icon: 'trash-outline', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
 
@@ -343,8 +345,6 @@ export default function NewExerciseScreen() {
         title="Mesures"
         options={measurements}
         selected={selected}
-        clearLabel="Tout décocher"
-        confirmLabel={`${selected.length} mesure${selected.length > 1 ? 's' : ''}`}
         onToggle={toggle(setSelected)}
         onClear={() => setSelected([])}
         onClose={() => setChoosing('none')}
@@ -356,8 +356,7 @@ export default function NewExerciseScreen() {
         mode="single"
         options={muscles}
         selected={primaryMuscle ? [primaryMuscle] : []}
-        clearLabel="Aucun"
-        confirmLabel="Fermer"
+        noneLabel="Aucun"
         // Choisir un muscle principal le retire des secondaires : il ne peut
         // pas soutenir un mouvement dont il est déjà la cible.
         onToggle={(id) => {
@@ -374,8 +373,6 @@ export default function NewExerciseScreen() {
         // Le muscle principal ne se propose pas ici : il a déjà son rôle.
         options={muscles.filter((muscle) => muscle.id !== primaryMuscle)}
         selected={secondaryMuscles}
-        clearLabel="Tout décocher"
-        confirmLabel={`${secondaryMuscles.length} muscle${secondaryMuscles.length > 1 ? 's' : ''}`}
         onToggle={toggle(setSecondaryMuscles)}
         onClear={() => setSecondaryMuscles([])}
         onClose={() => setChoosing('none')}

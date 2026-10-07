@@ -1,6 +1,10 @@
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Checkbox } from './checkbox';
 import { cn } from './cn';
-import { ToastHost } from './notifications';
+import { SheetRow } from './sheet';
+import { SheetFrame } from './sheet-frame';
+import { usePalette } from './palette';
 
 /** Ce qu'une feuille de choix manipule : de quoi afficher, et de quoi retenir. */
 export type Option = { id: string; name: string };
@@ -66,19 +70,20 @@ export function OptionChip({
 }
 
 /**
- * Une feuille de choix multiple : une grille d'options, et deux actions.
+ * Une feuille de choix : une liste d'options à cocher.
  *
- * Chaque touche prend effet immédiatement plutôt qu'à la validation -- le
- * bouton de droite peut alors annoncer l'état réel (« 12 résultats »,
- * « 3 mesures »), et non une promesse à vérifier en fermant.
+ * Chaque touche prend effet immédiatement, et le panneau se referme d'un
+ * geste comme tous les autres : pas de bouton pour « valider ». Ce qui reste
+ * à faire d'un coup -- tout cocher, tout décocher, ne rien retenir -- est une
+ * petite action à côté du titre, pas un bouton de plus en bas.
  */
 export function OptionSheet({
   visible,
   title,
+  summary,
   options,
   selected,
-  clearLabel,
-  confirmLabel,
+  noneLabel,
   mode = 'multiple',
   onToggle,
   onClear,
@@ -86,90 +91,106 @@ export function OptionSheet({
 }: {
   visible: boolean;
   title: string;
+  /**
+   * Ce que le choix produit et que les cases ne disent pas : « 12 résultats »
+   * pour un filtre. Ce qu'elles disent déjà (« 3 muscles ») n'a rien à
+   * faire ici.
+   */
+  summary?: string;
   options: readonly Option[];
   selected: readonly string[];
-  /** Absent : rien à vider -- un choix unique en a toujours un. */
-  clearLabel?: string;
-  confirmLabel: string;
+  /** Choix unique : le nom de l'absence de choix (« Aucun »), si elle est permise. */
+  noneLabel?: string;
   /** single : un seul choix, et la feuille se referme aussitôt. */
   mode?: 'multiple' | 'single';
   onToggle: (id: string) => void;
   onClear?: () => void;
   onClose: () => void;
 }) {
+  const { ink } = usePalette();
+  const allChecked = options.length > 0 && options.every((option) => selected.includes(option.id));
+
+  /*
+   * La case du titre ne sert qu'à tout cocher ou tout décocher : cochée quand
+   * tout l'est -- à la main ou par elle --, vide sinon. La toucher coche tout,
+   * sauf quand tout l'est déjà : elle décoche tout.
+   */
+  function toggleAll() {
+    if (allChecked) {
+      onClear?.();
+      return;
+    }
+    options
+      .filter((option) => !selected.includes(option.id))
+      .forEach((option) => onToggle(option.id));
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/50" onPress={onClose} />
-
-      <View className="gap-3 rounded-t-3xl border-t border-border bg-background px-5 pb-8 pt-5 dark:border-border-dark dark:bg-background-dark">
-        <Text className="text-center font-extrabold text-heading text-ink dark:text-ink-dark">
-          {title}
-        </Text>
-
-        <ScrollView
-          className="max-h-96 grow-0"
-          contentContainerClassName="flex-row flex-wrap gap-2"
-          keyboardShouldPersistTaps="handled"
-        >
-          {options.map((option) => {
-            const on = selected.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                onPress={() => {
-                  onToggle(option.id);
-                  // Un choix unique n'a rien à confirmer : garder la feuille
-                  // ouverte demanderait un geste de plus pour rien.
-                  if (mode === 'single') onClose();
-                }}
-                // Deux par rangée : les noms sont longs, et une grille garde
-                // l'oeil sur une colonne au lieu de le renvoyer à la ligne.
-                className={cn(
-                  'min-h-touch w-[48%] justify-center rounded-lg border px-4',
-                  on
-                    ? 'border-primary-ink bg-primary-soft dark:border-primary-ink-dark dark:bg-primary-soft-dark'
-                    : 'border-border bg-surface dark:border-border-dark dark:bg-surface-dark',
-                )}
-              >
-                <Text
-                  className={cn(
-                    'font-medium text-lead',
-                    on
-                      ? 'text-primary-ink dark:text-primary-ink-dark'
-                      : 'text-ink dark:text-ink-dark',
-                  )}
-                  numberOfLines={1}
-                >
-                  {option.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View className="flex-row gap-3 pt-1">
-          {clearLabel && (
-            <Pressable
-              onPress={onClear}
-              className="min-h-action flex-1 items-center justify-center rounded-lg border border-border bg-surface dark:border-border-dark dark:bg-surface-dark"
-            >
-              <Text className="font-bold text-lead text-muted dark:text-muted-dark">
-                {clearLabel}
-              </Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={onClose}
-            className="min-h-action flex-1 items-center justify-center rounded-lg bg-primary dark:bg-primary-dark"
+    <SheetFrame visible={visible} onClose={onClose}>
+      {/* Le même retrait que les lignes (`px-2`) : la case du titre tombe
+          dans la colonne des cases, et le titre au-dessus des libellés. */}
+      <View className="gap-1 px-2 pb-3">
+        <View className="min-h-touch flex-row items-center justify-between gap-3">
+          {/* Sans la marge qu'Android ajoute d'office au-dessus et au-dessous
+              des lettres : elle descendait le titre sous le centre de la
+              case, alors que les deux partagent la même ligne. */}
+          <Text
+            className="shrink font-extrabold text-heading text-ink dark:text-ink-dark"
+            style={{ includeFontPadding: false }}
           >
-            <Text className="font-bold text-lead text-on-primary dark:text-on-primary-dark">{confirmLabel}</Text>
-          </Pressable>
+            {title}
+          </Text>
+          {mode === 'multiple' ? (
+            <Pressable
+              onPress={toggleAll}
+              hitSlop={12}
+              accessibilityLabel={allChecked ? 'Tout décocher' : 'Tout cocher'}
+              className="active:opacity-50"
+            >
+              <Checkbox checked={allChecked} />
+            </Pressable>
+          ) : (
+            noneLabel &&
+            onClear && (
+              // Choix unique : ne rien retenir. Une croix, à la place de la
+              // case maîtresse -- il n'y a rien à cocher d'un coup.
+              <Pressable
+                onPress={() => {
+                  onClear();
+                  onClose();
+                }}
+                hitSlop={12}
+                accessibilityLabel={noneLabel}
+                className="h-[22px] w-[22px] items-center justify-center active:opacity-50"
+              >
+                <Ionicons name="close-circle-outline" size={22} color={ink} />
+              </Pressable>
+            )
+          )}
         </View>
+        {summary && (
+          <Text className="font-mono text-small text-muted dark:text-muted-dark">{summary}</Text>
+        )}
       </View>
 
-      {/* En dernier : une fenêtre native masque ce que
-          l'application dessine sous elle, messages compris. */}
-      <ToastHost />
-    </Modal>
+      {/* Une liste, la case au bout de chaque ligne : les noms sont longs,
+          et une colonne se parcourt d'un trait là où une grille renvoyait
+          l'oeil de gauche à droite. */}
+      <ScrollView className="max-h-96 grow-0" keyboardShouldPersistTaps="handled">
+        {options.map((option) => (
+          <SheetRow
+            key={option.id}
+            label={option.name}
+            right={<Checkbox checked={selected.includes(option.id)} round={mode === 'single'} />}
+            onPress={() => {
+              onToggle(option.id);
+              // Un choix unique n'a rien à confirmer : garder le panneau
+              // ouvert demanderait un geste de plus pour rien.
+              if (mode === 'single') onClose();
+            }}
+          />
+        ))}
+      </ScrollView>
+    </SheetFrame>
   );
 }

@@ -292,6 +292,7 @@ export default function SettingsScreen() {
         actions={[
           {
             label: "Effacer l'historique",
+            icon: 'trash-outline',
             tone: 'danger',
             onPress: () =>
               eraseHistory()
@@ -309,6 +310,7 @@ export default function SettingsScreen() {
         actions={[
           {
             label: 'Tout effacer',
+            icon: 'trash-outline',
             tone: 'danger',
             onPress: () =>
               resetEverything().catch((e) => notify(messageOf(e))),
@@ -324,6 +326,7 @@ export default function SettingsScreen() {
         actions={[
           {
             label: 'Effacer',
+            icon: 'trash-outline',
             tone: 'danger',
             onPress: () => setState(forgetCatalogue()),
           },

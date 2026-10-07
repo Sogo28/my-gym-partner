@@ -459,10 +459,12 @@ export default function SessionSummaryScreen() {
         actions={[
           {
             label: 'Modifier cette séance',
+            icon: 'create-outline',
             onPress: () => router.push({ pathname: '/edit-session', params: { id } }),
           },
           {
             label: 'Effacer cette séance',
+            icon: 'trash-outline',
             tone: 'danger',
             onPress: () => setSheet('confirm'),
           },
@@ -491,6 +493,7 @@ export default function SessionSummaryScreen() {
         actions={[
           {
             label: 'Effacer cette séance',
+            icon: 'trash-outline',
             tone: 'danger',
             onPress: () =>
               eraseSession(id)

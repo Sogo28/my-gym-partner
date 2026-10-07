@@ -253,6 +253,7 @@ export default function ProfileScreen() {
         actions={[
           {
             label: 'Se déconnecter',
+            icon: 'log-out-outline',
             onPress: () =>
               signOut()
                 // L'empreinte retenue parlait des données envoyées sous CE
@@ -275,7 +276,7 @@ export default function ProfileScreen() {
               `${restoring.sessions} séance(s). Tout ce que contient l'application sera remplacé.`
             : undefined
         }
-        actions={[{ label: 'Remplacer mes données', tone: 'danger', onPress: restore }]}
+        actions={[{ label: 'Remplacer mes données', icon: 'swap-horizontal-outline', tone: 'danger', onPress: restore }]}
         onClose={() => setRestoring(null)}
       />
     </ListLayout>

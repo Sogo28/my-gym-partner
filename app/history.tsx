@@ -262,8 +262,8 @@ export default function HistoryScreen() {
         title="Historique"
         description="Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu ranges où tu veux."
         actions={[
-          { label: busy ? 'Préparation…' : 'Sauvegarder', onPress: backup },
-          { label: 'Restaurer une sauvegarde', onPress: choose },
+          { label: busy ? 'Préparation…' : 'Sauvegarder', icon: 'save-outline', onPress: backup },
+          { label: 'Restaurer une sauvegarde', icon: 'folder-open-outline', onPress: choose },
         ]}
         onClose={() => setMenu(false)}
       />
@@ -277,7 +277,7 @@ export default function HistoryScreen() {
               `${restoring.sessions} séance(s). Tout ce que contient l'application sera remplacé.`
             : undefined
         }
-        actions={[{ label: 'Remplacer mes données', tone: 'danger', onPress: restore }]}
+        actions={[{ label: 'Remplacer mes données', icon: 'swap-horizontal-outline', tone: 'danger', onPress: restore }]}
         onClose={() => setRestoring(null)}
       />
 

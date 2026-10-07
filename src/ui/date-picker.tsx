@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Button } from './button';
 import { cn } from './cn';
-import { ToastHost } from './notifications';
 import { usePalette } from './palette';
+import { SheetFrame } from './sheet-frame';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -90,10 +90,8 @@ export function DatePickerSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/50" onPress={onClose} />
-
-      <View className="gap-4 rounded-t-3xl border-t border-border bg-background p-5 pb-8 dark:border-border-dark dark:bg-background-dark">
+    <SheetFrame visible={visible} onClose={onClose}>
+      <View className="gap-4">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">{title}</Text>
 
         {/* Navigation entre les mois */}
@@ -187,16 +185,11 @@ export function DatePickerSheet({
           />
         </View>
 
+        {/* Pas de bouton « Annuler » : le panneau se referme comme tous les
+            autres, en tapant le fond ou en tirant sa poignée. */}
         <Button label={confirmLabel} size="lg" onPress={() => onConfirm(selected)} />
-        <Pressable onPress={onClose} className="min-h-touch items-center justify-center">
-          <Text className="font-bold text-muted dark:text-muted-dark">Annuler</Text>
-        </Pressable>
       </View>
-
-      {/* En dernier : une fenêtre native masque ce que
-          l'application dessine sous elle, messages compris. */}
-      <ToastHost />
-    </Modal>
+    </SheetFrame>
   );
 }
 

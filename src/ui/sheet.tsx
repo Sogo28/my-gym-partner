@@ -1,21 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { cn } from './cn';
+import { usePalette } from './palette';
 import { SearchField } from './search';
-import { ToastHost } from './notifications';
+import { SheetFrame } from './sheet-frame';
 
 export type SheetAction = {
   label: string;
   onPress: () => void;
   tone?: 'default' | 'danger';
+  /** Une icône devant le libellé, quand elle aide à le reconnaître. */
+  icon?: keyof typeof Ionicons.glyphMap;
 };
 
 /**
@@ -57,80 +53,84 @@ export function Sheet({
     : all;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      // Le bouton retour d'Android doit fermer la feuille, sinon elle piège
-      // l'utilisateur exactement comme le dialogue précédent.
-      onRequestClose={onClose}
-    >
-      <Pressable className="flex-1 bg-black/50" onPress={onClose} />
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View className="gap-2 rounded-t-3xl border-t border-border bg-background p-5 pb-8 dark:border-border-dark dark:bg-background-dark">
+    <SheetFrame visible={visible} onClose={onClose}>
+      <View className="gap-1 pb-4">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">{title}</Text>
         {description && (
-          <Text className="mb-1 text-small text-muted dark:text-muted-dark">{description}</Text>
+          <Text className="text-small text-muted dark:text-muted-dark">{description}</Text>
         )}
+      </View>
 
-        {searchPlaceholder && (
-          <View className="mb-1">
-            <SearchField value={query} onChange={setQuery} placeholder={searchPlaceholder} />
-          </View>
-        )}
+      {searchPlaceholder && (
+        <View className="pb-3">
+          <SearchField value={query} onChange={setQuery} placeholder={searchPlaceholder} />
+        </View>
+      )}
 
-        {children}
+      {children}
 
-        {/* La liste défile plutôt que de pousser la feuille hors de l'écran. */}
-        <ScrollView
-          className="max-h-80 grow-0"
-          contentContainerClassName="gap-2"
-          keyboardShouldPersistTaps="handled"
-        >
+      {/* La liste défile plutôt que de pousser le panneau hors de l'écran. */}
+      <ScrollView className="max-h-80 grow-0" keyboardShouldPersistTaps="handled">
         {shown.length === 0 && searchPlaceholder && (
-          <Text className="py-2 text-small text-muted dark:text-muted-dark">
-            Aucun résultat.
-          </Text>
+          <Text className="py-2 text-small text-muted dark:text-muted-dark">Aucun résultat.</Text>
         )}
         {shown.map((action) => (
-          <Pressable
+          <SheetRow
             key={action.label}
+            label={action.label}
+            icon={action.icon}
+            tone={action.tone}
             onPress={() => {
               onClose();
               action.onPress();
             }}
-            className={cn(
-              'min-h-touch justify-center rounded-lg border px-4 py-3.5',
-              action.tone === 'danger'
-                ? 'border-[#EAB9B5] bg-[#FDF1F0] dark:border-[#5C332B] dark:bg-[#2A1A16]'
-                : 'border-border bg-surface dark:border-border-dark dark:bg-surface-dark',
-            )}
-          >
-            {/* Ce sont des boutons : leur libellé est celui des boutons. */}
-            <Text
-              className={cn(
-                'font-extrabold text-body',
-                action.tone === 'danger'
-                  ? 'text-danger dark:text-danger-dark'
-                  : 'text-ink dark:text-ink-dark',
-              )}
-            >
-              {action.label}
-            </Text>
-          </Pressable>
+          />
         ))}
-        </ScrollView>
+      </ScrollView>
+    </SheetFrame>
+  );
+}
 
-        <Pressable onPress={onClose} className="min-h-touch items-center justify-center">
-          <Text className="font-extrabold text-body text-muted dark:text-muted-dark">Fermer</Text>
-        </Pressable>
-      </View>
-      </KeyboardAvoidingView>
+/**
+ * Une ligne de panneau : une icône facultative, un libellé, rien autour.
+ *
+ * Plus de cadre par ligne : empilés, ils faisaient une colonne de boutons
+ * qu'on lisait comme un formulaire. Un appui grise la ligne -- c'est le seul
+ * signe qu'il a pris. Une action destructrice est en rouge, icône comprise.
+ */
+export function SheetRow({
+  label,
+  icon,
+  tone = 'default',
+  right,
+  onPress,
+}: {
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  tone?: 'default' | 'danger';
+  /** Ce qui se pose au bout de la ligne : une case à cocher, par exemple. */
+  right?: ReactNode;
+  onPress: () => void;
+}) {
+  const { ink, danger } = usePalette();
 
-      {/* En dernier : une fenêtre native masque ce que
-          l'application dessine sous elle, messages compris. */}
-      <ToastHost />
-    </Modal>
+  return (
+    <Pressable
+      onPress={onPress}
+      className="min-h-touch flex-row items-center gap-3 rounded-lg px-2 active:bg-surface-alt dark:active:bg-surface-alt-dark"
+    >
+      {icon && <Ionicons name={icon} size={20} color={tone === 'danger' ? danger : ink} />}
+      {/* Ce sont des boutons : leur libellé est celui des boutons. */}
+      <Text
+        className={cn(
+          'shrink grow font-extrabold text-body',
+          tone === 'danger' ? 'text-danger dark:text-danger-dark' : 'text-ink dark:text-ink-dark',
+        )}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      {right}
+    </Pressable>
   );
 }

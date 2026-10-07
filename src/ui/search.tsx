@@ -15,7 +15,9 @@ export function SearchField({
   const { muted } = usePalette();
 
   return (
-    <View className="h-12 flex-row items-center rounded-lg border border-border bg-surface pl-4 dark:border-border-dark dark:bg-surface-dark">
+    <View className="h-12 flex-row items-center gap-2 rounded-lg border border-border bg-surface pl-3.5 dark:border-border-dark dark:bg-surface-dark">
+      {/* La loupe dit ce que fait le champ avant qu'on y ait rien tapé. */}
+      <Ionicons name="search" size={18} color={muted} />
       <TextInput
         className="flex-1 text-strong text-ink dark:text-ink-dark"
         placeholder={placeholder}

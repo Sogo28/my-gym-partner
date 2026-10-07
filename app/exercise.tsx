@@ -540,13 +540,26 @@ export default function ExerciseDetailScreen() {
         visible={sheet === 'menu'}
         title={exercise.name}
         actions={[
+          // Une série isolée, hors séance : une action de la fiche parmi
+          // d'autres, rangée dans son menu plutôt qu'en bouton dans la page.
+          ...(canLogQuickSet
+            ? [
+                {
+                  label: 'Enregistrer une série',
+                  icon: 'add-circle-outline' as const,
+                  onPress: openQuickLog,
+                },
+              ]
+            : []),
           {
             label: 'Modifier',
+            icon: 'create-outline',
             onPress: () => router.push({ pathname: '/new-exercise', params: { id: exercise.id } }),
           },
           exercise.isArchived
             ? {
                 label: 'Remettre au catalogue',
+                icon: 'arrow-undo-outline',
                 onPress: () =>
                   unarchiveExercise(exercise)
                     .then(() => router.back())
@@ -554,6 +567,7 @@ export default function ExerciseDetailScreen() {
               }
             : {
                 label: 'Retirer du catalogue',
+                icon: 'archive-outline',
                 tone: 'danger' as const,
                 onPress: () => setSheet('confirm-discard'),
               },
@@ -565,7 +579,7 @@ export default function ExerciseDetailScreen() {
         visible={sheet === 'confirm-discard'}
         title="Retirer cet exercice ?"
         description="S'il a déjà servi, il est archivé et reste attaché à ton historique. Sinon, il est supprimé."
-        actions={[{ label: 'Retirer', tone: 'danger', onPress: discard }]}
+        actions={[{ label: 'Retirer', icon: 'trash-outline', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
     </DetailLayout>

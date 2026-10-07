@@ -53,8 +53,7 @@ export function MuscleFilterSheet({
       title="Groupe musculaire"
       options={muscles}
       selected={selected}
-      clearLabel="Supprimer les filtres"
-      confirmLabel={`${results} résultat${results > 1 ? 's' : ''}`}
+      summary={`${results} résultat${results > 1 ? 's' : ''}`}
       onToggle={onToggle}
       onClear={onClear}
       onClose={onClose}

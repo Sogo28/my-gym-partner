@@ -573,6 +573,7 @@ export default function HomeScreen() {
           .filter((plan) => !plan.isArchived)
           .map((plan) => ({
             label: plan.name,
+            icon: 'clipboard-outline',
             onPress: () => {
               setChosen(plan);
               setPlanning('date');

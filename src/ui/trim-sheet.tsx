@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import type { ExerciseMedia, MediaTrim } from '../domain/exercise/media';
 import { Button } from './button';
 import { seekOnLoad } from './trimmed-video';
-import { ToastHost } from './notifications';
+import { SheetFrame } from './sheet-frame';
 
 /**
  * Choisir le passage d'une vidéo qu'on veut revoir.
@@ -66,12 +66,10 @@ function Sheet({
   const invalid = from !== null && to !== null && to <= from;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/50" onPress={onClose} />
-
-      <View className="gap-3 rounded-t-3xl border-t border-border bg-background px-5 pb-8 pt-5 dark:border-border-dark dark:bg-background-dark">
+    <SheetFrame visible onClose={onClose}>
+      <View className="gap-3">
         <Text className="font-extrabold text-heading text-ink dark:text-ink-dark">
-          Choisir l extrait
+          Choisir l'extrait
         </Text>
         <Text className="text-small text-muted dark:text-muted-dark">
           Avance la vidéo jusqu'au moment voulu, puis marque le début et la fin. Le fichier n'est
@@ -113,11 +111,7 @@ function Sheet({
           />
         </View>
       </View>
-
-      {/* En dernier : une fenêtre native masque ce que
-          l'application dessine sous elle, messages compris. */}
-      <ToastHost />
-    </Modal>
+    </SheetFrame>
   );
 }
 
