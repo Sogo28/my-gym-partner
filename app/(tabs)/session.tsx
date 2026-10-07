@@ -60,6 +60,7 @@ import {
   type RestSignal,
 } from '../../src/use-cases/preferences';
 import { RestRing } from '../../src/ui/rest-ring';
+import { nextPlannedPosition } from '../../src/domain/workout-session/next-planned';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
@@ -129,6 +130,8 @@ type Arming = {
 
 /** Ce que « ROUND 5/10 » occupe sous l'anneau : son écart et sa ligne. */
 const ROUND_LABEL = 32;
+/** La même chose pour la ligne de l'exercice suivant, sous l'anneau du repos. */
+const NEXT_LABEL = 28;
 
 export default function SessionScreen() {
   const { notify } = useNotifications();
@@ -448,11 +451,25 @@ export default function SessionScreen() {
   const plannedDone = plannedExercise
     ? nextSetIndex >= plannedExercise.sets.length
     : nextSetIndex > 0;
-  // Reste-t-il un exercice après celui-ci dans le programme ?
-  const hasNextExercise =
-    activity?.plannedPosition != null &&
-    plan !== undefined &&
-    activity.plannedPosition + 1 < plan.exercises.length;
+  /**
+   * Le prochain exercice du programme : le premier pas encore fait. Après un
+   * exercice ajouté en route, c'est là que le programme reprend.
+   */
+  const nextPosition =
+    plan && session ? nextPlannedPosition(session.activities, plan.exercises.length) : null;
+  // Reste-t-il un exercice du programme à faire ?
+  const hasNextExercise = nextPosition !== null;
+  /**
+   * L'exercice où l'on revient, quand celui en cours a été ajouté en route :
+   * le bouton le nomme, on sait ainsi qu'on retrouve le programme -- et où.
+   */
+  const resuming = Boolean(plan && nextPosition !== null && activity && activity.plannedPosition == null);
+  /** Le prochain exercice du programme, par son nom. */
+  const nextName =
+    plan && nextPosition !== null
+      ? (exercises.find((e) => e.id === plan.exercises[nextPosition].exerciseId)?.name ?? null)
+      : null;
+  const resumeName = resuming ? nextName : null;
   /**
    * Les séries à venir, en pointillés sous celles déjà faites.
    *
@@ -1240,7 +1257,18 @@ export default function SessionScreen() {
     ...(performance?.currentSet
       ? [{ label: 'Abandonner la série', icon: 'ban-outline' as const, onPress: () => run(abandonPerformanceSet) }]
       : []),
-    ...(activity ? [{ label: "Passer à l'exercice suivant", icon: 'play-skip-forward-outline' as const, onPress: nextExercise }] : []),
+    ...(activity
+      ? [
+          {
+            label: resuming ? 'Reprendre le programme' : "Passer à l'exercice suivant",
+            icon: 'play-skip-forward-outline' as const,
+            onPress: nextExercise,
+          },
+        ]
+      : []),
+    // À tout moment, programme ou pas (décidé le 2026-10-07) : il se fait
+    // tout de suite, et le programme reprend ensuite où on l'a laissé.
+    { label: 'Ajouter un exercice', icon: 'add-circle-outline' as const, onPress: () => setSheet('pick-exercise') },
     // Uniquement tant que rien n'a encore été fait sur l'exercice en cours :
     // passé la première série, revenir en arrière perdrait ce qui vient
     // d'être fait plutôt que de simplement rattraper le clic de trop.
@@ -1790,7 +1818,11 @@ export default function SessionScreen() {
   const position =
     activity?.plannedPosition != null && plan
       ? `Exercice ${activity.plannedPosition + 1}/${plan.exercises.length} · ${plannedExercise?.intervalSeconds ? 'round' : 'série'} ${nextSetIndex + (performance?.currentSet ? 0 : 1)} sur ${plannedExercise?.sets.length ?? '—'}`
-      : 'Séance libre';
+      : plan
+        ? // Ajouté en route : il n'a pas de rang dans le programme, mais
+          // ses séries se comptent comme les autres.
+          `Hors programme · série ${nextSetIndex + (performance?.currentSet ? 0 : 1)}`
+        : 'Séance libre';
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pb-2 pt-4 dark:bg-background-dark">
@@ -1798,12 +1830,20 @@ export default function SessionScreen() {
         workoutName={plan ? plan.name : 'Séance libre'}
         position={position}
         progress={
-          plan && activity?.plannedPosition != null
-            ? {
-                segments: plan.exercises.length,
-                current: activity.plannedPosition,
-                fraction: totalSets > 0 ? completedCount / totalSets : 0,
-              }
+          plan
+            ? activity?.plannedPosition != null
+              ? {
+                  segments: plan.exercises.length,
+                  current: activity.plannedPosition,
+                  fraction: totalSets > 0 ? completedCount / totalSets : 0,
+                }
+              : // Un exercice ajouté ne remplit aucun segment : la barre
+                // montre ce qui est fait du programme, et où il reprendra.
+                {
+                  segments: plan.exercises.length,
+                  current: nextPosition ?? plan.exercises.length,
+                  fraction: 0,
+                }
             : undefined
         }
         onMenu={() => setSheet('menu')}
@@ -2062,11 +2102,26 @@ export default function SessionScreen() {
                 (editing !== null ? (
                   <Timer seconds={restElapsed} />
                 ) : (
-                  <RestRing
-                    elapsedSeconds={restElapsed}
-                    lapSeconds={restEvery}
-                    size={ringSizeIn(ringBox)}
-                  />
+                  <>
+                    <RestRing
+                      elapsedSeconds={restElapsed}
+                      lapSeconds={restEvery}
+                      // La ligne de l'exercice suivant se loge sous l'anneau,
+                      // sur le même budget : elle ne le pousse pas dehors.
+                      size={ringSizeIn(ringBox, nextName ? NEXT_LABEL : 0)}
+                    />
+                    {/* Ce qui vient ensuite, en petit : de quoi préparer la
+                        barre ou les haltères pendant qu'on souffle, sans
+                        disputer l'oeil au chrono. */}
+                    {nextName && (
+                      <Text
+                        className="pt-3 text-small text-muted dark:text-muted-dark"
+                        numberOfLines={1}
+                      >
+                        Exercice suivant · {nextName}
+                      </Text>
+                    )}
+                  </>
                 ))}
             </Pressable>
           )}
@@ -2235,8 +2290,16 @@ export default function SessionScreen() {
                     // lecture : on avance dans le programme, on ne coupe pas
                     // court à une minute.
                     <Button
-                      label="Exercice suivant"
-                      icon="arrow-forward"
+                      label={
+                        resuming
+                          ? resumeName
+                            ? `Reprendre · ${resumeName}`
+                            : 'Reprendre le programme'
+                          : 'Exercice suivant'
+                      }
+                      // En toutes lettres quand on revient au programme : la
+                      // flèche seule ne dirait pas OÙ l'on revient.
+                      icon={resuming ? undefined : 'arrow-forward'}
                       size="lg"
                       className="flex-1"
                       onPress={nextExercise}

@@ -108,7 +108,11 @@ export function Button({
           color={disabled ? '#A8AD9E' : ICON_COLORS[dark ? 'dark' : 'light'][variant ?? 'primary']}
         />
       ) : (
-        <Text className={label({ variant, disabled })}>{text}</Text>
+        // Une ligne, toujours : un nom d'exercice long se coupe plutôt que de
+        // faire grandir le bouton.
+        <Text className={cn(label({ variant, disabled }), 'shrink')} numberOfLines={1}>
+          {text}
+        </Text>
       )}
     </Pressable>
   );

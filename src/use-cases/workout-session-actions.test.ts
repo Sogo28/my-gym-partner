@@ -172,7 +172,28 @@ describe('Passer à l exercice suivant', () => {
     expect(session.currentActivity?.plannedPosition).toBe(1);
   });
 
-  it('ne démarre rien depuis un exercice ajouté hors programme', async () => {
+  it('reprend le programme après un exercice ajouté en route', async () => {
+    const first = await anExercise('Advanced Tuck');
+    const second = await anExercise('Pull-ups', ['reps']);
+    const added = await anExercise('Face pull', ['reps']);
+    const plan = await createPlannedWorkout({
+      name: 'Pull day',
+      exercises: [
+        { exerciseId: first.id, sets: [{ targets: { duration: 10 } }] },
+        { exerciseId: second.id, sets: [{ targets: { reps: 8 } }] },
+      ],
+    });
+    await startWorkoutSession(plan.id);
+
+    await finishActivity();
+    await startActivity(added.id);
+    const session = await goToNextExercise();
+
+    expect(session.currentActivity?.exerciseId).toBe(second.id);
+    expect(session.currentActivity?.plannedPosition).toBe(1);
+  });
+
+  it('ne démarre rien depuis un exercice ajouté une fois le programme fait', async () => {
     const planned = await anExercise('Advanced Tuck');
     const free = await anExercise('Dips', ['reps']);
     const plan = await aWorkoutOf(planned.id, 2);
@@ -183,7 +204,7 @@ describe('Passer à l exercice suivant', () => {
     await startActivity(free.id);
     const session = await goToNextExercise();
 
-    // Sans position dans le plan, il n'y a pas de "suivant" à enchaîner.
+    // Le seul exercice du programme est passé : plus rien à reprendre.
     expect(session.currentActivity).toBeNull();
   });
 

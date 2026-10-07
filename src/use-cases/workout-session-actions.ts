@@ -1,3 +1,4 @@
+import { nextPlannedPosition } from '../domain/workout-session/next-planned';
 import { randomUUID } from 'expo-crypto';
 import type { ExerciseId } from '../domain/exercise/exercise';
 import type { PlannedWorkoutId } from '../domain/planned-workout/planned-workout';
@@ -200,10 +201,9 @@ export async function goToNextExercise(): Promise<WorkoutSession> {
     ? (await findAllPlans()).find((p) => p.id === session.plannedWorkoutId)
     : undefined;
 
-  // Il n'y a de "suivant" que si l'exercice en cours vient du plan. Aucune
-  // activité, ou un exercice ajouté librement : rien à enchaîner.
-  const currentPosition = activity?.plannedPosition ?? null;
-  const nextPosition = currentPosition === null ? null : currentPosition + 1;
+  // Le suivant est le premier exercice du programme pas encore fait : après
+  // un exercice ajouté en route, c'est là que le programme reprend.
+  const nextPosition = plan ? nextPlannedPosition(session.activities, plan.exercises.length) : null;
   const next = nextPosition === null ? undefined : plan?.exercises[nextPosition];
 
   // Rien à clore s'il n'y a pas d'exercice en cours : le domaine refuserait.
