@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AGGREGATION_LABELS,
@@ -32,6 +33,9 @@ import { Sheet } from '../src/ui/sheet';
 import { createGoal } from '../src/use-cases/goal-actions';
 import { capitalize } from '../src/ui/format';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
+import { Segmented } from '../src/ui/segmented';
+import { SetIndex } from '../src/ui/set-index';
+import { usePalette } from '../src/ui/palette';
 
 /** Une entrée de l'écran : ce qui est visé, et ses conditions. */
 type Entry = { subject: GoalSubject; conditions: Condition[] };
@@ -74,6 +78,7 @@ function defaultCondition(subject: GoalSubject, measurementIds: readonly string[
 
 export default function NewGoalScreen() {
   const { notify } = useNotifications();
+  const { danger, muted } = usePalette();
   const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
@@ -310,142 +315,152 @@ export default function NewGoalScreen() {
   return (
     <DetailLayout
       title="Nouvel objectif"
-      subtitle="Chaque condition choisit sa période"
       onBack={() => router.back()}
     >
-      <DetailContent>
-        <TextInput
-          className="h-14 rounded-lg border-2 border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
-          placeholder="Front Lever"
-          placeholderTextColor="#A8AD9E"
-          value={name}
-          onChangeText={setName}
-        />
-
-        {/* Simple ou progressif : deux formes distinctes du modèle, pas deux
-            réglages d'une même forme. */}
-        <View className="flex-row gap-2">
-          <Choice
-            label="Progressif"
-            hint="Plusieurs étapes"
-            selected={progressive}
-            onPress={() => {
-              setProgressive(true);
-              // Une mensuration retenue en mode simple n'est pas une marche :
-              // la garder ferait une progression que l'écran ne sait pas
-              // décrire.
-              setEntries((current) =>
-                current.filter((entry) => entry.subject.kind === 'exercise'),
-              );
-            }}
-          />
-          <Choice
-            label="Simple"
-            hint="Un seul exercice"
-            selected={!progressive}
-            onPress={() => {
-              setProgressive(false);
-              // Un objectif simple ne vise qu'une chose : les étapes au-delà
-              // de la première n'ont plus lieu d'être, et celle qui reste est
-              // évidemment celle qu'on règle.
-              setEntries((current) => current.slice(0, 1));
-            }}
+      <DetailContent className="gap-6">
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">Nom</Text>
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Front Lever"
+            placeholderTextColor="#A8AD9E"
+            value={name}
+            onChangeText={setName}
           />
         </View>
 
-        {entries.map((entry, index) => {
-          const isReading = entry.subject.kind === 'body';
-
-          return (
-            <Card key={index} density="titled" className="gap-1">
-              <View className="flex-row items-center justify-between pb-1">
-                <Text
-                  className="shrink font-bold text-body text-ink dark:text-ink-dark"
-                  numberOfLines={1}
-                >
-                  {progressive ? `${index + 1}. ` : ''}
-                  {subjectName(entry.subject)}
-                </Text>
-                <Pressable onPress={() => removeEntry(index)} hitSlop={8}>
-                  <Text className="text-caption text-danger dark:text-danger-dark">Retirer</Text>
-                </Pressable>
-              </View>
-
-              {/* Une condition se LIT ; on ne la règle qu'en la touchant. La
-                  phrase à gauche, le chiffre à droite : c'est le chiffre
-                  qu'on cherche du regard en relisant une étape. */}
-              {entry.conditions.map((condition, conditionIndex) => {
-                const { what, target } = conditionParts(condition, unitOf);
-
-                return (
-                  <Pressable
-                    key={conditionIndex}
-                    onPress={() => setEditing({ entry: index, condition: conditionIndex })}
-                    className="flex-row items-baseline justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
-                  >
-                    <Text className="shrink text-small text-muted dark:text-muted-dark">
-                      {conditionIndex > 0 ? `Et ${what}` : capitalize(what)}
-                    </Text>
-                    <Text
-                      className="font-mono-bold text-lead text-ink dark:text-ink-dark"
-                      style={{ fontVariant: ['tabular-nums'] }}
-                    >
-                      {target}
-                    </Text>
-                  </Pressable>
+        {/* Simple ou progressif : deux formes distinctes du modèle, pas deux
+            réglages d'une même forme -- d'où un choix franc, d'un geste. */}
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">Type</Text>
+          <Segmented
+            segments={[
+              { value: 'progressive', label: 'Progressif', icon: 'trending-up-outline' },
+              { value: 'simple', label: 'Simple', icon: 'flag-outline' },
+            ]}
+            value={progressive ? 'progressive' : 'simple'}
+            onChange={(chosen) => {
+              if (chosen === 'progressive') {
+                setProgressive(true);
+                // Une mensuration retenue en mode simple n'est pas une
+                // marche : la garder ferait une progression que l'écran ne
+                // sait pas décrire.
+                setEntries((current) =>
+                  current.filter((entry) => entry.subject.kind === 'exercise'),
                 );
-              })}
+              } else {
+                setProgressive(false);
+                // Un objectif simple ne vise qu'une chose : les étapes au-delà
+                // de la première n'ont plus lieu d'être.
+                setEntries((current) => current.slice(0, 1));
+              }
+            }}
+          />
+          <Text className="text-small text-muted dark:text-muted-dark">
+            {progressive
+              ? "Une suite d'exercices, du plus facile au plus dur : chaque étape débloque la suivante."
+              : "Un seul exercice ou une mensuration, et ce qu'il faut atteindre."}
+          </Text>
+        </View>
 
-              {!isReading && (
-                <Pressable onPress={() => addCondition(index)} className="py-2">
-                  <Text className="text-body text-primary-ink dark:text-primary-ink-dark">
-                    + Ajouter une condition
+        <View className="gap-2">
+          <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+            {progressive ? 'Étapes' : 'Ce qui est visé'}
+          </Text>
+
+          {entries.map((entry, index) => {
+            const isReading = entry.subject.kind === 'body';
+
+            return (
+              <Card key={index} density="titled" className="gap-1">
+                <View className="flex-row items-center gap-2.5 pb-1">
+                  {/* Le rang dans sa pastille, comme partout où l'ordre
+                      compte : une étape se lit dans l'ordre où on la grimpe. */}
+                  {progressive && <SetIndex index={index + 1} />}
+                  <Text
+                    className="shrink grow font-bold text-body text-ink dark:text-ink-dark"
+                    numberOfLines={1}
+                  >
+                    {subjectName(entry.subject)}
                   </Text>
-                </Pressable>
-              )}
-            </Card>
-          );
-        })}
+                  <Pressable
+                    onPress={() => removeEntry(index)}
+                    hitSlop={8}
+                    accessibilityLabel="Retirer"
+                    className="h-8 w-8 items-center justify-center active:opacity-50"
+                  >
+                    <Ionicons name="trash-outline" size={18} color={danger} />
+                  </Pressable>
+                </View>
 
+                {/* Une condition se LIT ; on ne la règle qu'en la touchant. La
+                    phrase à gauche, le chiffre à droite : c'est le chiffre
+                    qu'on cherche du regard en relisant une étape. */}
+                {entry.conditions.map((condition, conditionIndex) => {
+                  const { what, target } = conditionParts(condition, unitOf);
 
+                  return (
+                    <Pressable
+                      key={conditionIndex}
+                      onPress={() => setEditing({ entry: index, condition: conditionIndex })}
+                      className="flex-row items-center justify-between gap-3 border-b border-border py-2.5 dark:border-border-dark"
+                    >
+                      <Text className="shrink text-small text-muted dark:text-muted-dark">
+                        {conditionIndex > 0 ? `Et ${what}` : capitalize(what)}
+                      </Text>
+                      <View className="flex-row items-center gap-1.5">
+                        <Text
+                          className="font-mono-bold text-lead text-ink dark:text-ink-dark"
+                          style={{ fontVariant: ['tabular-nums'] }}
+                        >
+                          {target}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={14} color={muted} />
+                      </View>
+                    </Pressable>
+                  );
+                })}
 
-        {/* Une progression est une suite d'EXERCICES : on grimpe du tuck au
-            full, alors qu'un tour de cuisse n'a pas de marches. Le modèle
-            l'autorise -- il décrit ce qui est exprimable -- mais l'écran ne
-            le propose pas, faute d'un cas où cela voudrait dire quelque
-            chose.
+                {!isReading && (
+                  <AddRow label="Ajouter une condition" onPress={() => addCondition(index)} />
+                )}
+              </Card>
+            );
+          })}
 
-            Un texte, pas un bouton : ajouter est un geste parmi d'autres sur
-            cette page, pas ce qu'elle demande. */}
-        {progressive ? (
-          <Pressable onPress={() => setPicking('exercise')} className="py-2">
-            <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
-              + Ajouter un exercice
-            </Text>
-          </Pressable>
-        ) : (
-          // Un objectif simple ne vise qu'UNE chose : une fois choisie, les
-          // deux boutons ne proposaient plus d'ajouter mais de remplacer, ce
-          // qu'ils ne disaient pas. On en change en retirant ce qu'on a.
-          entries.length === 0 && (
-            <View className="flex-row gap-2">
-              <Button
-                label="Un exercice"
-                variant="secondary"
-                size="md"
-                className="flex-1"
-                onPress={() => setPicking('exercise')}
-              />
-              <Button
-                label="Une mensuration"
-                variant="secondary"
-                size="md"
-                className="flex-1"
-                onPress={() => setPicking('body')}
-              />
-            </View>
-          )
-        )}
+          {/* Une progression est une suite d'EXERCICES : on grimpe du tuck au
+              full, alors qu'un tour de cuisse n'a pas de marches. Le modèle
+              l'autorise -- il décrit ce qui est exprimable -- mais l'écran ne
+              le propose pas, faute d'un cas où cela voudrait dire quelque
+              chose. */}
+          {progressive ? (
+            <AddRow
+              label={entries.length === 0 ? 'Ajouter des étapes' : 'Ajouter une étape'}
+              boxed
+              onPress={() => setPicking('exercise')}
+            />
+          ) : (
+            // Un objectif simple ne vise qu'UNE chose : une fois choisie, les
+            // deux choix ne proposaient plus d'ajouter mais de remplacer, ce
+            // qu'ils ne disaient pas. On en change en retirant ce qu'on a.
+            entries.length === 0 && (
+              <View className="flex-row gap-2">
+                <AddRow
+                  label="Un exercice"
+                  icon="barbell-outline"
+                  boxed
+                  onPress={() => setPicking('exercise')}
+                />
+                <AddRow
+                  label="Une mensuration"
+                  icon="resize-outline"
+                  boxed
+                  onPress={() => setPicking('body')}
+                />
+              </View>
+            )
+          )}
+        </View>
       </DetailContent>
 
       <DetailFooter>
@@ -568,17 +583,15 @@ export default function NewGoalScreen() {
             {/* Une exigence sans condition ne s'évaluerait plus : la dernière
                 ne se retire pas, c'est l'étape entière qui part alors. */}
             {edited && edited.conditions.length > 1 && (
-              <Pressable
+              <Button
+                label="Retirer cette condition"
+                variant="danger"
+                size="lg"
                 onPress={() => {
                   removeCondition(editing.entry, editing.condition);
                   setEditing(null);
                 }}
-                className="min-h-touch items-center justify-center rounded-lg border border-[#EAB9B5] bg-[#FDF1F0] dark:border-[#5C332B] dark:bg-[#2A1A16]"
-              >
-                <Text className="font-bold text-lead text-danger dark:text-danger-dark">
-                  Retirer cette condition
-                </Text>
-              </Pressable>
+              />
             )}
           </View>
         )}
@@ -600,35 +613,6 @@ export default function NewGoalScreen() {
   );
 }
 
-function Choice({
-  label,
-  hint,
-  selected,
-  onPress,
-}: {
-  label: string;
-  hint: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className={
-        selected
-          ? 'flex-1 rounded-lg bg-selected dark:bg-selected-dark px-4 py-3'
-          : 'flex-1 rounded-lg border border-border bg-surface px-4 py-3 dark:border-border-dark dark:bg-surface-dark'
-      }
-    >
-      <Text className={selected ? 'font-bold text-on-selected dark:text-on-selected-dark' : 'font-bold text-muted dark:text-muted-dark'}>
-        {label}
-      </Text>
-      <Text className={selected ? 'text-small text-on-selected dark:text-on-selected-dark' : 'text-small text-muted dark:text-muted-dark'}>
-        {hint}
-      </Text>
-    </Pressable>
-  );
-}
 
 function Chip({
   label,
@@ -655,6 +639,39 @@ function Chip({
       >
         {label}
       </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Un ajout : une icône et un libellé, plutôt qu'un lien « + … » en texte.
+ * `boxed` : en pointillés et pleine largeur, pour l'ajout principal d'une
+ * section ; sans, une ligne discrète dans une carte.
+ */
+function AddRow({
+  label,
+  icon = 'add-circle-outline',
+  boxed = false,
+  onPress,
+}: {
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  boxed?: boolean;
+  onPress: () => void;
+}) {
+  const { ink } = usePalette();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className={
+        boxed
+          ? 'min-h-touch flex-1 flex-row items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-border-strong active:opacity-60 dark:border-border-strong-dark'
+          : 'flex-row items-center gap-2 py-2.5 active:opacity-60'
+      }
+    >
+      <Ionicons name={icon} size={18} color={ink} />
+      <Text className="font-extrabold text-body text-ink dark:text-ink-dark">{label}</Text>
     </Pressable>
   );
 }
