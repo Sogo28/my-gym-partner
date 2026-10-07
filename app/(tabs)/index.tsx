@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
 import type { Muscle } from '../../src/domain/exercise/muscle';
-import { Tag } from '../../src/ui/tag';
+import { MetaLine } from '../../src/ui/meta-line';
+import { measurementIcon } from '../../src/ui/measurement-icon';
 import { findAll, findAllMeasurements, findAllMuscles } from '../../src/infra/exercise-repository';
 import { Card } from '../../src/ui/card';
 import { CatalogueRow } from '../../src/ui/catalogue-row';
@@ -94,6 +95,7 @@ export default function ExercisesScreen() {
   })();
 
   const nameOf = (id: string) => measurements.find((m) => m.id === id)?.name ?? id;
+  const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? '';
 
   // Les exercices archivés ne polluent plus la liste, mais restent consultables.
   const [showArchived, setShowArchived] = useState(false);
@@ -115,7 +117,7 @@ export default function ExercisesScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-background px-5 pt-4 dark:bg-background-dark">
       <SectionHeader
         title="Exercices"
-        subtitle={`${exercises.length - archivedCount} définition${exercises.length - archivedCount > 1 ? 's' : ''} · référentiel`}
+        subtitle={`${exercises.length - archivedCount} définition${exercises.length - archivedCount > 1 ? 's' : ''}`}
       />
 
       <View className="gap-3 pb-3">
@@ -217,18 +219,34 @@ export default function ExercisesScreen() {
                 <Text className="font-bold text-body text-ink dark:text-ink-dark">
                   {item.name}
                 </Text>
-                <View className="mt-1 flex-row flex-wrap gap-1.5">
-                  {item.measurementIds.map((id) => (
-                    <Tag key={id} label={nameOf(id)} />
-                  ))}
+                {/* Ce que l'exercice mesure à gauche, le muscle qu'il fait
+                    progresser à droite. Les muscles secondaires restent sur
+                    sa fiche : ils servent à le retrouver par le filtre, pas
+                    à le reconnaître dans la liste. */}
+                <View className="mt-1 flex-row items-end justify-between gap-3">
+                  <MetaLine
+                    className="shrink"
+                    items={[
+                      ...item.measurementIds.map((id) => ({
+                        icon: measurementIcon(unitOf(id)),
+                        label: nameOf(id),
+                      })),
+                      ...(item.isUnilateral
+                        ? [{ icon: 'swap-horizontal-outline' as const, label: 'Unilatéral' }]
+                        : []),
+                      ...(item.isArchived
+                        ? [{ icon: 'archive-outline' as const, label: 'Archivé' }]
+                        : []),
+                    ]}
+                  />
                   {item.primaryMuscleId && (
-                    <Tag label={muscleNameOf(item.primaryMuscleId)} variant="accent" />
+                    <Text
+                      className="shrink-0 font-bold text-micro text-ink dark:text-ink-dark"
+                      numberOfLines={1}
+                    >
+                      {muscleNameOf(item.primaryMuscleId)}
+                    </Text>
                   )}
-                  {item.secondaryMuscleIds.map((id) => (
-                    <Tag key={id} label={muscleNameOf(id)} variant="accent-outline" />
-                  ))}
-                  {item.isUnilateral && <Tag label="Unilatéral" variant="accent" />}
-                  {item.isArchived && <Tag label="Archivé" />}
                 </View>
               </Card>
             </Pressable>

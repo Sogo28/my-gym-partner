@@ -16,6 +16,7 @@ import { MuscleFilterChip, MuscleFilterSheet } from '../../src/ui/muscle-filter'
 import { SectionHeader } from '../../src/ui/screen-header';
 import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
+import { MetaLine } from '../../src/ui/meta-line';
 
 export default function WorkoutsScreen() {
   const { notify } = useNotifications();
@@ -119,17 +120,21 @@ export default function WorkoutsScreen() {
                   <Text className="font-extrabold text-body text-ink dark:text-ink-dark">
                     {item.name}
                   </Text>
-                  <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                    {item.exercises.length} ex · {setCount} série{setCount > 1 ? 's' : ''}
-                  </Text>
-                  {item.exercises.length > 0 && (
-                    <Text
-                      className="mt-1 text-small text-muted dark:text-muted-dark"
-                      numberOfLines={2}
-                    >
-                      {item.exercises.map((e) => nameOf(e.exerciseId)).join(' · ')}
-                    </Text>
-                  )}
+                  {/* Ce que l'entraînement contient, en chiffres seulement : la
+                      liste des exercices alourdissait chaque carte, et sa
+                      fiche la donne. La même ligne que dans le lanceur. */}
+                  <MetaLine
+                    items={[
+                      {
+                        icon: 'barbell-outline',
+                        label: `${item.exercises.length} exercice${item.exercises.length > 1 ? 's' : ''}`,
+                      },
+                      {
+                        icon: 'layers-outline',
+                        label: `${setCount} série${setCount > 1 ? 's' : ''}`,
+                      },
+                    ]}
+                  />
                 </Card>
               </Pressable>
             </Link>
