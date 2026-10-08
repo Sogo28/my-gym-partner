@@ -61,6 +61,7 @@ import {
 } from '../../src/use-cases/preferences';
 import { RestRing } from '../../src/ui/rest-ring';
 import { SetPulse } from '../../src/ui/set-pulse';
+import { useAt, useLastSeconds, useNow } from '../../src/ui/use-now';
 import { nextPlannedPosition } from '../../src/domain/workout-session/next-planned';
 import { retargetPlannedSet } from '../../src/use-cases/create-planned-workout';
 import { MeasureField } from '../../src/ui/measure-field';
@@ -69,7 +70,6 @@ import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
 import {
   EMOM_INTERVAL_SECONDS,
   emomStatus,
-  setupCountdown,
 } from '../../src/domain/workout-session/emom';
 import {
   formatEmomPace,
@@ -267,11 +267,6 @@ export default function SessionScreen() {
   const [beforeSetSeconds, setBeforeSetSeconds] = useState(3);
   const [restSignalChoice, setRestSignalChoice] = useState<RestSignal>('vibration');
   const [restEvery, setRestEvery] = useState(60);
-  /** Les tours de repos déjà signalés, repos par repos : on ne vibre pas deux fois. */
-  const signaledLaps = useRef<{ startedAt: number | null; laps: number }>({
-    startedAt: null,
-    laps: 0,
-  });
   /** Empêche l'avance automatique de se déclencher deux fois pour le même round. */
   const advancingEmomRound = useRef(false);
   /** Même rôle, pour le départ qui suit le décompte de mise en place. */
@@ -301,8 +296,6 @@ export default function SessionScreen() {
   const pickedBy = useRef<((exerciseId: string) => void) | null>(null);
   /** Le rang du round déjà annoncé au son : on ne sonne pas deux fois. */
   const soundedRound = useRef(0);
-  /** La seconde du décompte déjà sonnée, pour la même raison. */
-  const soundedSecond = useRef<number | null>(null);
   /** Les séries faites déjà signalées à la main, performance par performance. */
   const feltDone = useRef<{ performanceId: string | null; count: number }>({
     performanceId: null,
@@ -545,26 +538,17 @@ export default function SessionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sets.length, activity?.performanceId, showDetail]);
 
-  // Un rendu par seconde, et seulement pendant le repos.
+  /**
+   * Les départs dont l'écran a besoin, sans jamais les faire battre ici.
+   *
+   * L'écran ne se redessine plus au rythme du chrono (décidé le
+   * 2026-10-08) : les chiffres qui défilent ont chacun leur horloge (voir
+   * `useNow`), et ce qui doit arriver à heure fixe -- un round, un départ, un
+   * signal -- est programmé pour cette heure-là (`useAt`).
+   */
   const restStartedAt = session?.currentRest?.startedAt.getTime() ?? null;
   /** Le départ de la série en cours, hors EMOM : son temps s'affiche au centre. */
   const liveSetStartedAt = !emom ? (performance?.currentSet?.startedAt.getTime() ?? null) : null;
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (restStartedAt === null && liveSetStartedAt === null && !emom && !arming && !getReady) {
-      return;
-    }
-    // Quatre fois par seconde pendant un EMOM, et pendant le décompte qui le
-    // précède : le décompte sonore se déclenche sur ce qu'affiche l'écran, et
-    // une seconde jamais rendue -- le battement n'est pas calé sur celui de
-    // l'horloge -- serait un bip qui saute.
-    const interval = setInterval(
-      () => setTick((value) => value + 1),
-      emom || arming || getReady ? 250 : 1000,
-    );
-    return () => clearInterval(interval);
-  }, [restStartedAt, liveSetStartedAt, emom, arming, getReady]);
-  const restElapsed = restStartedAt === null ? 0 : Math.floor((Date.now() - restStartedAt) / 1000);
 
   const unitOf = (id: string) => measurements.find((m) => m.id === id)?.unit ?? id;
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name ?? id;
@@ -627,26 +611,18 @@ export default function SessionScreen() {
    * l'historique ne se réécrit pas pour une pause (§2).
    */
   const emomRoundStartedAt = emom?.windowStartedAt ?? setStartedAt;
-  const emomState =
-    emom && emomRoundStartedAt
-      ? emomStatus({
-          intervalSeconds: emom.intervalSeconds,
-          totalRounds: emom.totalRounds,
-          round: sets.length,
-          roundStartedAt: emomRoundStartedAt,
-          // En pause, l'horloge de l'écran s'arrête à l'instant du tap :
-          // l'anneau se fige, et rien ne s'écoule tant qu'on n'a pas repris.
-          now: emom.pausedAt ?? new Date(),
-        })
+  /**
+   * La fin du round en cours, en millisecondes -- rien en pause : l'horloge
+   * de l'écran s'arrête à l'instant du tap, et rien ne doit partir pendant.
+   */
+  const emomDeadline =
+    emom && emomRoundStartedAt && !emom.pausedAt
+      ? emomRoundStartedAt.getTime() + emom.intervalSeconds * 1000
       : null;
-  /** Où en est le décompte de mise en place, s'il y en a un. */
-  const setup = arming
-    ? setupCountdown({ seconds: arming.seconds, armedAt: arming.armedAt, now: new Date() })
-    : null;
-  /** Où en est le décompte avant une série, s'il y en a un. */
-  const readying = getReady
-    ? setupCountdown({ seconds: getReady.seconds, armedAt: getReady.armedAt, now: new Date() })
-    : null;
+  /** La fin du décompte de mise en place, s'il y en a un. */
+  const armingDeadline = arming ? arming.armedAt.getTime() + arming.seconds * 1000 : null;
+  /** La fin du décompte avant une série, s'il y en a un. */
+  const readyDeadline = getReady ? getReady.armedAt.getTime() + getReady.seconds * 1000 : null;
   /**
    * L'exercice qu'on s'apprête à faire : celui qu'on vient de choisir en
    * séance libre, ou celui de l'activité en cours dans un entraînement.
@@ -680,10 +656,8 @@ export default function SessionScreen() {
    * sans prévenir. Le choix -- ajouter un round ou arrêter -- se fait donc
    * au tap sur "Fini", pas en silence à la fin du minuteur.
    */
-  useEffect(() => {
-    if (!emom || !emomState?.roundElapsed || isFinalEmomRound || advancingEmomRound.current) {
-      return;
-    }
+  useAt(emom && !isFinalEmomRound ? emomDeadline : null, () => {
+    if (advancingEmomRound.current) return;
     advancingEmomRound.current = true;
 
     run(async () => {
@@ -695,8 +669,7 @@ export default function SessionScreen() {
     }).finally(() => {
       advancingEmomRound.current = false;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emom, emomState?.roundElapsed, isFinalEmomRound]);
+  });
 
   /**
    * Le signal sonore du départ d'un round.
@@ -747,23 +720,7 @@ export default function SessionScreen() {
    *
    * En pause, rien ne s'écoule : rien ne sonne non plus.
    */
-  const countingDown = arming
-    ? setup?.remainingSeconds
-    : readying
-      ? readying.remainingSeconds
-      : emom && !emom.pausedAt
-      ? emomState?.remainingSeconds
-      : undefined;
-
-  useEffect(() => {
-    if (countingDown === undefined || countingDown > 5 || countingDown <= 0) {
-      soundedSecond.current = null;
-      return;
-    }
-    if (countingDown === soundedSecond.current) return;
-    soundedSecond.current = countingDown;
-    playRoundCountdown();
-  }, [countingDown]);
+  useLastSeconds(armingDeadline ?? readyDeadline ?? emomDeadline, () => playRoundCountdown());
 
   /**
    * Le premier round part quand le décompte tombe à zéro.
@@ -772,8 +729,8 @@ export default function SessionScreen() {
    * trajet jusqu'au mur, et une séance qui daterait du tap aurait pour
    * première série une minute déjà entamée.
    */
-  useEffect(() => {
-    if (!arming || !setup?.ready || launchingEmom.current) return;
+  useAt(armingDeadline, () => {
+    if (!arming || launchingEmom.current) return;
 
     launchingEmom.current = true;
     const armed = arming;
@@ -786,16 +743,15 @@ export default function SessionScreen() {
     launched.finally(() => {
       launchingEmom.current = false;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arming, setup?.ready]);
+  });
 
   /**
    * La série part quand son décompte tombe à zéro -- c'est là qu'elle
    * commence, et non au tap. Le double bip du départ d'un round dit la même
    * chose ici : c'est parti.
    */
-  useEffect(() => {
-    if (!getReady || !readying?.ready || launchingSet.current) return;
+  useAt(readyDeadline, () => {
+    if (!getReady || launchingSet.current) return;
 
     // Le décompte reste affiché, sur son zéro, jusqu'à ce que la série soit
     // écrite et relue. Retiré aussitôt, il découvrait l'écran d'AVANT -- la
@@ -816,8 +772,7 @@ export default function SessionScreen() {
         setFilmNext(false);
         launchingSet.current = false;
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getReady, readying?.ready]);
+  });
 
   /**
    * Décompter, puis faire ce qu'on a tapé. Sans décompte réglé, tout de
@@ -861,15 +816,24 @@ export default function SessionScreen() {
    * seulement pour un tour franchi SOUS NOS YEUX -- revenir sur l'écran au
    * milieu d'un repos de trois minutes ne doit pas vibrer pour rattraper.
    */
-  const restLaps = restStartedAt === null ? 0 : Math.floor(restElapsed / restEvery);
   useEffect(() => {
-    const previous = signaledLaps.current;
-    signaledLaps.current = { startedAt: restStartedAt, laps: restLaps };
-    if (restStartedAt === null || previous.startedAt !== restStartedAt) return;
-    if (restLaps <= previous.laps || restSignalChoice === 'none') return;
-    feelRestLap();
-    if (restSignalChoice === 'sound') playRoundStart();
-  }, [restStartedAt, restLaps, restSignalChoice]);
+    if (restStartedAt === null || restSignalChoice === 'none') return;
+    const lap = restEvery * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+    // Programmé pour la fin du tour EN COURS, puis du suivant : un tour déjà
+    // passé avant d'arriver sur l'écran ne se rattrape pas.
+    const schedule = () => {
+      const elapsed = Date.now() - restStartedAt;
+      const next = (Math.floor(elapsed / lap) + 1) * lap;
+      timer = setTimeout(() => {
+        feelRestLap();
+        if (restSignalChoice === 'sound') playRoundStart();
+        schedule();
+      }, next - elapsed);
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, [restStartedAt, restEvery, restSignalChoice]);
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.
@@ -1436,16 +1400,16 @@ export default function SessionScreen() {
    * place. Le même pour les trois écrans d'où une série peut partir.
    */
   const countdownOverlay =
-    arming && setup ? (
+    arming && armingDeadline !== null ? (
       <SetupCountdown
-        remainingSeconds={setup.remainingSeconds}
+        deadline={armingDeadline}
         title="Mise en place"
         caption={`${armingName} · le premier round part à zéro`}
         onCancel={() => setArming(null)}
       />
-    ) : getReady && readying ? (
+    ) : getReady && readyDeadline !== null ? (
       <SetupCountdown
-        remainingSeconds={readying.remainingSeconds}
+        deadline={readyDeadline}
         title="Prépare-toi"
         caption={getReady.caption}
         onCancel={() => {
@@ -2213,18 +2177,20 @@ export default function SessionScreen() {
                   {/* L'anneau n'est plus là pour le dire : une ligne rappelle
                       que l'horloge n'attend pas qu'on ait fini de noter. */}
                   <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                    {emom.pausedAt
-                      ? 'EMOM en pause'
-                      : isFinalEmomRound
-                        ? 'Dernier round'
-                        : `Prochain round dans ${emomState?.remainingSeconds ?? 0} s`}
+                    {emom.pausedAt ? (
+                      'EMOM en pause'
+                    ) : isFinalEmomRound ? (
+                      'Dernier round'
+                    ) : (
+                      <EmomLeft deadline={emomDeadline} />
+                    )}
                   </Text>
                 </View>
               ) : (
                 <>
-                  <CountdownRing
-                    remainingSeconds={emomState?.remainingSeconds ?? emom.intervalSeconds}
-                    totalSeconds={emom.intervalSeconds}
+                  <EmomRing
+                    emom={emom}
+                    roundStartedAt={emomRoundStartedAt}
                     // Le rang du round s'écrit SOUS l'anneau : sa ligne et
                     // son écart sont pris sur le même budget, sinon c'est lui
                     // qui passe sous la barre du bas.
@@ -2266,7 +2232,7 @@ export default function SessionScreen() {
                   tourne, et depuis combien de temps. */}
               {!resting && liveSetStartedAt !== null && editing === null && retargeting === null && (
                 <SetPulse
-                  elapsedSeconds={Math.max(0, Math.floor((Date.now() - liveSetStartedAt) / 1000))}
+                  startedAt={liveSetStartedAt}
                   values={format(shown)}
                   size={ringSizeIn(ringBox)}
                 />
@@ -2275,11 +2241,11 @@ export default function SessionScreen() {
                   place : le chrono seul suffit à dire le repos. */}
               {resting &&
                 (editing !== null || retargeting !== null ? (
-                  <Timer seconds={restElapsed} />
+                  <RestClock startedAt={restStartedAt ?? Date.now()} />
                 ) : (
                   <>
                     <RestRing
-                      elapsedSeconds={restElapsed}
+                      startedAt={restStartedAt ?? Date.now()}
                       lapSeconds={restEvery}
                       // La ligne de l'exercice suivant se loge sous l'anneau,
                       // sur le même budget : elle ne le pousse pas dehors.
@@ -2619,4 +2585,49 @@ function statusOf(status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED'): SetRowStat
 function sameTargets(a: TargetValues, b: TargetValues): boolean {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   return [...keys].every((key) => (a[key] ?? 0) === (b[key] ?? 0));
+}
+
+/*
+ * Les chiffres qui défilent, chacun avec SA propre horloge : eux seuls se
+ * redessinent à chaque battement, et non l'écran entier (voir `useNow`).
+ */
+
+/** L'anneau d'un round d'EMOM, qui se vide jusqu'au suivant. */
+function EmomRing({
+  emom,
+  roundStartedAt,
+  size,
+}: {
+  emom: Emom;
+  roundStartedAt: Date | null;
+  size: number;
+}) {
+  // Quatre fois par seconde : le battement n'est pas calé sur l'horloge, et
+  // une seconde jamais affichée se verrait comme un saut.
+  const now = useNow(250, !emom.pausedAt);
+  const remaining = roundStartedAt
+    ? emomStatus({
+        intervalSeconds: emom.intervalSeconds,
+        totalRounds: emom.totalRounds,
+        round: 0,
+        roundStartedAt,
+        // En pause, l'anneau se fige à l'instant du tap.
+        now: emom.pausedAt ?? new Date(now),
+      }).remainingSeconds
+    : emom.intervalSeconds;
+
+  return <CountdownRing remainingSeconds={remaining} totalSeconds={emom.intervalSeconds} size={size} />;
+}
+
+/** « Prochain round dans 12 s », pendant qu'on corrige un round. */
+function EmomLeft({ deadline }: { deadline: number | null }) {
+  const now = useNow(250, deadline !== null);
+  const left = deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000));
+  return <>{`Prochain round dans ${left} s`}</>;
+}
+
+/** Le chrono du repos, en petit, pendant qu'on corrige une série. */
+function RestClock({ startedAt }: { startedAt: number }) {
+  const now = useNow(250);
+  return <Timer seconds={Math.max(0, Math.floor((now - startedAt) / 1000))} />;
 }

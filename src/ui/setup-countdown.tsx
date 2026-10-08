@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { Button } from './button';
 import { Checkbox } from './checkbox';
+import { useNow } from './use-now';
 
 /**
  * Le décompte avant le premier round d'un EMOM -- et, depuis le 2026-10-07,
@@ -15,14 +16,15 @@ import { Checkbox } from './checkbox';
  * confirmation.
  */
 export function SetupCountdown({
-  remainingSeconds,
+  deadline,
   title,
   caption,
   onCancel,
   filming,
   onToggleFilming,
 }: {
-  remainingSeconds: number;
+  /** L'instant du zéro, en millisecondes : le décompte bat de lui-même. */
+  deadline: number;
   /** « Mise en place », « Prépare-toi ». */
   title: string;
   /** Ce qui part à zéro : « Tractions · série 3 sur 4 ». */
@@ -35,6 +37,9 @@ export function SetupCountdown({
   filming?: boolean;
   onToggleFilming?: () => void;
 }) {
+  const now = useNow(250);
+  const remainingSeconds = Math.max(0, Math.ceil((deadline - now) / 1000));
+
   return (
     <View className="absolute inset-0 items-center justify-center gap-5 bg-background px-5 dark:bg-background-dark">
       <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">

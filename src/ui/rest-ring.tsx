@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { formatClock } from './format';
 import { usePalette } from './palette';
+import { useNow } from './use-now';
 
 /** Les mêmes proportions que l'anneau d'un EMOM : les deux se succèdent à l'écran. */
 const REFERENCE = 220;
@@ -26,16 +27,19 @@ const MOST_DOTS = 6;
  * de fin imposée.
  */
 export function RestRing({
-  elapsedSeconds,
+  startedAt,
   lapSeconds,
   size = REFERENCE,
 }: {
-  elapsedSeconds: number;
+  /** Le début du repos, en millisecondes : l'anneau bat de lui-même. */
+  startedAt: number;
   /** La durée d'un tour, celle du signal. */
   lapSeconds: number;
   size?: number;
 }) {
   const { ink, border, success } = usePalette();
+  const now = useNow(250);
+  const elapsedSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
   const laps = Math.floor(elapsedSeconds / lapSeconds);
   const fraction = (elapsedSeconds % lapSeconds) / lapSeconds;
   const offset = CIRCUMFERENCE * (1 - fraction);

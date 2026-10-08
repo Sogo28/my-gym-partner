@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 import { formatClock } from './format';
 import { usePalette } from './palette';
+import { useNow } from './use-now';
 
 /** Un souffle complet -- inspiration puis expiration --, en millisecondes. */
 const BREATH = 3200;
@@ -19,11 +20,12 @@ const BREATH = 3200;
  * et vit dans ce seul composant pour être remplacé d'un bloc.
  */
 export function SetPulse({
-  elapsedSeconds,
+  startedAt,
   values,
   size,
 }: {
-  elapsedSeconds: number;
+  /** Le début de la série, en millisecondes : le temps bat de lui-même. */
+  startedAt: number;
   /** Ce que vise la série : « 12 reps × 20 kg ». */
   values: string;
   /** Le côté du carré disponible, comme pour l'anneau. */
@@ -31,6 +33,8 @@ export function SetPulse({
 }) {
   const { success } = usePalette();
   const breath = useRef(new Animated.Value(0)).current;
+  const now = useNow(250);
+  const elapsedSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
 
   useEffect(() => {
     const loop = Animated.loop(
