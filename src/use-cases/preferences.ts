@@ -216,3 +216,22 @@ export async function restSignalEvery(): Promise<number> {
 export async function setRestSignalEvery(seconds: number): Promise<void> {
   await writeSetting(REST_EVERY_KEY, String(seconds));
 }
+
+/**
+ * L'unité de la roulette d'un poids : kilos ou livres (décidé le 2026-10-08).
+ *
+ * Retenue d'une fois sur l'autre, parce qu'elle dépend de la SALLE et non de
+ * l'exercice : à une salle en livres, on la choisit une fois. Seule la saisie
+ * change -- le poids s'enregistre toujours en kilos (voir weight-units.ts).
+ */
+const WEIGHT_INPUT_KEY = 'weight.input';
+
+export type WeightInput = 'kg' | 'lbs';
+
+export async function weightInput(): Promise<WeightInput> {
+  return (await readSetting(WEIGHT_INPUT_KEY)) === 'lbs' ? 'lbs' : 'kg';
+}
+
+export async function setWeightInput(unit: WeightInput): Promise<void> {
+  await writeSetting(WEIGHT_INPUT_KEY, unit);
+}

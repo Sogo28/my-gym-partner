@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
 import { Sheet } from './sheet';
 import { ladder, Wheel } from './wheel';
 import { usePalette } from './palette';
+import { Segmented } from './segmented';
+import { kgToLb, LB_CEILING, LB_STEP, lbToKg } from './weight-units';
+import { setWeightInput, weightInput, type WeightInput } from '../use-cases/preferences';
 
 type NumberFieldProps = {
   value: number;
@@ -37,6 +40,11 @@ type NumberFieldProps = {
    * poids, qui reste à régler.
    */
   onDone?: () => void;
+  /**
+   * Un poids en kilos qu'on peut aussi saisir en livres : la roulette offre
+   * alors le choix de l'unité. La valeur reçue et rendue reste en kilos.
+   */
+  pounds?: boolean;
 };
 
 /**
@@ -55,8 +63,26 @@ export function NumberField({
   compact = false,
   ceiling,
   onDone,
+  pounds = false,
 }: NumberFieldProps) {
   const [picking, setPicking] = useState(false);
+  const [input, setInput] = useState<WeightInput>('kg');
+
+  // L'unité retenue la dernière fois, relue à chaque ouverture : une autre
+  // série a pu la changer entre-temps.
+  useEffect(() => {
+    if (!picking || !pounds) return;
+    weightInput()
+      .then(setInput)
+      .catch(() => undefined);
+  }, [picking, pounds]);
+
+  function chooseInput(next: WeightInput) {
+    setInput(next);
+    setWeightInput(next).catch(() => undefined);
+  }
+
+  const inPounds = pounds && input === 'lbs';
   return (
     <View className="flex-1 gap-1">
       {label && (
@@ -106,14 +132,46 @@ export function NumberField({
         <Sheet
           visible={picking}
           title={label ?? 'Choisir'}
-          description={`${value} ${unit}`}
+          description={inPounds ? `${kgToLb(value)} lbs · enregistré ${value} ${unit}` : `${value} ${unit}`}
           onClose={() => {
             setPicking(false);
             onDone?.();
           }}
         >
-          <View className="items-center pb-2">
-            <Wheel values={ladder(step, ceiling)} unit={unit} value={value} onChange={onChange} width={110} />
+          <View className="items-center gap-4 pb-2">
+            {pounds && (
+              <View className="self-stretch">
+                <Segmented
+                  segments={[
+                    { value: 'kg', label: 'kg' },
+                    { value: 'lbs', label: 'lbs' },
+                  ]}
+                  value={input}
+                  onChange={chooseInput}
+                />
+              </View>
+            )}
+            {/* Une roulette par unité : la clé la refait naître sur la bonne
+                échelle, posée sur la valeur convertie. */}
+            {inPounds ? (
+              <Wheel
+                key="lbs"
+                values={ladder(LB_STEP, LB_CEILING)}
+                unit="lbs"
+                value={kgToLb(value)}
+                onChange={(lbs) => onChange(lbToKg(lbs))}
+                width={110}
+              />
+            ) : (
+              <Wheel
+                key="kg"
+                values={ladder(step, ceiling)}
+                unit={unit}
+                value={value}
+                onChange={onChange}
+                width={110}
+              />
+            )}
           </View>
         </Sheet>
       )}

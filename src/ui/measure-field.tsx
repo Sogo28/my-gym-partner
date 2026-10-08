@@ -66,6 +66,9 @@ export function MeasureField({
       step={step}
       ceiling={ceilingOf(measurementId)}
       compact={compact}
+      // Les disques en livres de certaines salles : saisis tels quels,
+      // enregistrés en kilos.
+      pounds={measurementId === 'weight'}
       onDone={onDone}
     />
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -7,6 +7,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { cn } from './cn';
+import { feelSelection } from './haptics';
 export { ladder } from './set-defaults';
 
 /** La hauteur d'un cran. Trois tiennent dans la fenêtre : le choisi, et ses voisins. */
@@ -69,6 +70,35 @@ export function Wheel({
     : values;
   const middleCopyStart = loop ? count * Math.floor(LOOP_COPIES / 2) : 0;
 
+  /**
+   * Le cran SOUS LA BANDE, pendant qu'on défile -- et non la valeur retenue.
+   *
+   * C'est lui qui s'affiche en gras. Avant, le gras restait sur l'ancienne
+   * valeur jusqu'à l'arrêt : il glissait avec la colonne, hors de la bande,
+   * et le chiffre actif semblait décalé dans sa cellule.
+   */
+  const [centered, setCentered] = useState(middleCopyStart + selected);
+  const lastCentered = useRef(centered);
+  // Une valeur changée d'ailleurs -- les crans « + / - » -- recentre le gras.
+  useEffect(() => {
+    lastCentered.current = middleCopyStart + selected;
+    setCentered(middleCopyStart + selected);
+  }, [middleCopyStart, selected]);
+
+  const follow = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const raw = Math.round(event.nativeEvent.contentOffset.y / ITEM);
+    const index = loop ? raw : Math.min(Math.max(raw, 0), count - 1);
+    if (index === lastCentered.current) return;
+    // Le retour silencieux vers la copie du milieu (voir `settle`) change de
+    // copie sans changer de valeur : rien n'a été franchi, rien ne vibre.
+    const sameValue = loop && (index - lastCentered.current) % count === 0;
+    lastCentered.current = index;
+    setCentered(index);
+    // Un cran franchi se sent, comme celui d'une vraie molette : on peut
+    // compter sans regarder.
+    if (!sameValue) feelSelection();
+  };
+
   // La position de départ, posée sans animation : la roulette doit s'ouvrir
   // DÉJÀ sur la valeur courante, pas défiler jusqu'à elle sous les yeux.
   useEffect(() => {
@@ -81,7 +111,8 @@ export function Wheel({
   }, []);
 
   const settle = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const landed = Math.round(event.nativeEvent.contentOffset.y / ITEM);
+    const offset = event.nativeEvent.contentOffset.y;
+    const landed = Math.round(offset / ITEM);
     const index = loop
       ? ((landed % count) + count) % count
       : Math.min(Math.max(landed, 0), count - 1);
@@ -93,39 +124,58 @@ export function Wheel({
     // aura besoin.
     if (loop && landed !== middleCopyStart + index) {
       list.current?.scrollTo({ y: (middleCopyStart + index) * ITEM, animated: false });
+      return;
     }
+    // Arrêté entre deux crans -- un glissement lâché sans élan, qu'Android
+    // n'aimante pas toujours : on finit le geste jusqu'au cran.
+    if (Math.abs(offset - landed * ITEM) > 0.5) {
+      list.current?.scrollTo({ y: landed * ITEM, animated: true });
+    }
+  };
+
+  /** Un glissement lâché SANS élan s'arrête là : rien ne suivra pour l'aimanter. */
+  const release = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const velocity = event.nativeEvent.velocity?.y ?? 0;
+    if (Math.abs(velocity) < 0.05) settle(event);
   };
 
   return (
     <View className="items-center gap-1">
-      <View style={{ height: ITEM * VISIBLE, width }} className="justify-center">
+      <View style={{ height: ITEM * VISIBLE, width }}>
         {/* Le cran retenu, désigné par un aplat derrière la colonne : c'est
             lui qui dit où regarder, sans rien ajouter à ce qui défile. */}
+        {/* Posé à une hauteur de cran du haut, en dur : laissé au centrage
+            de la mise en page, il ne tombait pas pile sur le cran du milieu,
+            et le chiffre retenu semblait décalé dans sa cellule. */}
         <View
           pointerEvents="none"
-          style={{ height: ITEM }}
-          className="absolute inset-x-0 rounded-lg bg-primary-soft dark:bg-primary-soft-dark"
+          style={{ position: 'absolute', top: ITEM, left: 0, right: 0, height: ITEM }}
+          className="rounded-lg bg-primary-soft dark:bg-primary-soft-dark"
         />
 
         <ScrollView
           ref={list}
+          style={{ height: ITEM * VISIBLE }}
           showsVerticalScrollIndicator={false}
           snapToInterval={ITEM}
           decelerationRate="fast"
           // Une hauteur de cran en haut et en bas : la première et la dernière
           // valeur peuvent alors se placer au centre comme les autres.
           contentContainerStyle={{ paddingVertical: ITEM }}
+          onScroll={follow}
+          scrollEventThrottle={16}
           onMomentumScrollEnd={settle}
           // Un glissement lent s'arrête sans élan : sans cela, la valeur ne
-          // suivrait pas.
-          onScrollEndDrag={settle}
+          // suivrait pas. Avec élan, c'est la fin de l'élan qui tranche --
+          // trancher aussi au lâcher retenait un cran intermédiaire.
+          onScrollEndDrag={release}
         >
           {displayed.map((entry, index) => (
             <View key={index} style={{ height: ITEM }} className="items-center justify-center">
               <Text
                 className={cn(
                   'font-mono-bold',
-                  index % count === selected
+                  index === centered
                     ? 'text-heading text-ink dark:text-ink-dark'
                     : 'text-lead text-planned dark:text-planned-dark',
                 )}

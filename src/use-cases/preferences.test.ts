@@ -12,6 +12,8 @@ import {
   setEmomSetupCountdown,
   setRestSignal,
   setRestSignalEvery,
+  setWeightInput,
+  weightInput,
   setCountdownBeforeSet,
 } from './preferences';
 
@@ -94,5 +96,13 @@ describe('Le signal du repos', () => {
     await setRestSignalEvery(45);
     expect(await restSignal()).toBe('vibration');
     expect(await restSignalEvery()).toBe(60);
+  });
+});
+
+describe('L unité de saisie d un poids', () => {
+  it('est le kilo par défaut, et retient les livres', async () => {
+    expect(await weightInput()).toBe('kg');
+    await setWeightInput('lbs');
+    expect(await weightInput()).toBe('lbs');
   });
 });
