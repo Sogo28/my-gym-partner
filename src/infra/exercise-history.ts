@@ -66,7 +66,10 @@ export async function findExercisesWorkedBetween(from: Date, to: Date): Promise<
      JOIN session_activities a ON a.session_id = s.id
      JOIN performance_sets ps
        ON ps.performance_id = a.performance_id AND ps.status = 'COMPLETED'
-     WHERE s.started_at >= ?1 AND s.started_at < ?2;`,
+     WHERE s.started_at >= ?1 AND s.started_at < ?2
+       -- Une séance annulée ne compte pas à l'accueil : ni sa carte, ni les
+       -- muscles qu'elle aurait allumés (voir session-history.ts).
+       AND s.status != 'CANCELLED';`,
     from.toISOString(),
     to.toISOString(),
   );

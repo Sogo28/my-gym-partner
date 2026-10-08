@@ -6,6 +6,10 @@ import { getDatabase } from './db';
  * Même règle que partout : au moins une série VALIDÉE. Une séance ouverte
  * puis abandonnée n'a pas entraîné, et le calendrier ne doit pas l'afficher
  * comme un jour travaillé.
+ *
+ * Une séance ANNULÉE non plus, même avec des séries validées : l'annuler,
+ * c'est dire qu'elle ne compte pas comme une séance. Ses séries restent dans
+ * l'historique et les records ; l'accueil, lui, ne la raconte pas.
  */
 export async function findWorkedDaysSince(since: Date): Promise<Date[]> {
   const db = await getDatabase();
@@ -16,7 +20,7 @@ export async function findWorkedDaysSince(since: Date): Promise<Date[]> {
      JOIN session_activities a ON a.session_id = s.id
      JOIN performance_sets ps
        ON ps.performance_id = a.performance_id AND ps.status = 'COMPLETED'
-     WHERE s.started_at >= ?1;`,
+     WHERE s.started_at >= ?1 AND s.status != 'CANCELLED';`,
     since.toISOString(),
   );
 
@@ -61,7 +65,7 @@ export async function findSessionsOn(day: Date): Promise<DaySession[]> {
      JOIN session_activities a ON a.session_id = s.id
      JOIN performance_sets ps
        ON ps.performance_id = a.performance_id AND ps.status = 'COMPLETED'
-     WHERE s.started_at >= ?1 AND s.started_at < ?2
+     WHERE s.started_at >= ?1 AND s.started_at < ?2 AND s.status != 'CANCELLED'
      GROUP BY s.id
      ORDER BY s.started_at;`,
     from.toISOString(),

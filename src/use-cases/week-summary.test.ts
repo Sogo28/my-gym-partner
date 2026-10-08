@@ -5,6 +5,7 @@ import { updateExercise } from './edit-catalogue';
 import { startOfWeek, summarizeWeek } from './week-summary';
 import {
   abandonPerformanceSet,
+  cancelWorkoutSession,
   completePerformanceSet,
   finishWorkoutSession,
   startActivity,
@@ -106,6 +107,17 @@ describe('Les séances d un jour', () => {
 
     // Même règle que les carrés du calendrier : sans série validée, on n'a
     // pas entraîné.
+    expect(await findSessionsOn(new Date())).toHaveLength(0);
+  });
+
+  it('ignore une séance annulée, même avec des séries validées', async () => {
+    const exercise = await anExercise();
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration: 10 } });
+    await cancelWorkoutSession();
+
     expect(await findSessionsOn(new Date())).toHaveLength(0);
   });
 
