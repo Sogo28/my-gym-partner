@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 /**
- * Le rang d'une série dans une pastille ronde : « ① 12 reps × 17.5 kg ».
+ * Le rang d'une série dans une pastille ronde : « ① 12 × 17.5 kg ».
  *
  * Le rang se distingue ainsi de la valeur qu'il précède, au lieu de se lire
  * comme un chiffre de plus (« 1. 12 reps »). Le même dessin sur la fiche d'un

@@ -26,7 +26,7 @@ export function SetPulse({
 }: {
   /** Le début de la série, en millisecondes : le temps bat de lui-même. */
   startedAt: number;
-  /** Ce que vise la série : « 12 reps × 20 kg ». */
+  /** Ce que vise la série : « 12 × 20 kg ». */
   values: string;
   /** Le côté du carré disponible, comme pour l'anneau. */
   size: number;

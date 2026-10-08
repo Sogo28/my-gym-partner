@@ -8,7 +8,7 @@ export type Run<T> = {
 
 /**
  * Regroupe les éléments IDENTIQUES QUI SE SUIVENT (décidé le 2026-10-08) :
- * cinq séries de « 12 reps × 20 kg » se lisent en une ligne « × 5 », plutôt
+ * cinq séries de « 12 × 20 kg » se lisent en une ligne « × 5 », plutôt
  * qu'en cinq lignes qui disent la même chose.
  *
  * Seulement ceux qui se suivent : une série différente au milieu coupe la

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareToPlan, formatSetValues, formatTargets } from './set-values';
+import { compareToPlan, formatSetValues, formatSetValuesShort, formatTargets } from './set-values';
 
 const unitOf = (id: string) => ({ reps: 'reps', weight: 'kg' })[id] ?? id;
 
@@ -13,7 +13,7 @@ describe('mise en forme des valeurs', () => {
   it('lit une série prévue, dont les cibles ne portent pas de côté', () => {
     // Passées au formateur des séries faites, ces cibles ressortaient vides :
     // leurs clés sont des mesures, pas des côtés.
-    expect(formatTargets({ reps: 10, weight: 20 }, unitOf)).toBe('10 reps × 20 kg');
+    expect(formatTargets({ reps: 10, weight: 20 }, unitOf)).toBe('10 × 20 kg');
   });
 });
 
@@ -71,5 +71,18 @@ describe('Comparer une série à sa cible', () => {
 
   it('est en dessous quand la série prévue n a jamais été faite', () => {
     expect(compareToPlan({ reps: 8 }, undefined)).toBe('below');
+  });
+});
+
+describe('Les répétitions accompagnées', () => {
+  const unitOf = (id: string) => ({ reps: 'reps', weight: 'kg' })[id] ?? id;
+
+  it('se disent sans leur unité à côté d une autre mesure', () => {
+    expect(formatSetValues({ BOTH: { reps: 12, weight: 20 } }, unitOf)).toBe('12 × 20 kg');
+    expect(formatSetValuesShort({ BOTH: { reps: 12, weight: 20 } }, unitOf)).toBe('12×20kg');
+  });
+
+  it('gardent leur unité quand elles sont seules', () => {
+    expect(formatSetValues({ BOTH: { reps: 12 } }, unitOf)).toBe('12 reps');
   });
 });

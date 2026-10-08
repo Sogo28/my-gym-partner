@@ -64,11 +64,12 @@ function qualifying(condition: Condition): readonly Clause[] {
 }
 
 /**
- * La description d'une série : « 10 reps × 60 kg ».
+ * La description d'une série : « 10 × 60 kg ».
  *
  * Les cibles sont séparées par « × » et non par « et » : elles ne sont pas
  * deux exigences, mais une seule série vue sous deux mesures -- écrite
- * comme toutes les séries de l'app.
+ * comme toutes les séries de l'app, répétitions sans unité dès qu'une autre
+ * mesure les accompagne (voir set-values.ts).
  */
 export function describeClauses(
   clauses: readonly Clause[],
@@ -77,7 +78,9 @@ export function describeClauses(
   return clauses
     .map((clause) => {
       const prefix = clause.operator === '>=' ? '' : `${clause.operator} `;
-      return `${prefix}${clause.target} ${unitOf(clause.measurementId)}`;
+      const unit = unitOf(clause.measurementId);
+      const bare = clauses.length > 1 && unit === 'reps';
+      return `${prefix}${clause.target}${bare ? '' : ` ${unit}`}`;
     })
     .join(' × ');
 }
