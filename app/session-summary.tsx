@@ -11,7 +11,7 @@ import { BodyMap } from '../src/ui/body-map';
 import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
-import { formatClock, formatDateTime, formatDuration, isDuration } from '../src/ui/format';
+import { formatClock, formatDateTime, formatDuration } from '../src/ui/format';
 import { GoalChecklist } from '../src/ui/goal-checklist';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
@@ -37,7 +37,7 @@ import {
   type SessionSummary,
 } from '../src/use-cases/session-summary';
 import { feelRecord } from '../src/ui/haptics';
-import { PALETTE } from '../src/ui/palette';
+import { PALETTE, usePalette } from '../src/ui/palette';
 import { PhotoViewer } from '../src/ui/photo-viewer';
 import { RecordsCard } from '../src/ui/records-card';
 import { Confetti } from '../src/ui/confetti';
@@ -56,6 +56,7 @@ import { runsBy } from '../src/ui/runs';
  */
 export default function SessionSummaryScreen() {
   const { notify } = useNotifications();
+  const { muted } = usePalette();
   const router = useRouter();
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
 
@@ -320,24 +321,19 @@ export default function SessionSummaryScreen() {
             const restBeforeActivity = activity.completedSets[0]?.restBefore ?? null;
 
             /**
-             * Le temps d'exécution d'une série -- utile pour juger si un
-             * rythme imposé (EMOM) est tenable, la vitesse d'exécution étant
-             * un signal qu'aucune mesure déclarée ne porte.
-             *
-             * Pas affiché quand l'exercice mesure déjà une durée : la valeur
-             * saisie EST alors ce temps, le répéter n'apprendrait rien de
-             * plus. Même règle que sur la fiche de l'exercice.
+             * Le temps passé à exécuter l'exercice : la somme de ses séries,
+             * repos exclus. Une seule fois, à droite du titre (décidé le
+             * 2026-10-08) -- série par série, il chargeait chaque ligne pour
+             * un chiffre que personne ne lisait.
              */
-            const activityExercise = exerciseOf(activity.exerciseId);
-            const showExecutionTime = activityExercise
-              ? !activityExercise.measurementIds.some((measurementId) =>
-                  isDuration(unitOf(measurementId)),
-                )
-              : false;
-            const executionLabel = (set: { startedAt: Date; endedAt: Date | null }) =>
-              showExecutionTime && set.endedAt
-                ? formatDuration((set.endedAt.getTime() - set.startedAt.getTime()) / 1000)
-                : null;
+            const executionSeconds = activity.completedSets.reduce(
+              (total, done) =>
+                total +
+                (done.set.endedAt
+                  ? Math.max(0, (done.set.endedAt.getTime() - done.set.startedAt.getTime()) / 1000)
+                  : 0),
+              0,
+            );
 
             return (
               <Fragment key={index}>
@@ -364,12 +360,25 @@ export default function SessionSummaryScreen() {
                         rester serré pour lire la liste d'un coup d'oeil --
                         écrasait le nom de l'exercice contre sa première
                         ligne. */}
-                    <Text
-                      className="pb-3 font-extrabold text-lead text-ink dark:text-ink-dark"
-                      numberOfLines={1}
-                    >
-                      {nameOf(activity.exerciseId)}
-                    </Text>
+                    <View className="flex-row items-center justify-between gap-3 pb-3">
+                      <Text
+                        className="shrink font-extrabold text-lead text-ink dark:text-ink-dark"
+                        numberOfLines={1}
+                      >
+                        {nameOf(activity.exerciseId)}
+                      </Text>
+                      {executionSeconds > 0 && (
+                        <View className="flex-row items-center gap-1">
+                          <Ionicons name="stopwatch-outline" size={13} color={muted} />
+                          <Text
+                            className="font-mono text-caption text-muted dark:text-muted-dark"
+                            style={{ fontVariant: ['tabular-nums'] }}
+                          >
+                            {formatDuration(Math.round(executionSeconds))}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
 
                     {rows === 0 ? (
                       <Text className="text-caption text-muted dark:text-muted-dark">
@@ -426,14 +435,6 @@ export default function SessionSummaryScreen() {
                                 {run.count > 1 && (
                                   <RepeatBadge count={run.count} done={Boolean(done)} />
                                 )}
-                                {/* Le temps d'exécution change d'une série à
-                                    l'autre : il ne se dit que pour une
-                                    série seule. */}
-                                {run.count === 1 && done && executionLabel(done.set) && (
-                                  <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
-                                    {executionLabel(done.set)}
-                                  </Text>
-                                )}
                                 {done?.set.videoUri && activity.performanceId && (
                                   <VideoBadge
                                     onPress={() =>
@@ -470,11 +471,6 @@ export default function SessionSummaryScreen() {
                                 {formatSetValues(done.set.values, unitOf)}
                               </Text>
                               {run.count > 1 && <RepeatBadge count={run.count} done />}
-                              {run.count === 1 && executionLabel(done.set) && (
-                                <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
-                                  {executionLabel(done.set)}
-                                </Text>
-                              )}
                               {done.set.videoUri && activity.performanceId && (
                                 <VideoBadge
                                   onPress={() =>

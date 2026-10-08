@@ -40,7 +40,7 @@ const WINDOWS: { label: string; sessions: number | null }[] = [
 import { Card } from '../src/ui/card';
 import { Collapsible } from '../src/ui/collapsible';
 import { EmptyState } from '../src/ui/empty-state';
-import { formatDateTime, formatDuration, formatTime, isDuration } from '../src/ui/format';
+import { formatDateTime, formatTime } from '../src/ui/format';
 import { usePalette } from '../src/ui/palette';
 import { useNotifications } from '../src/ui/notifications';
 import { messageOf } from '../src/ui/message';
@@ -56,6 +56,8 @@ import { getExerciseDetail, type ExerciseDetail } from '../src/use-cases/exercis
 import { DetailContent, DetailLayout } from '../src/ui/detail-layout';
 import { RecordsCard } from '../src/ui/records-card';
 import { SetIndex } from '../src/ui/set-index';
+import { SetVideoViewer, VideoBadge } from '../src/ui/set-video';
+import { fileUri } from '../src/use-cases/media-actions';
 
 /** Par paquets de cinq : de quoi voir la tendance récente sans dérouler l'an dernier. */
 const PAGE = 5;
@@ -80,6 +82,8 @@ export default function ExerciseDetailScreen() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [muscles, setMuscles] = useState<Muscle[]>([]);
   const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm-discard'>('none');
+  /** La vidéo de série ouverte, par son nom de fichier. */
+  const [watching, setWatching] = useState<string | null>(null);
   /** Faux dès qu'on quitte l'écran : les vidéos ne tournent pas derrière. */
   const [active, setActive] = useState(false);
   /** La mesure suivie par le graphe, quand l'exercice en porte plusieurs. */
@@ -206,23 +210,6 @@ export default function ExerciseDetailScreen() {
    */
   const hasVolume = exercise.measurementIds.length > 1;
   const charted = hasVolume ? VOLUME : exercise.measurementIds[0];
-
-  /**
-   * Le temps d'exécution d'une série -- utile pour juger si un rythme
-   * imposé (EMOM) est tenable, la vitesse d'exécution étant un signal
-   * qu'aucune mesure déclarée ne porte.
-   *
-   * Pas affiché quand l'exercice mesure déjà une durée : la valeur saisie
-   * EST alors ce temps, le répéter n'apprendrait rien de plus.
-   */
-  const showExecutionTime = !exercise.measurementIds.some((measurementId) =>
-    isDuration(unitOf(measurementId)),
-  );
-
-  function executionLabel(set: { startedAt: Date; endedAt: Date | null }): string | null {
-    if (!showExecutionTime || !set.endedAt) return null;
-    return formatDuration((set.endedAt.getTime() - set.startedAt.getTime()) / 1000);
-  }
 
   // Les séances arrivent de la plus récente à la plus ancienne ; une courbe
   // se lit dans l'autre sens.
@@ -429,7 +416,8 @@ export default function ExerciseDetailScreen() {
                 open
                 at={last.startedAt}
                 lines={last.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
-                durations={last.sets.map(executionLabel)}
+                videos={last.sets.map((set) => set.videoUri)}
+                onPlay={setWatching}
               />
             </Section>
 
@@ -448,7 +436,8 @@ export default function ExerciseDetailScreen() {
                       key={entry.sessionId}
                       at={entry.startedAt}
                       lines={entry.sets.map((set) => formatSetValues(set.values, unitOf) || '—')}
-                      durations={entry.sets.map(executionLabel)}
+                      videos={entry.sets.map((set) => set.videoUri)}
+                      onPlay={setWatching}
                     />
                   ))}
                   {previous.length > shown && (
@@ -582,6 +571,10 @@ export default function ExerciseDetailScreen() {
         actions={[{ label: 'Retirer', icon: 'trash-outline', tone: 'danger', onPress: discard }]}
         onClose={() => setSheet('none')}
       />
+      {/* En lecture seule : d'ici, une série ne sait pas de quelle séance
+          elle vient pour se voir retirer sa vidéo -- c'est le bilan de la
+          séance qui le fait. */}
+      <SetVideoViewer uri={watching ? fileUri(watching) : null} onClose={() => setWatching(null)} />
     </DetailLayout>
   );
 }
@@ -604,13 +597,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function SessionCard({
   at,
   lines,
-  durations,
+  videos,
+  onPlay,
   open = false,
 }: {
   at: Date;
   lines: string[];
-  /** Le temps d'exécution de chaque série, ou null quand il ne se montre pas. */
-  durations?: (string | null)[];
+  /**
+   * La vidéo de chaque série, quand elle a été filmée : à la place du temps
+   * d'exécution, que personne ne regardait (retiré le 2026-10-08).
+   */
+  videos?: (string | null)[];
+  onPlay?: (name: string) => void;
   open?: boolean;
 }) {
   const { muted } = usePalette();
@@ -649,10 +647,8 @@ function SessionCard({
                 {line}
               </Text>
             </View>
-            {durations?.[index] && (
-              <Text className="font-mono text-micro text-muted dark:text-muted-dark">
-                {durations[index]}
-              </Text>
+            {videos?.[index] && onPlay && (
+              <VideoBadge onPress={() => onPlay(videos[index]!)} />
             )}
           </View>
         ))}
