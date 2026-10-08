@@ -10,6 +10,16 @@
         "buildType": "apk"
       },
       "channel": "production"
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   }
 }

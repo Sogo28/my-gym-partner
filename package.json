@@ -59,9 +59,9 @@
     "vitest": "^5.0.0"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "start": "APP_VARIANT=development expo start",
+    "android": "APP_VARIANT=development expo run:android",
+    "ios": "APP_VARIANT=development expo run:ios",
     "web": "expo start --web",
     "test": "vitest run",
     "test:watch": "vitest"
