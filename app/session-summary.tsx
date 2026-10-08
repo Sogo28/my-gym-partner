@@ -42,6 +42,8 @@ import { PhotoViewer } from '../src/ui/photo-viewer';
 import { RecordsCard } from '../src/ui/records-card';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 import { SetIndex } from '../src/ui/set-index';
+import { RepeatBadge } from '../src/ui/repeat-badge';
+import { runsBy } from '../src/ui/runs';
 
 /**
  * Ce qu'on vient de faire, une fois la séance close.
@@ -377,9 +379,24 @@ export default function SessionSummaryScreen() {
                         {/* Prévu à gauche, fait à droite : la même ligne dit
                             les deux, plutôt qu'une mention à part qui ne
                             revenait que pour signaler un manque. */}
-                        {Array.from({ length: rows }, (_, position) => {
-                          const plannedSet = plannedExercise.sets[position];
-                          const done = activity.completedSets[position];
+                        {/* Les lignes identiques qui se suivent -- même cible,
+                            même résultat -- tiennent en une, « × 4 » au bout.
+                            Une série filmée reste seule : sa vidéo ne se fond
+                            pas dans un groupe. */}
+                        {runsBy(
+                          Array.from({ length: rows }, (_, position) => ({
+                            position,
+                            plannedSet: plannedExercise.sets[position],
+                            done: activity.completedSets[position],
+                          })),
+                          ({ plannedSet, done }) =>
+                            done?.set.videoUri
+                              ? null
+                              : `${plannedSet ? formatTargets(plannedSet.targets, unitOf) : '—'}|${
+                                  done ? formatSetValues(done.set.values, unitOf) : '—'
+                                }`,
+                        ).map((run) => {
+                          const { position, plannedSet, done } = run.item;
                           return (
                             <View key={position}>
                               {/* Celle d'avant l'exercice se montre déjà
@@ -405,7 +422,13 @@ export default function SessionSummaryScreen() {
                                 >
                                   {done ? formatSetValues(done.set.values, unitOf) : '—'}
                                 </Text>
-                                {done && executionLabel(done.set) && (
+                                {run.count > 1 && (
+                                  <RepeatBadge count={run.count} done={Boolean(done)} />
+                                )}
+                                {/* Le temps d'exécution change d'une série à
+                                    l'autre : il ne se dit que pour une
+                                    série seule. */}
+                                {run.count === 1 && done && executionLabel(done.set) && (
                                   <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
                                     {executionLabel(done.set)}
                                   </Text>
@@ -428,7 +451,12 @@ export default function SessionSummaryScreen() {
                       </View>
                     ) : (
                       <View className="gap-2">
-                        {activity.completedSets.map((done, position) => (
+                        {runsBy(activity.completedSets, (done) =>
+                          done.set.videoUri ? null : formatSetValues(done.set.values, unitOf),
+                        ).map((run) => {
+                          const done = run.item;
+                          const position = run.start;
+                          return (
                           <View key={position}>
                             {position > 0 && done.restBefore !== null && done.restBefore > 0 && (
                               <RestLine seconds={done.restBefore} />
@@ -440,7 +468,8 @@ export default function SessionSummaryScreen() {
                               >
                                 {formatSetValues(done.set.values, unitOf)}
                               </Text>
-                              {executionLabel(done.set) && (
+                              {run.count > 1 && <RepeatBadge count={run.count} done />}
+                              {run.count === 1 && executionLabel(done.set) && (
                                 <Text className="shrink-0 font-mono text-micro text-muted dark:text-muted-dark">
                                   {executionLabel(done.set)}
                                 </Text>
@@ -458,7 +487,8 @@ export default function SessionSummaryScreen() {
                               )}
                             </View>
                           </View>
-                        ))}
+                          );
+                        })}
                       </View>
                     )}
                   </Card>

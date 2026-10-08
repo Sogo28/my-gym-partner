@@ -22,6 +22,8 @@ import { beginWorkoutSession } from '../src/use-cases/workout-session-actions';
 import { usePalette } from '../src/ui/palette';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 import { SetIndex } from '../src/ui/set-index';
+import { RepeatBadge } from '../src/ui/repeat-badge';
+import { runsBy } from '../src/ui/runs';
 
 /**
  * Aperçu d'un entraînement. Le nom du fichier entre crochets en fait une route
@@ -198,15 +200,20 @@ export default function WorkoutDetailScreen() {
                       même dessin que les séries faites de la fiche d'un
                       exercice, la couleur en moins -- une cible n'est pas
                       un fait. */}
-                  {planned.sets.map((set, index) => (
-                    <View key={index} className="flex-row items-center gap-2.5">
-                      <SetIndex index={index + 1} />
+                  {/* Les séries identiques qui se suivent tiennent en une
+                      ligne, « × 4 » au bout : quatre lignes pareilles ne
+                      disaient rien de plus. La pastille garde le rang de
+                      la première. */}
+                  {runsBy(planned.sets, (set) => formatTargets(set.targets, unitOf)).map((run) => (
+                    <View key={run.start} className="flex-row items-center gap-2.5">
+                      <SetIndex index={run.start + 1} />
                       <Text
                         className="shrink font-mono text-small text-planned dark:text-planned-dark"
                         style={{ fontVariant: ['tabular-nums'] }}
                       >
-                        {formatTargets(set.targets, unitOf)}
+                        {formatTargets(run.item.targets, unitOf)}
                       </Text>
+                      {run.count > 1 && <RepeatBadge count={run.count} done={false} />}
                     </View>
                   ))}
                 </View>
