@@ -952,16 +952,27 @@ export default function SessionScreen() {
    * Le départ de chaque round d'EMOM, pour le téléphone verrouillé : le seul
    * signal qui compte pendant un EMOM, celui qui dit « c'est reparti ». Le
    * dernier round prévu compris ; au-delà, le choix se fait à l'écran.
+   *
+   * Il suit le réglage du signal de repos (décidé le 2026-10-08) : vibration
+   * seule, son et vibration, ou rien.
    */
   const roundAlerts: SessionAlert[] = [];
-  if (emom && emomDeadline !== null) {
+  if (emom && emomDeadline !== null && restSignalChoice !== 'none') {
     const interval = emom.intervalSeconds * 1000;
     for (let next = sets.length + 1, at = emomDeadline; next <= emom.totalRounds; next += 1) {
-      roundAlerts.push({ at, title: `Round ${next}/${emom.totalRounds}`, body: nameOf(activity?.exerciseId ?? '') });
+      roundAlerts.push({
+        at,
+        title: `Round ${next}/${emom.totalRounds}`,
+        body: nameOf(activity?.exerciseId ?? ''),
+        sound: restSignalChoice === 'sound',
+      });
       at += interval;
     }
   }
-  useSessionAlerts(roundAlerts, `${emomDeadline}|${emom?.totalRounds}|${sets.length}`);
+  useSessionAlerts(
+    roundAlerts,
+    `${emomDeadline}|${emom?.totalRounds}|${sets.length}|${restSignalChoice}`,
+  );
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.

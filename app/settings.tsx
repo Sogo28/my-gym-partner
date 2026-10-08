@@ -184,7 +184,7 @@ export default function SettingsScreen() {
           <Setting
             icon="notifications-outline"
             title="Signal pendant le repos"
-            description="À chaque tour de l'anneau du repos, pour savoir depuis combien de temps tu souffles sans regarder l'écran."
+            description="À chaque tour de l'anneau du repos, pour savoir depuis combien de temps tu souffles sans regarder l'écran. Téléphone verrouillé, il dit aussi le départ de chaque round d'EMOM."
           >
             <Segmented
               segments={REST_SIGNAL_CHOICES.map((value) => ({
