@@ -420,3 +420,23 @@ describe('Deux actions lancées sans s attendre', () => {
     expect(sets[0].values.BOTH?.reps).toBe(8);
   });
 });
+
+describe('Démarrer à l heure du zéro', () => {
+  it('date la série et la fin du repos du zéro, et non du déverrouillage', async () => {
+    const exercise = await anExercise();
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration: 10 } });
+
+    // Le zéro est passé pendant que le téléphone était verrouillé : l'écran
+    // ne lance la série qu'au retour, mais elle a commencé au zéro.
+    const zero = new Date(Date.now() - 30_000);
+    await startPerformanceSet(zero);
+
+    const sets = await currentSets();
+    expect(sets[1].startedAt.getTime()).toBe(zero.getTime());
+    const session = await findActive();
+    expect(session!.rests.at(-1)!.endedAt!.getTime()).toBe(zero.getTime());
+  });
+});

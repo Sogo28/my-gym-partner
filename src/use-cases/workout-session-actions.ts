@@ -73,6 +73,11 @@ function oneAtATime<T>(action: () => Promise<T>): Promise<T> {
 export async function startWorkoutSession(
   plannedWorkoutId?: PlannedWorkoutId | null,
   scheduledWorkoutId?: string | null,
+  /**
+   * Quand elle a commencé, si ce n'est pas maintenant : au zéro d'un
+   * décompte que le téléphone verrouillé a laissé passer sans le voir.
+   */
+  at: Date = new Date(),
 ): Promise<WorkoutSession> {
   if (await findActive()) {
     throw new DomainError("Une séance est déjà en cours. Termine-la ou annule-la d'abord.");
@@ -82,7 +87,7 @@ export async function startWorkoutSession(
     id: randomUUID(),
     plannedWorkoutId: plannedWorkoutId ?? null,
     scheduledWorkoutId: scheduledWorkoutId ?? null,
-    at: new Date(),
+    at,
   });
 
   await save(session);
@@ -93,7 +98,7 @@ export async function startWorkoutSession(
     const plan = (await findAllPlans()).find((p) => p.id === session.plannedWorkoutId);
     const first = plan?.exercises[0];
     if (first) {
-      return startActivity(first.exerciseId, 0);
+      return startActivity(first.exerciseId, 0, at);
     }
   }
 
@@ -113,9 +118,10 @@ export async function startWorkoutSession(
 export async function beginWorkoutSession(
   plannedWorkoutId: PlannedWorkoutId,
   scheduledWorkoutId: string | null = null,
+  at: Date = new Date(),
 ): Promise<void> {
-  await startWorkoutSession(plannedWorkoutId, scheduledWorkoutId);
-  await startPerformanceSet();
+  await startWorkoutSession(plannedWorkoutId, scheduledWorkoutId, at);
+  await startPerformanceSet(at);
 }
 
 /**
@@ -130,13 +136,14 @@ export async function beginWorkoutSession(
 export async function startActivity(
   exerciseId: ExerciseId,
   plannedPosition: number | null = null,
+  at: Date = new Date(),
 ): Promise<WorkoutSession> {
   const exercise = (await findAllExercises()).find((candidate) => candidate.id === exerciseId);
   if (!exercise) {
     throw new DomainError("Cet exercice n'existe pas.");
   }
 
-  const now = new Date();
+  const now = at;
   const performance = ExercisePerformance.start({
     id: randomUUID(),
     exerciseId,
@@ -270,9 +277,11 @@ async function plannedSetCount(
  * L'enchaînement est ici et non dans le domaine : ni la séance ni la
  * performance ne peuvent le décider seules, elles ne se connaissent pas.
  */
-export async function startPerformanceSet(): Promise<ExercisePerformance> {
-  await stopRestIfAny();
-  return onCurrentPerformance((p, now) => p.startSet(now));
+export async function startPerformanceSet(at?: Date): Promise<ExercisePerformance> {
+  await stopRestIfAny(at);
+  // `at` : l'heure du zéro d'un décompte, quand l'écran ne l'a vu passer
+  // qu'au déverrouillage -- la série a commencé à ce moment-là, pas après.
+  return onCurrentPerformance((p, now) => p.startSet(at ?? now));
 }
 
 /** CompletePerformanceSet (§29), suivi du repos qui s'enchaîne (§13). */
@@ -289,10 +298,10 @@ export const startRest = () => onActiveSession((session, now) => session.startRe
 
 export const stopRest = () => onActiveSession((session, now) => session.stopRest(now));
 
-async function stopRestIfAny(): Promise<void> {
+async function stopRestIfAny(at?: Date): Promise<void> {
   const session = await findActive();
   if (session?.currentRest) {
-    await onActiveSession((current, now) => current.stopRest(now));
+    await onActiveSession((current, now) => current.stopRest(at ?? now));
   }
 }
 

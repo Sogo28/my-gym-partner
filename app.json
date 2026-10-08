@@ -18,9 +18,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.daniel.mygympartner",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.USE_EXACT_ALARM"
       ]
     },
     "web": {
@@ -61,7 +62,8 @@
         {
           "photosPermission": "Choisir une photo ou une vidéo depuis ta galerie."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "scheme": "mygympartner",
     "extra": {

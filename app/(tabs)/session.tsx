@@ -4,7 +4,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useNotifications } from '../../src/ui/notifications';
 import { messageOf } from '../../src/ui/message';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Exercise } from '../../src/domain/exercise/exercise';
 import type { Measurement } from '../../src/domain/exercise/measurement';
@@ -61,7 +61,12 @@ import {
 } from '../../src/use-cases/preferences';
 import { RestRing } from '../../src/ui/rest-ring';
 import { SetPulse } from '../../src/ui/set-pulse';
-import { useAt, useLastSeconds, useNow } from '../../src/ui/use-now';
+import { LATE_MS, useAt, useLastSeconds, useNow } from '../../src/ui/use-now';
+import {
+  prepareSessionAlerts,
+  useSessionAlerts,
+  type SessionAlert,
+} from '../../src/ui/session-alerts';
 import { nextPlannedPosition } from '../../src/domain/workout-session/next-planned';
 import { retargetPlannedSet } from '../../src/use-cases/create-planned-workout';
 import { MeasureField } from '../../src/ui/measure-field';
@@ -78,7 +83,7 @@ import {
   formatTargets,
   formatTargetsShort,
 } from '../../src/ui/set-values';
-import { formatDateTime, isDuration, lastDoneLabel } from '../../src/ui/format';
+import { formatClock, formatDateTime, isDuration, lastDoneLabel } from '../../src/ui/format';
 import {
   abandonPerformanceSet,
   cancelWorkoutSession,
@@ -254,7 +259,7 @@ export default function SessionScreen() {
     seconds: number;
     caption: string;
     /** Rend la main une fois la série À L'ÉCRAN : le décompte la couvre jusque-là. */
-    go: () => Promise<unknown>;
+    go: (at: Date) => Promise<unknown>;
   } | null>(null);
   /** Même rôle que `launchingEmom`, pour le départ d'une série. */
   const launchingSet = useRef(false);
@@ -737,8 +742,8 @@ export default function SessionScreen() {
     setArming(null);
 
     const launched = armed.exerciseId
-      ? launchFreeEmom(armed.exerciseId, armed.totalRounds)
-      : launchPlannedEmom(armed.intervalSeconds, armed.totalRounds);
+      ? launchFreeEmom(armed.exerciseId, armed.totalRounds, new Date(armingDeadline!))
+      : launchPlannedEmom(armed.intervalSeconds, armed.totalRounds, new Date(armingDeadline!));
 
     launched.finally(() => {
       launchingEmom.current = false;
@@ -757,10 +762,15 @@ export default function SessionScreen() {
     // écrite et relue. Retiré aussitôt, il découvrait l'écran d'AVANT -- la
     // fiche de l'entraînement, le temps que la séance naisse.
     launchingSet.current = true;
-    playRoundStart();
+    // Le double bip du départ, sauf s'il arrive après coup : déverrouillé
+    // bien après le zéro, la notification a déjà dit « c'est parti ».
+    if (Date.now() - readyDeadline! <= LATE_MS) playRoundStart();
     const filming = filmNextRef.current;
     getReady
-      .go()
+      // À l'heure du ZÉRO, et non du moment où l'écran le voit passer : le
+      // téléphone verrouillé suspend l'app, et la série ne démarrait qu'au
+      // déverrouillage.
+      .go(new Date(readyDeadline!))
       // La caméra s'ouvre sur la série qui vient de naître, avec son propre
       // décompte : celui-ci a servi à se préparer, l'autre sert à poser le
       // téléphone et reculer.
@@ -799,11 +809,33 @@ export default function SessionScreen() {
     setFilmNext(filmNextRef.current);
   }
 
-  function afterCountdown(caption: string, go: () => Promise<unknown>) {
+  /**
+   * Prépare les signaux du téléphone verrouillé -- l'autorisation se demande
+   * au démarrage d'une séance -- et dit une fois pourquoi, s'ils ne peuvent
+   * pas marcher : rester muet laissait croire qu'ils marchaient.
+   */
+  const alertsReported = useRef(false);
+  function ensureAlerts() {
+    prepareSessionAlerts()
+      .then((problem) => {
+        if (problem === null || alertsReported.current) return;
+        alertsReported.current = true;
+        notify(`Signaux téléphone verrouillé indisponibles : ${problem}.`);
+      })
+      .catch(() => undefined);
+  }
+
+  /** La vibration d'un départ, sauf s'il est rattrapé au déverrouillage. */
+  function feelOnTime(at?: Date) {
+    if (!at || Date.now() - at.getTime() <= LATE_MS) feelStart();
+  }
+
+  function afterCountdown(caption: string, go: (at: Date) => Promise<unknown>) {
     if (beforeSetSeconds <= 0) {
-      go();
+      go(new Date());
       return;
     }
+    ensureAlerts();
     feelStart();
     setGetReady({ armedAt: new Date(), seconds: beforeSetSeconds, caption, go });
   }
@@ -826,14 +858,55 @@ export default function SessionScreen() {
       const elapsed = Date.now() - restStartedAt;
       const next = (Math.floor(elapsed / lap) + 1) * lap;
       timer = setTimeout(() => {
-        feelRestLap();
-        if (restSignalChoice === 'sound') playRoundStart();
+        // Hors de l'écran, c'est la notification programmée qui signale :
+        // vibrer ici aussi ferait deux signaux pour un seul tour. Et un tour
+        // signalé EN RETARD -- au déverrouillage, l'app suspendue -- ne se
+        // rattrape pas : la notification l'a déjà dit à l'heure.
+        const late = Date.now() - (restStartedAt + next) > LATE_MS;
+        if (AppState.currentState === 'active' && !late) {
+          feelRestLap();
+          if (restSignalChoice === 'sound') playRoundStart();
+        }
         schedule();
       }, next - elapsed);
     };
     schedule();
     return () => clearTimeout(timer);
   }, [restStartedAt, restEvery, restSignalChoice]);
+
+  /**
+   * Les mêmes signaux, programmés auprès du SYSTÈME pour le téléphone
+   * verrouillé (voir session-alerts.ts) : l'application suspendue ne peut
+   * plus vibrer d'elle-même. Au premier plan ils se taisent -- ceux de
+   * l'écran suffisent.
+   */
+  const countdownAlerts: SessionAlert[] = [
+    ...(readyDeadline !== null && getReady
+      ? [{ at: readyDeadline, title: "C'est parti", body: getReady.caption }]
+      : []),
+    ...(armingDeadline !== null
+      ? [{ at: armingDeadline, title: 'Premier round', body: armingName }]
+      : []),
+  ];
+  useSessionAlerts(countdownAlerts, `${readyDeadline}|${armingDeadline}`);
+
+  /**
+   * Les tours de repos à venir, une demi-heure au plus : au-delà, on a
+   * oublié de démarrer la série, et vibrer encore ne servirait qu'à agacer.
+   */
+  const restAlerts: SessionAlert[] = [];
+  if (restStartedAt !== null && restSignalChoice !== 'none') {
+    const lap = restEvery * 1000;
+    const laps = Math.floor((30 * 60 * 1000) / lap);
+    for (let n = 1; n <= laps; n += 1) {
+      restAlerts.push({
+        at: restStartedAt + n * lap,
+        title: `Repos · ${formatClock((n * lap) / 1000)}`,
+        sound: restSignalChoice === 'sound',
+      });
+    }
+  }
+  useSessionAlerts(restAlerts, `${restStartedAt}|${restEvery}|${restSignalChoice}`);
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.
@@ -1086,13 +1159,13 @@ export default function SessionScreen() {
     );
   }
 
-  function beginSet() {
-    feelStart();
+  function beginSet(at?: Date) {
+    feelOnTime(at);
     // Aucune valeur à mémoriser : le socle les fournit, la saisie locale
     // repart donc de zéro à chaque série.
     return run(async () => {
       closeEditing();
-      await startPerformanceSet();
+      await startPerformanceSet(at);
     });
   }
 
@@ -1135,6 +1208,7 @@ export default function SessionScreen() {
   function startPlannedEmom() {
     const interval = plannedExercise?.intervalSeconds;
     if (!interval) return;
+    ensureAlerts();
 
     setArming({
       armedAt: new Date(),
@@ -1152,14 +1226,18 @@ export default function SessionScreen() {
    * décompte a duré, et une série encore fraîche au tap peut avoir passé sa
    * minute entre-temps.
    */
-  function launchPlannedEmom(interval: number, totalRounds: number): Promise<unknown> {
+  function launchPlannedEmom(
+    interval: number,
+    totalRounds: number,
+    at: Date = new Date(),
+  ): Promise<unknown> {
     const openedAt = performance?.currentSet?.startedAt;
-    const stale = openedAt ? Date.now() - openedAt.getTime() >= interval * 1000 : false;
+    const stale = openedAt ? at.getTime() - openedAt.getTime() >= interval * 1000 : false;
 
     return run(async () => {
       closeEditing();
       if (stale) await abandonPerformanceSet();
-      if (!performance?.currentSet || stale) await startPerformanceSet();
+      if (!performance?.currentSet || stale) await startPerformanceSet(at);
       setEmom({ intervalSeconds: interval, totalRounds, pausedAt: null, windowStartedAt: null });
     });
   }
@@ -1254,11 +1332,12 @@ export default function SessionScreen() {
    * Commencer une séance libre pour de bon : la séance, l'exercice et sa
    * première série naissent du même geste, celui du bouton.
    */
-  function beginFree(exerciseId: string) {
-    feelStart();
-    return startWorkoutSession()
-      .then(() => startActivity(exerciseId))
-      .then(() => startPerformanceSet())
+  function beginFree(exerciseId: string, at: Date = new Date()) {
+    feelOnTime(at);
+    ensureAlerts();
+    return startWorkoutSession(null, null, at)
+      .then(() => startActivity(exerciseId, null, at))
+      .then(() => startPerformanceSet(at))
       .then(reload)
       // L'exercice choisi ne se libère qu'une fois la séance À L'ÉCRAN. Le
       // libérer plus tôt ne laisserait plus rien pour tenir le palier, et
@@ -1277,6 +1356,7 @@ export default function SessionScreen() {
    */
   function beginFreeEmom(exerciseId: string, totalSeconds: number) {
     setConfiguringEmom(false);
+    ensureAlerts();
     setArming({
       armedAt: new Date(),
       seconds: setupSeconds,
@@ -1293,10 +1373,14 @@ export default function SessionScreen() {
    * donnerait pour début le moment où l'on range le téléphone, et sa première
    * minute serait déjà entamée quand on monte au mur.
    */
-  function launchFreeEmom(exerciseId: string, totalRounds: number): Promise<unknown> {
-    return startWorkoutSession()
-      .then(() => startActivity(exerciseId))
-      .then(() => startPerformanceSet())
+  function launchFreeEmom(
+    exerciseId: string,
+    totalRounds: number,
+    at: Date = new Date(),
+  ): Promise<unknown> {
+    return startWorkoutSession(null, null, at)
+      .then(() => startActivity(exerciseId, null, at))
+      .then(() => startPerformanceSet(at))
       .then(reload)
       .then(() => {
         setPending(null);
@@ -1381,9 +1465,10 @@ export default function SessionScreen() {
    * Commencer pour de bon : la séance est créée, puis sa première série
    * démarrée dans le même geste.
    */
-  function begin(plannedWorkoutId: string, scheduledId?: string) {
-    feelStart();
-    return beginWorkoutSession(plannedWorkoutId, scheduledId ?? null)
+  function begin(plannedWorkoutId: string, scheduledId?: string, at: Date = new Date()) {
+    ensureAlerts();
+    feelOnTime(at);
+    return beginWorkoutSession(plannedWorkoutId, scheduledId ?? null, at)
       .then(reload)
       // Le paramètre a fait son office : le garder ramènerait sur l'écran
       // d'attente si la séance était annulée. Mais il ne se vide qu'APRÈS
@@ -1502,8 +1587,8 @@ export default function SessionScreen() {
                 icon="play"
                 size="xl"
                 onPress={() =>
-                  afterCountdown(`${pendingExercise.name} · série 1`, () =>
-                    beginFree(pendingExercise.id),
+                  afterCountdown(`${pendingExercise.name} · série 1`, (at) =>
+                    beginFree(pendingExercise.id, at),
                   )
                 }
               />
@@ -1631,11 +1716,11 @@ export default function SessionScreen() {
             icon="play"
             size="xl"
             onPress={() => {
-              const start = () => begin(waiting.id, scheduledParam || undefined);
+              const start = (at?: Date) => begin(waiting.id, scheduledParam || undefined, at);
               const first = waiting.exercises[0];
               // Un premier exercice en EMOM a sa propre mise en place, qui
               // part quand on lance le rythme : pas de décompte en double.
-              if (!first || first.intervalSeconds) start();
+              if (!first || first.intervalSeconds) start(new Date());
               else afterCountdown(`${nameOf(first.exerciseId)} · série 1`, start);
             }}
           />
@@ -2424,7 +2509,7 @@ export default function SessionScreen() {
                         `${nameOf(activity.exerciseId)} · série ${nextSetIndex + 1}${
                           plannedExercise && !plannedDone ? ` sur ${plannedExercise.sets.length}` : ''
                         }`,
-                        beginSet,
+                        (at) => beginSet(at),
                       )
                     }
                   />

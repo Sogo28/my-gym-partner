@@ -42,6 +42,12 @@ export function useAt(at: number | null, onReached: () => void): void {
 }
 
 /**
+ * Au-delà de ce retard, un signal n'est plus joué : il arrive au déverrouillage,
+ * après coup, quand le système l'a déjà donné par sa notification.
+ */
+export const LATE_MS = 1000;
+
+/**
  * Les `count` dernières secondes avant `deadline`, une par une : `onSecond`
  * reçoit le nombre de secondes qui restent (5, 4, 3, 2, 1). Le zéro n'est
  * pas compris -- c'est le départ, qui a son propre signal.
@@ -64,7 +70,14 @@ export function useLastSeconds(
     for (let left = count; left >= 1; left -= 1) {
       const at = deadline - left * 1000;
       if (at < now - 50) continue;
-      timers.push(setTimeout(() => callback.current(left), Math.max(0, at - now)));
+      timers.push(
+        setTimeout(() => {
+          // Arrivé en retard -- l'app était suspendue, téléphone verrouillé --,
+          // le bip ne dit plus rien de juste : il se tait au lieu de rattraper.
+          if (Date.now() - at > LATE_MS) return;
+          callback.current(left);
+        }, Math.max(0, at - now)),
+      );
     }
     return () => timers.forEach(clearTimeout);
   }, [deadline, count]);
