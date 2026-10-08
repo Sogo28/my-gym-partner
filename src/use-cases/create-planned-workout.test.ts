@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { anExercise, aWorkoutOf, useCleanDatabase } from '../../test/support';
 import { findAll as findAllPlans } from '../infra/planned-workout-repository';
-import { createPlannedWorkout, duplicateWorkout, updatePlannedWorkout } from './create-planned-workout';
+import {
+  createPlannedWorkout,
+  duplicateWorkout,
+  retargetPlannedSet,
+  updatePlannedWorkout,
+} from './create-planned-workout';
 import { listSessionSummaries } from './session-summary';
 import {
   completePerformanceSet,
@@ -187,5 +192,35 @@ describe('Créer un entraînement', () => {
         exercises: [{ exerciseId: exercise.id, sets: [{ targets: { duration: 10 } }] }],
       }),
     ).rejects.toThrow(/s'appelle déjà/);
+  });
+});
+
+describe('Changer la cible d une série prévue', () => {
+  it('ne touche que cette série', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 3);
+
+    await retargetPlannedSet({
+      workoutId: plan.id,
+      position: 0,
+      setIndex: 1,
+      targets: { duration: 42 },
+    });
+
+    const [reloaded] = await findAllPlans();
+    expect(reloaded.exercises[0].sets.map((set) => set.targets)).toEqual([
+      plan.exercises[0].sets[0].targets,
+      { duration: 42 },
+      plan.exercises[0].sets[2].targets,
+    ]);
+  });
+
+  it('refuse une série qui n existe pas', async () => {
+    const exercise = await anExercise();
+    const plan = await aWorkoutOf(exercise.id, 1);
+
+    await expect(
+      retargetPlannedSet({ workoutId: plan.id, position: 0, setIndex: 4, targets: { duration: 5 } }),
+    ).rejects.toThrow(/n'existe plus/);
   });
 });

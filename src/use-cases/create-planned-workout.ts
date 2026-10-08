@@ -5,6 +5,7 @@ import type { MeasurementId } from '../domain/exercise/measurement';
 import {
   PlannedWorkout,
   type PlannedExercise,
+  type TargetValues,
 } from '../domain/planned-workout/planned-workout';
 import { assertTargetsAreMeasurable } from '../domain/planned-workout/target-rules';
 import { fold } from '../text';
@@ -98,4 +99,43 @@ async function assertUniqueName(name: string, excludeId?: string): Promise<void>
   if (taken) {
     throw new DomainError(`Un entraînement s'appelle déjà « ${name.trim()} ».`);
   }
+}
+
+/**
+ * Changer la cible d'UNE série prévue, depuis la séance (décidé le
+ * 2026-10-08) : quand l'ajustement du jour doit valoir aussi pour la suite.
+ *
+ * Une modification comme une autre -- mêmes règles, même enregistrement --,
+ * réduite à une série : l'écran de séance n'a pas à recomposer tout
+ * l'entraînement pour changer un chiffre.
+ */
+export async function retargetPlannedSet(input: {
+  workoutId: string;
+  position: number;
+  setIndex: number;
+  targets: TargetValues;
+}): Promise<PlannedWorkout> {
+  const workout = (await findAllWorkouts()).find((candidate) => candidate.id === input.workoutId);
+  if (!workout) {
+    throw new DomainError("Cet entraînement n'existe plus.");
+  }
+  const exercise = workout.exercises[input.position];
+  if (!exercise || !exercise.sets[input.setIndex]) {
+    throw new DomainError("Cette série n'existe plus dans l'entraînement.");
+  }
+
+  return updatePlannedWorkout({
+    workout,
+    name: workout.name,
+    exercises: workout.exercises.map((entry, position) =>
+      position === input.position
+        ? {
+            ...entry,
+            sets: entry.sets.map((set, index) =>
+              index === input.setIndex ? { targets: input.targets } : set,
+            ),
+          }
+        : entry,
+    ),
+  });
 }

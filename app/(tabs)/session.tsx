@@ -62,6 +62,7 @@ import {
 import { RestRing } from '../../src/ui/rest-ring';
 import { SetPulse } from '../../src/ui/set-pulse';
 import { nextPlannedPosition } from '../../src/domain/workout-session/next-planned';
+import { retargetPlannedSet } from '../../src/use-cases/create-planned-workout';
 import { MeasureField } from '../../src/ui/measure-field';
 import { Timer } from '../../src/ui/timer';
 import { CountdownRing, ringSizeIn } from '../../src/ui/countdown-ring';
@@ -186,6 +187,21 @@ export default function SessionScreen() {
   const [values, setValues] = useState<ValuesBySide>({});
   // La série dont on ajuste les valeurs, ouverte en tapant sa ligne.
   const [editing, setEditing] = useState<number | null>(null);
+  /**
+   * Les cibles du JOUR, changées sur des séries prévues, par performance et
+   * par rang (`<performance>:<rang>`).
+   *
+   * Elles recouvrent l'entraînement sans le modifier : une forme du jour ne
+   * réécrit pas un programme. Le garder aussi pour la suite se décide à part,
+   * une fois le réglage refermé (décidé le 2026-10-08).
+   */
+  const [todayTargets, setTodayTargets] = useState<Record<string, TargetValues>>({});
+  /** La série prévue dont on règle la cible, ouverte en tapant sa ligne. */
+  const [retargeting, setRetargeting] = useState<number | null>(null);
+  /** La cible qu'on vient de changer, en attente de savoir pour combien de temps. */
+  const [askingScope, setAskingScope] = useState<{ index: number; targets: TargetValues } | null>(
+    null,
+  );
   /** La captation ouverte, par son nom de fichier. */
   const [watching, setWatching] = useState<string | null>(null);
   /**
@@ -444,6 +460,10 @@ export default function SessionScreen() {
   const activity = session?.currentActivity;
   const plannedExercise =
     activity?.plannedPosition != null ? plan?.exercises[activity.plannedPosition] : undefined;
+  const targetKey = (index: number) => `${activity?.performanceId ?? ''}:${index}`;
+  /** Ce que vise une série prévue : la cible du jour si on l'a changée, sinon le plan. */
+  const plannedTargetsAt = (index: number): TargetValues | undefined =>
+    todayTargets[targetKey(index)] ?? plannedExercise?.sets[index]?.targets;
 
   const sets = performance?.sets ?? [];
   const nextSetIndex = sets.length;
@@ -490,7 +510,9 @@ export default function SessionScreen() {
     ? exercises.find((exercise) => exercise.id === activity.exerciseId)
     : undefined;
   const upcoming: readonly { targets: TargetValues }[] = plannedExercise
-    ? plannedExercise.sets.slice(nextSetIndex)
+    ? plannedExercise.sets
+        .slice(nextSetIndex)
+        .map((set, offset) => ({ targets: plannedTargetsAt(nextSetIndex + offset) ?? set.targets }))
     : sets.length === 0 && activityExercise
       ? [{ targets: defaultTargets(activityExercise.measurementIds) }]
       : [];
@@ -575,7 +597,7 @@ export default function SessionScreen() {
   function baseline(): ValuesBySide {
     if (!performance?.currentSet) return lastSet?.values ?? {};
 
-    const targets = plannedExercise?.sets[sets.length - 1]?.targets;
+    const targets = plannedTargetsAt(sets.length - 1);
     if (targets && Object.keys(targets).length > 0) return spreadOverSides(targets);
 
     // Hors programme : on reprend la dernière série faite, sinon ce qui a été
@@ -1032,6 +1054,72 @@ export default function SessionScreen() {
   function closeEditing() {
     setEditing(null);
     setValues({});
+    // Une cible ouverte se referme avec : changer d'exercice ou partir sur
+    // une série ne laisse pas un réglage ouvert derrière soi.
+    setRetargeting(null);
+  }
+
+  /**
+   * Ouvre ou referme la cible d'une série prévue -- à venir, ou celle en
+   * cours, tant qu'elle n'est pas notée.
+   */
+  function toggleRetarget(index: number) {
+    if (retargeting !== null) {
+      closeRetarget();
+      return;
+    }
+    closeEditing();
+    setRetargeting(index);
+  }
+
+  /**
+   * Refermer, et demander si le changement vaut aussi pour l'entraînement --
+   * seulement s'il y a changement : rouvrir une série pour la regarder ne
+   * pose aucune question.
+   */
+  function closeRetarget() {
+    if (retargeting === null) return;
+    const index = retargeting;
+    setRetargeting(null);
+    const today = todayTargets[targetKey(index)];
+    const planned = plannedExercise?.sets[index]?.targets;
+    if (today && planned && !sameTargets(today, planned)) {
+      setAskingScope({ index, targets: today });
+    }
+  }
+
+  function retarget(measurementId: string, value: number) {
+    if (retargeting === null) return;
+    const current = plannedTargetsAt(retargeting) ?? {};
+    setTodayTargets((all) => ({
+      ...all,
+      [targetKey(retargeting)]: { ...current, [measurementId]: value },
+    }));
+  }
+
+  /** Les champs de la cible ouverte : un seul côté, le plan ne les distingue pas. */
+  function retargetControls() {
+    if (retargeting === null) return null;
+    const targets = plannedTargetsAt(retargeting) ?? {};
+    return (
+      <View className="gap-1">
+        <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
+          Cible de la série {retargeting + 1}
+        </Text>
+        <View className="flex-row gap-3">
+          {(performance?.measurementIds ?? []).map((id) => (
+            <MeasureField
+              key={id}
+              unit={unitOf(id)}
+              measurementId={id}
+              value={targets[id] ?? 0}
+              onChange={(value) => retarget(id, value)}
+              onDone={durationOnly ? closeRetarget : undefined}
+            />
+          ))}
+        </View>
+      </View>
+    );
   }
 
   function beginSet() {
@@ -1991,8 +2079,16 @@ export default function SessionScreen() {
                   status={statusOf(set.status)}
                   // Une série déjà enregistrée peut être rouverte pour
                   // corriger ce qu'on a réellement fait.
-                  onPress={set.status === 'IN_PROGRESS' ? undefined : () => toggleEditing(index)}
-                  selected={editing === index}
+                  onPress={
+                    set.status === 'IN_PROGRESS'
+                      ? // En cours, elle n'a encore rien noté : c'est sa
+                        // CIBLE qui se règle, comme pour une série à venir.
+                        plannedExercise?.sets[index] && !emom
+                        ? () => toggleRetarget(index)
+                        : undefined
+                      : () => toggleEditing(index)
+                  }
+                  selected={editing === index || retargeting === index}
                   onPlay={set.videoUri ? () => setWatching(set.videoUri) : undefined}
                   values={
                     format(
@@ -2011,6 +2107,12 @@ export default function SessionScreen() {
                   index={nextSetIndex + index + 1}
                   status="planned"
                   values={formatPlanned(set.targets)}
+                  // La cible d'une série à venir se change comme on corrige
+                  // une série faite : en tapant sa ligne.
+                  onPress={
+                    plannedExercise && !emom ? () => toggleRetarget(nextSetIndex + index) : undefined
+                  }
+                  selected={retargeting === nextSetIndex + index}
                 />
               ))}
             </ScrollView>
@@ -2038,8 +2140,14 @@ export default function SessionScreen() {
                   // Repliée ou dépliée, la liste ouvre les mêmes séries : la
                   // série en cours se règle par les boutons du bas, les
                   // autres se corrigent en les tapant.
-                  onPress={set.status === 'IN_PROGRESS' ? undefined : () => toggleEditing(index)}
-                  selected={editing === index}
+                  onPress={
+                    set.status === 'IN_PROGRESS'
+                      ? plannedExercise?.sets[index] && !emom
+                        ? () => toggleRetarget(index)
+                        : undefined
+                      : () => toggleEditing(index)
+                  }
+                  selected={editing === index || retargeting === index}
                   // La série ajustée montre la valeur en cours, sans attendre
                   // le prochain rechargement.
                   values={formatShort(index === lastSetIndex && !isPast(set) ? shown : set.values) || '—'}
@@ -2051,6 +2159,10 @@ export default function SessionScreen() {
                   index={nextSetIndex + index + 1}
                   status="planned"
                   values={formatPlannedShort(set.targets)}
+                  onPress={
+                    plannedExercise && !emom ? () => toggleRetarget(nextSetIndex + index) : undefined
+                  }
+                  selected={retargeting === nextSetIndex + index}
                 />
               ))}
             </ScrollView>
@@ -2075,7 +2187,10 @@ export default function SessionScreen() {
                mieux qu'une explication de pourquoi l'autre ne marchait pas. */
             <Pressable
               className="flex-1 items-center justify-center"
-              onPress={() => editing !== null && toggleEditing(editing)}
+              onPress={() => {
+                if (editing !== null) toggleEditing(editing);
+                closeRetarget();
+              }}
               // La zone ne dépend pas de ce qu'elle contient -- `flex-1` prend
               // ce qui RESTE --, donc la mesurer pour dimensionner l'anneau ne
               // boucle pas. On ne réécrit que si elle a bougé, par prudence.
@@ -2130,7 +2245,10 @@ export default function SessionScreen() {
                donc pas de bouton pour le dire. */
             <Pressable
               className="flex-1 items-center justify-center"
-              onPress={() => editing !== null && toggleEditing(editing)}
+              onPress={() => {
+                if (editing !== null) toggleEditing(editing);
+                closeRetarget();
+              }}
               // Mesurée comme celle de l'anneau d'un EMOM, pour la même
               // raison : l'anneau du repos prend la place qu'il reste.
               onLayout={({ nativeEvent }) => {
@@ -2146,7 +2264,7 @@ export default function SessionScreen() {
             >
               {/* La série en cours respire au centre : l'écran dit qu'elle
                   tourne, et depuis combien de temps. */}
-              {!resting && liveSetStartedAt !== null && editing === null && (
+              {!resting && liveSetStartedAt !== null && editing === null && retargeting === null && (
                 <SetPulse
                   elapsedSeconds={Math.max(0, Math.floor((Date.now() - liveSetStartedAt) / 1000))}
                   values={format(shown)}
@@ -2156,7 +2274,7 @@ export default function SessionScreen() {
               {/* Pendant qu'on corrige une série, les champs prennent la
                   place : le chrono seul suffit à dire le repos. */}
               {resting &&
-                (editing !== null ? (
+                (editing !== null || retargeting !== null ? (
                   <Timer seconds={restElapsed} />
                 ) : (
                   <>
@@ -2189,8 +2307,10 @@ export default function SessionScreen() {
                 un EMOM. Un seul emplacement, donc un seul comportement à
                 vérifier -- et c'est celui dont on sait qu'il répond. */}
             {editing !== null && editedSet && setControls()}
+            {retargetControls()}
 
             {editing === null &&
+              retargeting === null &&
               (emomOffered ? (
                 /* Le plan veut cet exercice en EMOM, et le rythme n'est pas
                    lancé : c'est LA chose à faire ici, avant la série elle-même
@@ -2397,6 +2517,46 @@ export default function SessionScreen() {
         onClose={() => setSheet('none')}
       />
       {exercisePicker(addExercise)}
+      {/* Demandé à chaque fois (décidé le 2026-10-08) : ni l'un ni l'autre
+          n'est toujours le bon -- un jour sans ne doit pas réécrire le
+          programme, un vrai progrès doit pouvoir y rester. Refermer sans
+          choisir garde le changement pour aujourd'hui seulement. */}
+      <Sheet
+        visible={askingScope !== null}
+        title="Garder ce changement ?"
+        description={
+          askingScope
+            ? `Série ${askingScope.index + 1} : ${formatPlanned(askingScope.targets)}`
+            : undefined
+        }
+        actions={[
+          {
+            label: "Seulement aujourd'hui",
+            icon: 'today-outline' as const,
+            onPress: () => setAskingScope(null),
+          },
+          {
+            label: "Aussi dans l'entraînement",
+            icon: 'save-outline' as const,
+            onPress: () => {
+              const scope = askingScope;
+              setAskingScope(null);
+              if (!scope || !plan || activity?.plannedPosition == null) return;
+              const position = activity.plannedPosition;
+              run(async () => {
+                await retargetPlannedSet({
+                  workoutId: plan.id,
+                  position,
+                  setIndex: scope.index,
+                  targets: scope.targets,
+                });
+                notify("L'entraînement est mis à jour.", 'success');
+              });
+            },
+          },
+        ]}
+        onClose={() => setAskingScope(null)}
+      />
       <SetVideoViewer
         uri={watching ? fileUri(watching) : null}
         onClose={() => setWatching(null)}
@@ -2453,4 +2613,10 @@ function statusOf(status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED'): SetRowStat
   if (status === 'COMPLETED') return 'completed';
   if (status === 'ABANDONED') return 'abandoned';
   return 'in-progress';
+}
+
+/** Deux cibles disent-elles la même chose ? L'ordre des mesures ne compte pas. */
+function sameTargets(a: TargetValues, b: TargetValues): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) => (a[key] ?? 0) === (b[key] ?? 0));
 }
