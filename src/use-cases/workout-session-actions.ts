@@ -285,10 +285,19 @@ export async function startPerformanceSet(at?: Date): Promise<ExercisePerformanc
 }
 
 /** CompletePerformanceSet (§29), suivi du repos qui s'enchaîne (§13). */
-export async function completePerformanceSet(values: ValuesBySide): Promise<ExercisePerformance> {
-  const performance = await onCurrentPerformance((p, now) => p.completeCurrentSet(values, now));
+export async function completePerformanceSet(
+  values: ValuesBySide,
+  /**
+   * Quand elle s'est terminée, si ce n'est pas maintenant : à la fin d'un
+   * round d'EMOM passé pendant que le téléphone était verrouillé.
+   */
+  at?: Date,
+): Promise<ExercisePerformance> {
+  const performance = await onCurrentPerformance((p, now) =>
+    p.completeCurrentSet(values, at ?? now),
+  );
   await onActiveSession((session, now) => {
-    if (!session.currentRest) session.startRest(now);
+    if (!session.currentRest) session.startRest(at ?? now);
   });
   return performance;
 }

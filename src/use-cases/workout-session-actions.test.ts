@@ -439,4 +439,29 @@ describe('Démarrer à l heure du zéro', () => {
     const session = await findActive();
     expect(session!.rests.at(-1)!.endedAt!.getTime()).toBe(zero.getTime());
   });
+
+  it('clôt un round à sa minute, et non au déverrouillage', async () => {
+    const exercise = await anExercise();
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    const start = new Date(Date.now() - 125_000);
+    await startPerformanceSet(start);
+
+    // Deux minutes passées téléphone verrouillé : le premier round finit à
+    // sa minute, le second commence à la même, et se finit à la suivante.
+    const first = new Date(start.getTime() + 60_000);
+    const second = new Date(start.getTime() + 120_000);
+    await completePerformanceSet({ BOTH: { duration: 10 } }, first);
+    await startPerformanceSet(first);
+    await completePerformanceSet({ BOTH: { duration: 10 } }, second);
+    await startPerformanceSet(second);
+
+    const sets = await currentSets();
+    expect(sets.map((set) => set.startedAt.getTime())).toEqual([
+      start.getTime(),
+      first.getTime(),
+      second.getTime(),
+    ]);
+    expect(sets[0].endedAt!.getTime()).toBe(first.getTime());
+  });
 });

@@ -662,12 +662,39 @@ export default function SessionScreen() {
    * au tap sur "Fini", pas en silence à la fin du minuteur.
    */
   useAt(emom && !isFinalEmomRound ? emomDeadline : null, () => {
-    if (advancingEmomRound.current) return;
+    if (advancingEmomRound.current || !emom || emomDeadline === null) return;
     advancingEmomRound.current = true;
 
+    /**
+     * Le round se clôt À SA MINUTE, et le suivant part à la même : pas au
+     * moment où l'écran s'en aperçoit. Téléphone verrouillé, l'app était
+     * suspendue -- le système a vibré à chaque round (voir les signaux plus
+     * bas), donc ils ont été faits : ceux qui sont passés entiers pendant
+     * ce temps sont notés avec leur cible, et l'horloge ne glisse pas d'un
+     * déverrouillage à l'autre (décidé le 2026-10-08).
+     *
+     * Jamais au-delà de l'avant-dernier : le dernier round se clôt au tap,
+     * comme toujours.
+     */
+    const interval = emom.intervalSeconds * 1000;
+    const total = emom.totalRounds;
+    let boundary = emomDeadline;
+    let started = sets.length;
+    const valuesOfRound = (index: number): ValuesBySide => {
+      const targets = plannedTargetsAt(index);
+      return targets && Object.keys(targets).length > 0 ? spreadOverSides(targets) : shown;
+    };
+
     run(async () => {
-      if (performance?.currentSet) await completePerformanceSet(shown);
-      await startPerformanceSet();
+      if (performance?.currentSet) await completePerformanceSet(shown, new Date(boundary));
+      await startPerformanceSet(new Date(boundary));
+      started += 1;
+      while (boundary + interval <= Date.now() && started < total) {
+        boundary += interval;
+        await completePerformanceSet(valuesOfRound(started - 1), new Date(boundary));
+        await startPerformanceSet(new Date(boundary));
+        started += 1;
+      }
       // Le round suivant part de SA série : ce qu'une pause avait décalé ne
       // vaut que pour la fenêtre qu'elle a interrompue.
       setEmom((current) => (current ? { ...current, windowStartedAt: null } : current));
@@ -691,6 +718,10 @@ export default function SessionScreen() {
       return;
     }
     soundedRound.current = round;
+    // Un round rattrapé au déverrouillage a déjà eu sa vibration -- celle du
+    // système, à l'heure : le dire encore ici serait un signal en retard.
+    const startedAt = sets[round - 1]?.startedAt.getTime() ?? Date.now();
+    if (Date.now() - startedAt > LATE_MS) return;
     playRoundStart();
     // La musique peut couvrir les bips : le téléphone dans la poche, lui,
     // se sent.
@@ -709,7 +740,16 @@ export default function SessionScreen() {
     const performanceId = activity?.performanceId ?? null;
     const previous = feltDone.current;
     feltDone.current = { performanceId, count: completedCount };
-    if (performanceId !== null && performanceId === previous.performanceId && completedCount > previous.count) {
+    // Pas pour une série close à une heure déjà passée -- un round rattrapé
+    // au déverrouillage : vibrer maintenant ne dirait rien de juste.
+    const lastDone = [...sets].reverse().find((set) => set.status === 'COMPLETED');
+    const late = lastDone?.endedAt ? Date.now() - lastDone.endedAt.getTime() > LATE_MS : false;
+    if (
+      performanceId !== null &&
+      performanceId === previous.performanceId &&
+      completedCount > previous.count &&
+      !late
+    ) {
       feelSetDone();
     }
   }, [activity?.performanceId, completedCount]);
@@ -907,6 +947,21 @@ export default function SessionScreen() {
     }
   }
   useSessionAlerts(restAlerts, `${restStartedAt}|${restEvery}|${restSignalChoice}`);
+
+  /**
+   * Le départ de chaque round d'EMOM, pour le téléphone verrouillé : le seul
+   * signal qui compte pendant un EMOM, celui qui dit « c'est reparti ». Le
+   * dernier round prévu compris ; au-delà, le choix se fait à l'écran.
+   */
+  const roundAlerts: SessionAlert[] = [];
+  if (emom && emomDeadline !== null) {
+    const interval = emom.intervalSeconds * 1000;
+    for (let next = sets.length + 1, at = emomDeadline; next <= emom.totalRounds; next += 1) {
+      roundAlerts.push({ at, title: `Round ${next}/${emom.totalRounds}`, body: nameOf(activity?.exerciseId ?? '') });
+      at += interval;
+    }
+  }
+  useSessionAlerts(roundAlerts, `${emomDeadline}|${emom?.totalRounds}|${sets.length}`);
 
   /**
    * Suspendre le rythme, et le reprendre là où il en était.
