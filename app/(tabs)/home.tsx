@@ -82,11 +82,10 @@ export default function HomeScreen() {
   const [dayWork, setDayWork] = useState<MuscleSummary>(EMPTY);
   /** Les séances réellement FAITES le jour regardé. */
   const [daySessions, setDaySessions] = useState<DaySession[]>([]);
-  /** Le bilan de la dernière séance faite ce jour-là : ce que sa carte raconte. */
-  const [dayBilan, setDayBilan] = useState<{
-    summary: SessionSummary;
-    records: SessionRecord[];
-  } | null>(null);
+  /** Le bilan de chaque séance faite ce jour-là : ce que sa carte raconte. */
+  const [dayBilans, setDayBilans] = useState<
+    Map<string, { summary: SessionSummary; records: SessionRecord[] }>
+  >(new Map());
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -156,12 +155,14 @@ export default function HomeScreen() {
       findSessionsOn(day ?? new Date())
         .then(async (sessions) => {
           setDaySessions(sessions);
-          // Seule la dernière s'affiche : c'est d'elle seule qu'on lit le bilan.
-          const last = sessions.at(-1);
-          const summary = last ? await findSessionSummary(last.id) : null;
-          setDayBilan(
-            summary ? { summary, records: await findSessionRecords(summary) } : null,
-          );
+          // Toutes, désormais : une journée en compte rarement plus de deux,
+          // et chacune a sa carte (décidé le 2026-10-08).
+          const bilans = new Map<string, { summary: SessionSummary; records: SessionRecord[] }>();
+          for (const entry of sessions) {
+            const summary = await findSessionSummary(entry.id);
+            if (summary) bilans.set(entry.id, { summary, records: await findSessionRecords(summary) });
+          }
+          setDayBilans(bilans);
         })
         .catch((e) => notify(messageOf(e)));
     }, [day]),
@@ -175,7 +176,7 @@ export default function HomeScreen() {
    * n'est pas chargé, ou pour une séance qui n'a pas de fin.
    */
   const bilanOf = (entry: DaySession): MetaItem[] => {
-    const bilan = dayBilan?.summary.session.id === entry.id ? dayBilan : null;
+    const bilan = dayBilans.get(entry.id) ?? null;
     const items: MetaItem[] = [];
 
     if (bilan?.summary.duration != null) {
@@ -426,44 +427,59 @@ export default function HomeScreen() {
                   qu'on vient voir, et une séance libre n'existe qu'ici --
                   aucun calendrier ne l'a jamais connue.
 
-                  Une SEULE, la dernière, même si la journée en compte
-                  plusieurs : l'accueil dit où l'on en est, pas ce qu'on a
-                  fait en détail. L'historique, lui, les garde toutes. */}
-              {daySessions.slice(-1).map((entry) => (
-                <Pressable
-                  key={entry.id}
-                  onPress={() =>
-                    router.push({ pathname: '/session-summary', params: { id: entry.id } })
-                  }
+                  Toutes les séances du jour, la plus récente en PREMIER : deux
+                  séances dans la journée n'en montraient qu'une. Elles
+                  défilent comme les objectifs, la suivante dépassant au bord
+                  pour dire qu'il y en a d'autres (décidé le 2026-10-08). */}
+              {daySessions.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="grow-0"
+                  contentContainerClassName="items-start gap-2 pb-1 pr-4"
                 >
-                  {/* Un filet vert et une coche : FAITE se distingue d'un coup
-                      d'oeil de prévue, comme une série validée d'une série
-                      à faire. */}
-                  <Card
-                    density="titled"
-                    className="gap-2 border-l-[3px] border-l-success dark:border-l-success-dark"
-                  >
-                    <View className="flex-row items-start justify-between gap-3">
-                      <Text
-                        className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
-                        numberOfLines={1}
+                  {[...daySessions].reverse().map((entry) => (
+                    <Pressable
+                      key={entry.id}
+                      style={{
+                        width:
+                          daySessions.length > 1
+                            ? Math.round((screenWidth - 40) * 0.88)
+                            : screenWidth - 40,
+                      }}
+                      onPress={() =>
+                        router.push({ pathname: '/session-summary', params: { id: entry.id } })
+                      }
+                    >
+                      {/* Un filet vert et une coche : FAITE se distingue d'un
+                          coup d'oeil de prévue, comme une série validée d'une
+                          série à faire. */}
+                      <Card
+                        density="titled"
+                        className="gap-2 border-l-[3px] border-l-success dark:border-l-success-dark"
                       >
-                        {entry.plannedWorkoutId
-                          ? planNameOf(entry.plannedWorkoutId)
-                          : 'Séance libre'}
-                      </Text>
-                      <Text className="font-mono text-caption text-muted dark:text-muted-dark">
-                        {formatTime(entry.startedAt)}
-                      </Text>
-                    </View>
-                    {/* Le filet dit déjà « faite » : la ligne dit ce qu'elle a
-                        donné. Pas de volume total : celui d'un exercice ne se
-                        compare qu'à lui-même, et additionner des tractions et
-                        des tenues ne donnerait aucun nombre qui ait un sens. */}
-                    <MetaLine items={bilanOf(entry)} />
-                  </Card>
-                </Pressable>
-              ))}
+                        <View className="flex-row items-start justify-between gap-3">
+                          <Text
+                            className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
+                            numberOfLines={1}
+                          >
+                            {entry.plannedWorkoutId
+                              ? planNameOf(entry.plannedWorkoutId)
+                              : 'Séance libre'}
+                          </Text>
+                          <Text className="font-mono text-caption text-muted dark:text-muted-dark">
+                            {formatTime(entry.startedAt)}
+                          </Text>
+                        </View>
+                        {/* Le filet dit déjà « faite » : la ligne dit ce
+                            qu'elle a donné. Pas de volume total : celui d'un
+                            exercice ne se compare qu'à lui-même. */}
+                        <MetaLine items={bilanOf(entry)} />
+                      </Card>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
 
               {plannedThatDay.map((entry) => (
                 <Card key={entry.id} density="titled" className="gap-2">
