@@ -5,6 +5,7 @@ import { recordReading } from './body-actions';
 import { setEvaluationWindow } from './preferences';
 import { archiveGoal, createGoal, evaluateGoal, goalsReachedBy, listGoals } from './goal-actions';
 import {
+  cancelWorkoutSession,
   completePerformanceSet,
   finishActivity,
   finishWorkoutSession,
@@ -102,6 +103,26 @@ describe('LAST_SESSION', () => {
 
     // La séance vide ne masque pas la précédente.
     expect(evaluation!.results[0].actual).toBe(10);
+  });
+
+  it('ignore une séance annulée, même avec des séries validées', async () => {
+    const exercise = await anExercise();
+    await aSessionOf(exercise.id, [10, 11, 9]);
+
+    // Plus récente, mais annulée : elle ne compte pas (décidé le 2026-10-08).
+    await startWorkoutSession();
+    await startActivity(exercise.id);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration: 3 } });
+    await cancelWorkoutSession();
+
+    const evaluation = await evaluateGoal(await goalOn(exercise.id, [hold()]));
+    expect(evaluation!.results[0].actual).toBe(10);
+
+    // Sur tout l'historique non plus.
+    await setEvaluationWindow('ALL_TIME');
+    const allTime = await evaluateGoal(await goalOn(exercise.id, [hold()]));
+    expect(allTime!.results[0].actual).toBe(10);
   });
 
   it('ne trouve rien quand l exercice n a jamais été travaillé', async () => {

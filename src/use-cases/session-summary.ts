@@ -150,6 +150,8 @@ export type SessionRecord = BeatenRecord & { readonly exerciseId: string };
  */
 export async function findSessionRecords(summary: SessionSummary): Promise<SessionRecord[]> {
   const { session } = summary;
+  // Annulée, elle n'a rien battu : elle ne compte pas (décidé le 2026-10-08).
+  if (session.status === 'CANCELLED') return [];
   const exerciseIds = [...new Set(summary.activities.map((activity) => activity.exerciseId))];
   const records: SessionRecord[] = [];
 

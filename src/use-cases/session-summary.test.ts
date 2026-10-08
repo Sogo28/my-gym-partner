@@ -233,4 +233,28 @@ describe('Records battus par une séance', () => {
     // Relue après coup, la deuxième séance a toujours battu la première.
     expect((await recordsOf(second)).map((record) => record.value)).toEqual([12]);
   });
+
+  /** Une séance d'une série validée, puis annulée. */
+  async function aCancelledSessionOn(day: number, exerciseId: string, duration: number) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, day, 18, 0));
+    const session = await startWorkoutSession();
+    await startActivity(exerciseId);
+    await startPerformanceSet();
+    await completePerformanceSet({ BOTH: { duration } });
+    await cancelWorkoutSession();
+    return session.id;
+  }
+
+  it('ne compte pas une séance annulée, ni comme record ni comme référence', async () => {
+    const exercise = await anExercise();
+    await aSessionOn(1, exercise.id, 10);
+    const cancelled = await aCancelledSessionOn(2, exercise.id, 20);
+    const third = await aSessionOn(3, exercise.id, 12);
+
+    // Les 20 s de la séance annulée n'ont rien battu, et ne barrent pas les
+    // 12 s d'après : le record se juge contre les 10 s.
+    expect(await recordsOf(cancelled)).toEqual([]);
+    expect((await recordsOf(third)).map((record) => record.previous)).toEqual([10]);
+  });
 });

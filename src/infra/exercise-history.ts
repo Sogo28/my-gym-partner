@@ -29,6 +29,9 @@ export async function findSessionsWorking(exerciseId: string): Promise<WorkedSes
      FROM workout_sessions s
      JOIN session_activities a ON a.session_id = s.id
      WHERE a.exercise_id = ?1 AND a.performance_id IS NOT NULL
+       -- Une séance annulée ne compte pas : ni dans l'historique d'un
+       -- exercice, ni dans ses records (décidé le 2026-10-08).
+       AND s.status != 'CANCELLED'
      ORDER BY s.started_at DESC, a.position;`,
     exerciseId,
   );

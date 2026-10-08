@@ -99,6 +99,7 @@ export async function findLastDoneByPlan(): Promise<Map<string, Date>> {
     `SELECT s.planned_workout_id, MAX(s.started_at) AS last
      FROM workout_sessions s
      WHERE s.planned_workout_id IS NOT NULL
+       AND s.status != 'CANCELLED'
        AND EXISTS (
          SELECT 1
          FROM session_activities a

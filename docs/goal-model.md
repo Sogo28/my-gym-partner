@@ -119,8 +119,9 @@ séance), **ses deux performances comptent ensemble** (décidé le 2026-09-06) :
     18h40  Advanced Tuck   6s · 5s        ← finisher
     → moyenne évaluée : (10+11+9+6+5)/5 = 8,2 s
 
-Les séances **annulées** comptent : leurs séries validées restent des
-performances (décision gelée n°15).
+Les séances **annulées** ne comptent pas : leurs séries validées restent
+lisibles dans l'historique, mais ne font ni records ni objectifs (décidé avec
+Daniel le 2026-10-08, à la place de la décision gelée n°15).
 
 **`ALL_TIME`** — tout l'historique de l'exercice, séances confondues.
 

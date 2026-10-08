@@ -60,8 +60,10 @@ async function samplesFor(
  * précédente. Et si l'exercice y a été repris une seconde fois -- un finisher
  * en fin de séance -- ses deux performances comptent ensemble.
  *
- * Les séances ANNULÉES comptent : leurs séries validées restent des
- * performances (décision gelée n°15).
+ * Les séances ANNULÉES ne comptent pas (décidé avec Daniel le 2026-10-08,
+ * à la place de la décision gelée n°15) : annuler une séance, c'est dire
+ * qu'elle n'a pas eu lieu. Ses séries restent lisibles dans l'historique,
+ * mais ne font ni records ni objectifs.
  */
 async function lastSessionSets(exerciseId: string): Promise<readonly PerformanceSet[]> {
   const db = await getDatabase();
@@ -72,6 +74,7 @@ async function lastSessionSets(exerciseId: string): Promise<readonly Performance
      JOIN session_activities a ON a.session_id = s.id AND a.exercise_id = ?1
      JOIN performance_sets ps
        ON ps.performance_id = a.performance_id AND ps.status = 'COMPLETED'
+     WHERE s.status != 'CANCELLED'
      ORDER BY s.started_at DESC
      LIMIT 1;`,
     exerciseId,
@@ -89,11 +92,20 @@ async function lastSessionSets(exerciseId: string): Promise<readonly Performance
   return setsOf(rows.map((row) => row.performance_id));
 }
 
-/** Tout l'historique de l'exercice, séances confondues. */
+/** Tout l'historique de l'exercice, séances confondues -- sauf les annulées. */
 async function allTimeSets(exerciseId: string): Promise<readonly PerformanceSet[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ id: string }>(
-    'SELECT id FROM exercise_performances WHERE exercise_id = ? ORDER BY started_at;',
+    `SELECT p.id
+     FROM exercise_performances p
+     WHERE p.exercise_id = ?1
+       AND NOT EXISTS (
+         SELECT 1
+         FROM session_activities a
+         JOIN workout_sessions s ON s.id = a.session_id
+         WHERE a.performance_id = p.id AND s.status = 'CANCELLED'
+       )
+     ORDER BY p.started_at;`,
     exerciseId,
   );
   return setsOf(rows.map((row) => row.id));
