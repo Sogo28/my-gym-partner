@@ -242,6 +242,12 @@ export default function SessionScreen() {
   } | null>(null);
   /** Même rôle que `launchingEmom`, pour le départ d'une série. */
   const launchingSet = useRef(false);
+  /**
+   * La série qui part à zéro sera-t-elle filmée ? Coché pendant le décompte ;
+   * un ref en plus de l'état, pour que le départ lise le dernier choix.
+   */
+  const [filmNext, setFilmNext] = useState(false);
+  const filmNextRef = useRef(false);
   const [beforeSetSeconds, setBeforeSetSeconds] = useState(3);
   const [restSignalChoice, setRestSignalChoice] = useState<RestSignal>('vibration');
   const [restEvery, setRestEvery] = useState(60);
@@ -774,10 +780,20 @@ export default function SessionScreen() {
     // fiche de l'entraînement, le temps que la séance naisse.
     launchingSet.current = true;
     playRoundStart();
-    getReady.go().finally(() => {
-      setGetReady(null);
-      launchingSet.current = false;
-    });
+    const filming = filmNextRef.current;
+    getReady
+      .go()
+      // La caméra s'ouvre sur la série qui vient de naître, avec son propre
+      // décompte : celui-ci a servi à se préparer, l'autre sert à poser le
+      // téléphone et reculer.
+      .then(() => (filming ? filmCurrentSet() : undefined))
+      .catch((e) => notify(messageOf(e)))
+      .finally(() => {
+        setGetReady(null);
+        filmNextRef.current = false;
+        setFilmNext(false);
+        launchingSet.current = false;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getReady, readying?.ready]);
 
@@ -785,6 +801,27 @@ export default function SessionScreen() {
    * Décompter, puis faire ce qu'on a tapé. Sans décompte réglé, tout de
    * suite, comme avant.
    */
+  /**
+   * Ouvre la caméra sur la série EN COURS, relue en base : au départ d'une
+   * séance, l'écran ne connaît pas encore la performance qui vient de naître.
+   */
+  async function filmCurrentSet() {
+    const active = await findActive();
+    const performanceId = active?.currentActivity?.performanceId;
+    if (!performanceId) return;
+    const current = await findPerformanceById(performanceId);
+    if (!current?.currentSet) return;
+    router.push({
+      pathname: '/record',
+      params: { performance: performanceId, set: String(current.sets.length - 1) },
+    });
+  }
+
+  function toggleFilmNext() {
+    filmNextRef.current = !filmNextRef.current;
+    setFilmNext(filmNextRef.current);
+  }
+
   function afterCountdown(caption: string, go: () => Promise<unknown>) {
     if (beforeSetSeconds <= 0) {
       go();
@@ -1323,7 +1360,13 @@ export default function SessionScreen() {
         remainingSeconds={readying.remainingSeconds}
         title="Prépare-toi"
         caption={getReady.caption}
-        onCancel={() => setGetReady(null)}
+        onCancel={() => {
+          setGetReady(null);
+          filmNextRef.current = false;
+          setFilmNext(false);
+        }}
+        filming={filmNext}
+        onToggleFilming={toggleFilmNext}
       />
     ) : null;
 

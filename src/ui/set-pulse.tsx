@@ -90,7 +90,9 @@ export function SetPulse({
         En cours
       </Text>
       <Text
-        className="font-mono-bold text-timer tracking-tighter text-ink dark:text-ink-dark"
+        // Bien plus petit que le chrono du repos : les deux occupent la même
+        // place, et un même grand chiffre se confondait d'un coup d'oeil.
+        className="font-mono-bold text-[30px] leading-[34px] tracking-tighter text-ink dark:text-ink-dark"
         style={{ fontVariant: ['tabular-nums'] }}
       >
         {formatClock(elapsedSeconds)}

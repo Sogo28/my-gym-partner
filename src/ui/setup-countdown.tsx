@@ -1,5 +1,6 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Button } from './button';
+import { Checkbox } from './checkbox';
 
 /**
  * Le décompte avant le premier round d'un EMOM -- et, depuis le 2026-10-07,
@@ -18,6 +19,8 @@ export function SetupCountdown({
   title,
   caption,
   onCancel,
+  filming,
+  onToggleFilming,
 }: {
   remainingSeconds: number;
   /** « Mise en place », « Prépare-toi ». */
@@ -25,6 +28,12 @@ export function SetupCountdown({
   /** Ce qui part à zéro : « Tractions · série 3 sur 4 ». */
   caption: string;
   onCancel: () => void;
+  /**
+   * Filmer la série qui part à zéro. Fourni pour une série ordinaire
+   * seulement : un round d'EMOM ne se filme pas (voir l'écran de séance).
+   */
+  filming?: boolean;
+  onToggleFilming?: () => void;
 }) {
   return (
     <View className="absolute inset-0 items-center justify-center gap-5 bg-background px-5 dark:bg-background-dark">
@@ -45,6 +54,21 @@ export function SetupCountdown({
       >
         {caption}
       </Text>
+
+      {/* Décidé pendant le décompte, pas avant : c'est en se mettant en
+          place qu'on voit si la série vaut d'être revue. */}
+      {onToggleFilming && (
+        <Pressable
+          onPress={onToggleFilming}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: Boolean(filming) }}
+          hitSlop={8}
+          className="flex-row items-center gap-2.5 py-2 active:opacity-60"
+        >
+          <Checkbox checked={Boolean(filming)} />
+          <Text className="text-body text-ink dark:text-ink-dark">Filmer cette série</Text>
+        </Pressable>
+      )}
 
       <View className="pt-2">
         <Button label="Annuler" variant="secondary" size="lg" onPress={onCancel} />
