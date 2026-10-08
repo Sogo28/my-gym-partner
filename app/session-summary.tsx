@@ -417,7 +417,7 @@ export default function SessionSummaryScreen() {
                                   status={compareToPlan(plannedSet?.targets, done?.set.values)}
                                 />
                                 <Text
-                                  className="flex-1 text-right font-mono-bold text-body text-ink dark:text-ink-dark"
+                                  className="flex-1 text-right font-mono-bold text-small text-ink dark:text-ink-dark"
                                   numberOfLines={1}
                                 >
                                   {done ? formatSetValues(done.set.values, unitOf) : '—'}
@@ -464,7 +464,7 @@ export default function SessionSummaryScreen() {
                             <View className="flex-row items-center gap-2 rounded-lg bg-surface-alt px-3 py-2.5 dark:bg-surface-alt-dark">
                               <SetIndex index={position + 1} />
                               <Text
-                                className="flex-1 font-mono-bold text-body text-ink dark:text-ink-dark"
+                                className="flex-1 font-mono-bold text-small text-ink dark:text-ink-dark"
                               >
                                 {formatSetValues(done.set.values, unitOf)}
                               </Text>

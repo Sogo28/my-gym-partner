@@ -18,7 +18,7 @@ export function RepeatBadge({ count, done }: { count: number; done: boolean }) {
     >
       <Text
         className={cn(
-          'font-mono-bold text-small',
+          'font-mono-bold text-caption',
           done ? 'text-success dark:text-success-dark' : 'text-ink dark:text-ink-dark',
         )}
         style={{ fontVariant: ['tabular-nums'] }}
