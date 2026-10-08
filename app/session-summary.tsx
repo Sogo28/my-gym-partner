@@ -40,6 +40,7 @@ import { feelRecord } from '../src/ui/haptics';
 import { PALETTE } from '../src/ui/palette';
 import { PhotoViewer } from '../src/ui/photo-viewer';
 import { RecordsCard } from '../src/ui/records-card';
+import { Confetti } from '../src/ui/confetti';
 import { DetailContent, DetailFooter, DetailLayout } from '../src/ui/detail-layout';
 import { SetIndex } from '../src/ui/set-index';
 import { RepeatBadge } from '../src/ui/repeat-badge';
@@ -582,6 +583,10 @@ export default function SessionSummaryScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
+
+      {/* À la fin d'une séance seulement : relire une vieille séance ne fête
+          rien. Posés en dernier, par-dessus tout le bilan. */}
+      {fresh && <Confetti />}
     </DetailLayout>
   );
 }

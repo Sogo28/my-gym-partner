@@ -2384,7 +2384,6 @@ export default function SessionScreen() {
               {!resting && liveSetStartedAt !== null && editing === null && retargeting === null && (
                 <SetPulse
                   startedAt={liveSetStartedAt}
-                  values={format(shown)}
                   size={ringSizeIn(ringBox)}
                 />
               )}
