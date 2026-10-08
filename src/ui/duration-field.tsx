@@ -133,7 +133,7 @@ function DurationSheet({
           unit="s"
           value={seconds}
           onChange={(s) => onChange(minutes * 60 + s)}
-          loop
+
         />
       </View>
     </Sheet>
