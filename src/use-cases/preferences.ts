@@ -235,3 +235,22 @@ export async function weightInput(): Promise<WeightInput> {
 export async function setWeightInput(unit: WeightInput): Promise<void> {
   await writeSetting(WEIGHT_INPUT_KEY, unit);
 }
+
+/**
+ * Sauvegarder en ligne les vidéos des séries, ou non (décidé le 2026-10-08).
+ *
+ * Ce sont les fichiers les plus lourds : une série filmée longtemps peut
+ * dépasser ce que le projet accepte, et les envoyer coûte des données
+ * mobiles. On peut préférer les garder dans la galerie du téléphone -- le
+ * lecteur d'une série sait les y enregistrer. Incluses par défaut : ne rien
+ * perdre est le choix qui ne surprend personne.
+ */
+const SET_VIDEOS_IN_BACKUP_KEY = 'cloud.includeSetVideos';
+
+export async function includeSetVideosInBackup(): Promise<boolean> {
+  return (await readSetting(SET_VIDEOS_IN_BACKUP_KEY)) !== 'false';
+}
+
+export async function setIncludeSetVideosInBackup(include: boolean): Promise<void> {
+  await writeSetting(SET_VIDEOS_IN_BACKUP_KEY, include ? 'true' : 'false');
+}

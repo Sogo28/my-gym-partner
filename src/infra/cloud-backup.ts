@@ -16,7 +16,7 @@ import { supabase } from './supabase';
  * les dix dernières restent : une base effacée par erreur puis sauvegardée
  * par-dessus emporterait sinon la seule copie qui valait quelque chose.
  */
-const BUCKET = 'backups';
+export const BACKUP_BUCKET = 'backups';
 
 /** Combien de générations on garde. Au-delà, la plus ancienne s'efface. */
 export const KEPT_GENERATIONS = 10;
@@ -38,7 +38,7 @@ export type CloudBackup = {
  */
 export async function listCloudBackups(userId: string): Promise<CloudBackup[]> {
   const { data, error } = await supabase()
-    .storage.from(BUCKET)
+    .storage.from(BACKUP_BUCKET)
     .list(userId, { limit: 100, sortBy: { column: 'name', order: 'desc' } });
 
   if (error) throw storageFailure(error);
@@ -66,7 +66,7 @@ export async function uploadBackup(
   const path = `${userId}/${fileNameAt(at)}`;
 
   const { error } = await supabase()
-    .storage.from(BUCKET)
+    .storage.from(BACKUP_BUCKET)
     .upload(path, body, { contentType: 'application/json' });
 
   if (error) throw storageFailure(error);
@@ -83,7 +83,7 @@ export async function uploadBackup(
  * JSON.
  */
 export async function downloadBackup(path: string): Promise<Backup> {
-  const { data, error } = await supabase().storage.from(BUCKET).createSignedUrl(path, 60);
+  const { data, error } = await supabase().storage.from(BACKUP_BUCKET).createSignedUrl(path, 60);
   if (error) throw storageFailure(error);
 
   const response = await fetch(data.signedUrl);
@@ -101,7 +101,7 @@ export async function downloadBackup(path: string): Promise<Backup> {
 /** Efface des sauvegardes. Le compte ne peut atteindre que les siennes. */
 export async function removeBackups(paths: string[]): Promise<void> {
   if (paths.length === 0) return;
-  const { error } = await supabase().storage.from(BUCKET).remove(paths);
+  const { error } = await supabase().storage.from(BACKUP_BUCKET).remove(paths);
   if (error) throw storageFailure(error);
 }
 
@@ -112,7 +112,7 @@ export async function removeBackups(paths: string[]): Promise<void> {
  * différents : le seau qui n'existe pas encore est une installation à
  * terminer, le reste est une panne ordinaire.
  */
-function storageFailure(error: { message: string }): Error {
+export function storageFailure(error: { message: string }): Error {
   if (/bucket not found/i.test(error.message)) {
     return new DomainError(
       'Le seau « backups » n’existe pas encore sur le projet Supabase. Il se crée une fois, avec le script docs/supabase-storage.sql.',

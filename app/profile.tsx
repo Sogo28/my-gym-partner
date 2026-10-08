@@ -1,18 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAccount } from '../src/ui/account';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
+import { Checkbox } from '../src/ui/checkbox';
 import { formatDateTime } from '../src/ui/format';
 import { initialsOf } from '../src/ui/initials';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
 import { Sheet } from '../src/ui/sheet';
 import { signOut } from '../src/use-cases/auth-actions';
-import { applyBackup, type BackupPreview } from '../src/use-cases/backup-actions';
 import {
+  includeSetVideosInBackup,
+  setIncludeSetVideosInBackup,
+} from '../src/use-cases/preferences';
+import { type BackupPreview } from '../src/use-cases/backup-actions';
+import {
+  applyCloudBackup,
   cloudState,
   forgetPushHistory,
   latestCloudBackup,
@@ -26,6 +32,20 @@ import { ListContent, ListLayout } from '../src/ui/list-layout';
 function formatSize(bytes: number): string {
   if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} Ko`;
   return `${Math.round((bytes / 1_000_000) * 10) / 10} Mo`;
+}
+
+function mediaDescription(preview: BackupPreview): string {
+  if (preview.mediaFiles === null) {
+    return "Cette ancienne copie ne contient pas les fichiers médias.";
+  }
+  const excluded =
+    preview.excludedMedia > 0
+      ? ` ${preview.excludedMedia} vidéo(s) de séries n'en font pas partie, par choix.`
+      : '';
+  if ((preview.missingMedia ?? 0) > 0) {
+    return `${preview.mediaFiles} média(s) récupérable(s), ${preview.missingMedia} absent(s) de cette copie.${excluded}`;
+  }
+  return `${preview.mediaFiles} média(s) inclus.${excluded}`;
 }
 
 /**
@@ -48,9 +68,24 @@ export default function ProfileScreen() {
   const [leaving, setLeaving] = useState(false);
   const [cloud, setCloud] = useState<CloudState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState<number | null>(null);
   const [fetching, setFetching] = useState(false);
   /** La sauvegarde en ligne téléchargée, en attente de confirmation. */
   const [restoring, setRestoring] = useState<BackupPreview | null>(null);
+  /** Les vidéos des séries partent-elles avec la sauvegarde en ligne ? */
+  const [withSetVideos, setWithSetVideos] = useState(true);
+
+  useEffect(() => {
+    includeSetVideosInBackup()
+      .then(setWithSetVideos)
+      .catch(() => undefined);
+  }, []);
+
+  function toggleSetVideos() {
+    const next = !withSetVideos;
+    setWithSetVideos(next);
+    setIncludeSetVideosInBackup(next).catch((e) => notify(messageOf(e)));
+  }
 
   const userId = account?.id;
 
@@ -71,14 +106,29 @@ export default function ProfileScreen() {
   async function saveNow() {
     if (userId === undefined) return;
     setSaving(true);
+    setSavingProgress(null);
     try {
-      await pushBackup(userId);
+      const result = await pushBackup(userId, ({ sent, total }) =>
+        setSavingProgress(total > 0 ? sent / total : null),
+      );
       setCloud(await cloudState(userId));
-      notify('Sauvegardé en ligne.', 'success');
+      const excluded =
+        result.excludedMedia > 0
+          ? ` ${result.excludedMedia} vidéo(s) de séries laissée(s) de côté, comme demandé.`
+          : '';
+      notify(
+        (result.failedMedia > 0
+          ? `Données sauvegardées, mais ${result.failedMedia} média(s) ont été refusés, sans doute trop lourds. Ils seront retentés à la prochaine sauvegarde.`
+          : result.missingMedia > 0
+            ? `Données sauvegardées, mais ${result.missingMedia} média(s) manquent déjà sur ce téléphone.`
+            : `Données et ${result.mediaFiles} média(s) sauvegardés en ligne.`) + excluded,
+        result.failedMedia > 0 || result.missingMedia > 0 ? 'info' : 'success',
+      );
     } catch (e) {
       notify(messageOf(e));
     } finally {
       setSaving(false);
+      setSavingProgress(null);
     }
   }
 
@@ -97,17 +147,32 @@ export default function ProfileScreen() {
   }
 
   async function restore() {
-    if (restoring === null) return;
+    if (restoring === null || userId === undefined) return;
     const chosen = restoring;
     setRestoring(null);
+    setFetching(true);
     try {
-      await applyBackup(chosen.backup);
+      const result = await applyCloudBackup(userId, chosen.backup);
       // Ce qui vient d'être écrit n'est PAS ce qu'on avait envoyé : oublier
       // l'empreinte évite que la sauvegarde automatique se croie à jour.
       await forgetPushHistory();
-      notify('Données restaurées.', 'success');
+      if (!result.includedMedia) {
+        notify('Données restaurées. Cette ancienne sauvegarde ne contenait pas les médias.');
+      } else if (result.missingMedia > 0) {
+        notify(
+          `Données restaurées, mais ${result.missingMedia} média(s) manquaient à cette sauvegarde.`,
+        );
+      } else if (result.excludedMedia > 0) {
+        notify(
+          `Données et ${result.restoredMedia} média(s) restaurés. ${result.excludedMedia} vidéo(s) de séries n'étaient pas dans cette sauvegarde, par choix.`,
+        );
+      } else {
+        notify(`Données et ${result.restoredMedia} média(s) restaurés.`, 'success');
+      }
     } catch (e) {
       notify(messageOf(e));
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -162,8 +227,8 @@ export default function ProfileScreen() {
                     Sauvegarde en ligne
                   </Text>
                   <Text className="text-small text-muted dark:text-muted-dark">
-                    Une copie de tout part chez Supabase à l’ouverture de l’application, quand
-                    quelque chose a changé. Les dix dernières sont gardées.
+                    La base et les photos ou vidéos locales partent chez Supabase à l’ouverture,
+                    quand quelque chose a changé. Les dix dernières copies sont gardées.
                   </Text>
 
                   <Text className="font-mono text-small text-muted dark:text-muted-dark">
@@ -171,11 +236,38 @@ export default function ProfileScreen() {
                       ? 'État inconnu · pas de réseau ?'
                       : cloud.lastSavedAt === null
                         ? 'Aucune sauvegarde en ligne'
-                        : `${formatDateTime(cloud.lastSavedAt)} · ${formatSize(cloud.size)} · ${cloud.generations} copie${cloud.generations > 1 ? 's' : ''}`}
+                        : `${formatDateTime(cloud.lastSavedAt)} · ${formatSize(cloud.size + cloud.mediaSize)} · ${cloud.mediaFiles} média${cloud.mediaFiles > 1 ? 's' : ''} · ${cloud.generations} copie${cloud.generations > 1 ? 's' : ''}`}
                   </Text>
 
+                  {/* Les vidéos des séries sont les plus lourdes : on peut
+                      préférer les garder dans la galerie, depuis leur
+                      lecteur, plutôt que de les envoyer à chaque fois. */}
+                  <Pressable
+                    onPress={toggleSetVideos}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: withSetVideos }}
+                    className="flex-row items-center gap-3 py-1 active:opacity-60"
+                  >
+                    <Checkbox checked={withSetVideos} />
+                    <View className="shrink gap-0.5">
+                      <Text className="text-body text-ink dark:text-ink-dark">
+                        Inclure les vidéos des séries
+                      </Text>
+                      <Text className="text-small text-muted dark:text-muted-dark">
+                        Décoché, elles restent sur ce téléphone : tu peux les enregistrer dans ta
+                        galerie depuis leur lecteur.
+                      </Text>
+                    </View>
+                  </Pressable>
+
                   <Button
-                    label={saving ? 'Envoi…' : 'Sauvegarder maintenant'}
+                    label={
+                      saving
+                        ? savingProgress === null
+                          ? 'Préparation…'
+                          : `Envoi ${Math.round(savingProgress * 100)} %`
+                        : 'Sauvegarder maintenant'
+                    }
                     size="md"
                     disabled={saving}
                     onPress={saveNow}
@@ -273,7 +365,8 @@ export default function ProfileScreen() {
         description={
           restoring
             ? `Du ${formatDateTime(restoring.exportedAt)} · ${restoring.exercises} exercice(s), ` +
-              `${restoring.sessions} séance(s). Tout ce que contient l'application sera remplacé.`
+              `${restoring.sessions} séance(s). ${mediaDescription(restoring)} ` +
+              `Tout ce que contient l'application sera remplacé.`
             : undefined
         }
         actions={[{ label: 'Remplacer mes données', icon: 'swap-horizontal-outline', tone: 'danger', onPress: restore }]}

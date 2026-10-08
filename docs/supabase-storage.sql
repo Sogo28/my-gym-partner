@@ -1,4 +1,4 @@
--- Le seau des sauvegardes, et les règles qui le cloisonnent.
+-- Le seau des sauvegardes (JSON et médias), et les règles qui le cloisonnent.
 --
 -- À jouer UNE FOIS dans le SQL Editor du projet Supabase. Le script est
 -- rejouable : il ne recrée rien de ce qui existe déjà.
@@ -9,7 +9,7 @@
 -- Ce qui l'en empêche, c'est Postgres. Versionner ces règles, c'est pouvoir
 -- les relire -- et constater qu'elles disent ce qu'on croit.
 
--- 1. Le seau. PRIVÉ : une sauvegarde contient tout l'historique
+-- 1. Le seau. PRIVÉ : une sauvegarde contient tout l'historique et les médias
 --    d'entraînement, et un seau public se lit sans aucun jeton.
 insert into storage.buckets (id, name, public)
 values ('backups', 'backups', false)
@@ -18,7 +18,8 @@ on conflict (id) do nothing;
 -- 2. Les politiques, une par opération.
 --
 --    Le premier segment du chemin est l'identifiant du compte
---    (`<uid>/2026-09-19T21-30-00-000Z.json`), et chaque règle exige qu'il
+--    (`<uid>/2026-09-19T21-30-00-000Z.json` et `<uid>/media/<uuid>.mp4`),
+--    et chaque règle exige qu'il
 --    corresponde au porteur du jeton. `auth.jwt() ->> 'sub'` est cet
 --    identifiant, tel que Supabase le documente.
 --

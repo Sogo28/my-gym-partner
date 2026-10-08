@@ -14,6 +14,8 @@ import {
   setRestSignalEvery,
   setWeightInput,
   weightInput,
+  includeSetVideosInBackup,
+  setIncludeSetVideosInBackup,
   setCountdownBeforeSet,
 } from './preferences';
 
@@ -104,5 +106,13 @@ describe('L unité de saisie d un poids', () => {
     expect(await weightInput()).toBe('kg');
     await setWeightInput('lbs');
     expect(await weightInput()).toBe('lbs');
+  });
+});
+
+describe('Les vidéos des séries dans la sauvegarde en ligne', () => {
+  it('sont incluses par défaut, et peuvent être laissées de côté', async () => {
+    expect(await includeSetVideosInBackup()).toBe(true);
+    await setIncludeSetVideosInBackup(false);
+    expect(await includeSetVideosInBackup()).toBe(false);
   });
 });

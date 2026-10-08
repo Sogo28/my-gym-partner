@@ -1,30 +1,16 @@
 import { randomUUID } from 'expo-crypto';
-import { Directory, File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { DomainError } from '../domain/domain-error';
 import { isRemote, type ExerciseMedia } from '../domain/exercise/media';
 import { findAll } from '../infra/exercise-repository';
+import {
+  ensureMediaDirectory,
+  localMediaFile,
+  mediaDirectory,
+} from '../infra/local-media';
 import { findAllSetVideos } from '../infra/performance-repository';
 import { findAllSessionPhotos } from '../infra/workout-session-repository';
-
-/** Où vivent les vidéos importées, à côté de la base et jamais dans le cache. */
-const FOLDER = 'media';
-
-/**
- * Le dossier, sans le créer : `mediaUri` est appelé pendant un RENDU, et
- * écrire sur le disque en dessinant un écran est une surprise qu'on finit
- * toujours par payer.
- */
-function mediaDirectory(): Directory {
-  return new Directory(Paths.document, FOLDER);
-}
-
-/** Sa création n'a lieu qu'au moment d'y déposer un fichier. */
-function ensureMediaDirectory(): Directory {
-  const directory = mediaDirectory();
-  if (!directory.exists) directory.create({ intermediates: true });
-  return directory;
-}
 
 /**
  * L'adresse à lire pour ce média.
@@ -35,23 +21,23 @@ function ensureMediaDirectory(): Directory {
  */
 export function mediaUri(media: ExerciseMedia): string {
   if (isRemote(media)) return media.uri;
-  return new File(mediaDirectory(), media.uri).uri;
+  return localMediaFile(media.uri).uri;
 }
 
 /** Le fichier est-il toujours là ? Une sauvegarde restaurée ailleurs dit non. */
 export function mediaExists(media: ExerciseMedia): boolean {
   if (isRemote(media)) return true;
-  return new File(mediaDirectory(), media.uri).exists;
+  return localMediaFile(media.uri).exists;
 }
 
 /** L'adresse d'un fichier gardé, par son seul nom. Voir `mediaUri`. */
 export function fileUri(name: string): string {
-  return new File(mediaDirectory(), name).uri;
+  return localMediaFile(name).uri;
 }
 
 /** Le fichier est-il toujours là ? */
 export function fileExists(name: string): boolean {
-  return new File(mediaDirectory(), name).exists;
+  return localMediaFile(name).exists;
 }
 
 /**
@@ -84,9 +70,11 @@ export async function keepRecording(uri: string): Promise<string> {
  * galerie ne rend ni l'un ni l'autre de la même façon.
  */
 function extensionOf(asset: ImagePicker.ImagePickerAsset, fallback: string): string {
-  const fromName = asset.fileName?.split('.').pop();
-  if (fromName) return fromName.toLowerCase();
-  return asset.mimeType?.split('/').pop()?.toLowerCase() || fallback;
+  const fromName = asset.fileName?.split('.').pop()?.toLowerCase();
+  if (fromName && /^[a-z\d]{1,10}$/.test(fromName)) return fromName;
+
+  const fromMime = asset.mimeType?.split('/').pop()?.toLowerCase();
+  return fromMime && /^[a-z\d]{1,10}$/.test(fromMime) ? fromMime : fallback;
 }
 
 /**

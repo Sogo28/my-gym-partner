@@ -260,7 +260,7 @@ export default function HistoryScreen() {
       <Sheet
         visible={menu}
         title="Historique"
-        description="Tes données n'existent que sur ce téléphone. Une sauvegarde est un fichier que tu ranges où tu veux."
+        description="Ce fichier contient la base, sans les photos ni vidéos locales. Pour une copie complète, utilise la sauvegarde en ligne du profil."
         actions={[
           { label: busy ? 'Préparation…' : 'Sauvegarder', icon: 'save-outline', onPress: backup },
           { label: 'Restaurer une sauvegarde', icon: 'folder-open-outline', onPress: choose },

@@ -16,6 +16,39 @@ export type Backup = {
   readonly schemaVersion: number;
   readonly exportedAt: string;
   readonly tables: Record<string, Record<string, unknown>[]>;
+  /**
+   * Les fichiers locaux qui accompagnaient cette génération en ligne.
+   *
+   * Facultatif pour continuer à lire les sauvegardes historiques et les
+   * exports JSON partagés avant que les médias ne voyagent avec le cloud.
+   */
+  readonly media?: BackupMediaManifest;
+};
+
+/** Un objet immuable du dossier `media`, déposé une seule fois en ligne. */
+export type BackupMedia = {
+  readonly name: string;
+  readonly size: number;
+  readonly md5: string | null;
+  readonly contentType: string;
+};
+
+/**
+ * Le manifeste d'une génération.
+ *
+ * `missing` ne cache pas une perte déjà présente sur le téléphone : la base
+ * reste sauvegardée, mais la restauration pourra annoncer honnêtement quels
+ * fichiers ne faisaient plus partie de l'appareil au moment de la copie.
+ */
+export type BackupMediaManifest = {
+  readonly files: readonly BackupMedia[];
+  readonly missing: readonly string[];
+  /**
+   * Laissés de côté VOLONTAIREMENT : les vidéos des séries, quand on a choisi
+   * de ne pas les sauvegarder en ligne (décidé le 2026-10-08). Absent dans les
+   * copies d'avant ce choix.
+   */
+  readonly excluded?: readonly string[];
 };
 
 /** Les tables de l'application, dans l'ordre où SQLite les a créées. */

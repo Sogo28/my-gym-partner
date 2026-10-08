@@ -3,7 +3,10 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './button';
-import { ToastHost } from './notifications';
+import { useState } from 'react';
+import { saveToGallery } from '../use-cases/gallery-actions';
+import { messageOf } from './message';
+import { ToastHost, useNotifications } from './notifications';
 
 /**
  * Le bouton qui dit qu'une série a été filmée, et ouvre la vidéo.
@@ -46,7 +49,8 @@ export function SetVideoViewer({
 }: {
   uri: string | null;
   onClose: () => void;
-  onDelete: () => void;
+  /** Absent : la vidéo se regarde et s'enregistre, mais ne se supprime pas d'ici. */
+  onDelete?: () => void;
 }) {
   return (
     <Modal visible={uri !== null} animationType="slide" onRequestClose={onClose}>
@@ -68,12 +72,22 @@ function Player({
 }: {
   uri: string;
   onClose: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = true;
     instance.play();
   });
+  const { notify } = useNotifications();
+  const [saving, setSaving] = useState(false);
+
+  function save() {
+    setSaving(true);
+    saveToGallery(uri)
+      .then(() => notify('Vidéo enregistrée dans la galerie.', 'success'))
+      .catch((e) => notify(messageOf(e)))
+      .finally(() => setSaving(false));
+  }
 
   return (
     <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-black">
@@ -86,8 +100,32 @@ function Player({
 
       <VideoView style={{ flex: 1 }} player={player} nativeControls contentFit="contain" />
 
-      <View className="p-5">
-        <Button label="Supprimer cette vidéo" variant="danger" size="md" onPress={onDelete} />
+      {/* Enregistrer dans la galerie : de quoi garder une série à part, sans
+          la faire porter par la sauvegarde en ligne. Supprimer reste en
+          rouge, à la largeur de son icône -- le geste qu'on ne vise pas. */}
+      <View className="flex-row gap-3 p-5">
+        {/* En blanc sur le noir du lecteur, quel que soit le thème : le
+            bouton secondaire écrit en noir s'y effaçait en mode clair. */}
+        <Pressable
+          onPress={save}
+          disabled={saving}
+          accessibilityRole="button"
+          className="h-[44px] flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-white/40 active:opacity-60"
+        >
+          <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+          <Text className="font-bold text-body text-white">
+            {saving ? 'Enregistrement…' : 'Enregistrer dans la galerie'}
+          </Text>
+        </Pressable>
+        {onDelete && (
+          <Button
+            label="Supprimer cette vidéo"
+            icon="trash-outline"
+            variant="danger"
+            size="md"
+            onPress={onDelete}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

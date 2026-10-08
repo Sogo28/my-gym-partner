@@ -63,7 +63,17 @@
           "photosPermission": "Choisir une photo ou une vidéo depuis ta galerie."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Enregistrer tes vidéos de séries dans la galerie.",
+          "granularPermissions": [
+            "video"
+          ]
+        }
+      ]
     ],
     "scheme": "mygympartner",
     "extra": {
