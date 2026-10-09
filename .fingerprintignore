@@ -1,0 +1,6 @@
+# Un build local (npm run android) réécrit le manifeste de certaines
+# bibliothèques dans node_modules : le plugin Gradle de React Native en retire
+# l'attribut « package ». L'empreinte du Mac différait alors de celle d'EAS,
+# qui refusait le build. Ces fichiers ne comptent donc pas dans l'empreinte.
+node_modules/**/android/src/main/AndroidManifest.xml
+node_modules/**/android/build/**
