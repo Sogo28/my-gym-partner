@@ -3,8 +3,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Modal, Pressable, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './button';
-import { useState } from 'react';
-import { saveToGallery } from '../use-cases/gallery-actions';
+import { useEffect, useState } from 'react';
+import { isInGallery, saveToGallery } from '../use-cases/gallery-actions';
 import { messageOf } from './message';
 import { ToastHost, useNotifications } from './notifications';
 
@@ -80,11 +80,25 @@ function Player({
   });
   const { notify } = useNotifications();
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    isInGallery(uri)
+      .then((inGallery) => live && setSaved(inGallery))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [uri]);
 
   function save() {
     setSaving(true);
     saveToGallery(uri)
-      .then(() => notify('Vidéo enregistrée dans la galerie.', 'success'))
+      .then(() => {
+        setSaved(true);
+        notify('Vidéo enregistrée dans la galerie.', 'success');
+      })
       .catch((e) => notify(messageOf(e)))
       .finally(() => setSaving(false));
   }
@@ -106,15 +120,18 @@ function Player({
       <View className="flex-row gap-3 p-5">
         {/* En blanc sur le noir du lecteur, quel que soit le thème : le
             bouton secondaire écrit en noir s'y effaçait en mode clair. */}
+        {/* Déjà copiée : le bouton devient un constat, éteint -- une seconde
+            copie ne ferait qu'un doublon dans la galerie. */}
         <Pressable
           onPress={save}
-          disabled={saving}
+          disabled={saving || saved}
           accessibilityRole="button"
-          className="h-[44px] flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-white/40 active:opacity-60"
+          accessibilityState={{ disabled: saving || saved }}
+          className={`h-[44px] flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-white/40 active:opacity-60 ${saved ? 'opacity-50' : ''}`}
         >
-          <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+          <Ionicons name={saved ? 'checkmark' : 'download-outline'} size={18} color="#FFFFFF" />
           <Text className="font-bold text-body text-white">
-            {saving ? 'Enregistrement…' : 'Enregistrer dans la galerie'}
+            {saved ? 'Dans la galerie' : saving ? 'Enregistrement…' : 'Enregistrer dans la galerie'}
           </Text>
         </Pressable>
         {onDelete && (

@@ -1,4 +1,5 @@
 import { DomainError } from '../domain/domain-error';
+import { readSetting, writeSetting } from '../infra/settings-repository';
 
 type MediaLibraryModule = typeof import('expo-media-library');
 
@@ -46,4 +47,34 @@ export async function saveToGallery(fileUri: string): Promise<void> {
   } catch {
     throw new DomainError("La vidéo n'a pas pu être enregistrée dans la galerie.");
   }
+
+  const saved = await savedNames();
+  const name = nameOf(fileUri);
+  if (!saved.includes(name)) await writeSetting(SAVED_KEY, JSON.stringify([...saved, name]));
+}
+
+/**
+ * Les vidéos déjà copiées dans la galerie, par nom de fichier.
+ *
+ * Le bouton le dit au lieu de proposer une seconde copie : la galerie ne
+ * dédoublonne pas, et deux appuis faisaient deux fois la même vidéo.
+ */
+const SAVED_KEY = 'gallery.savedVideos';
+
+export async function isInGallery(fileUri: string): Promise<boolean> {
+  return (await savedNames()).includes(nameOf(fileUri));
+}
+
+async function savedNames(): Promise<string[]> {
+  try {
+    const parsed: unknown = JSON.parse((await readSetting(SAVED_KEY)) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Le nom seul : le dossier de l'app change d'un téléphone, ou d'une restauration, à l'autre. */
+function nameOf(fileUri: string): string {
+  return fileUri.slice(fileUri.lastIndexOf('/') + 1);
 }
