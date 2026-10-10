@@ -6,10 +6,16 @@
  * endroit, plutôt que recopiée dans chaque écran.
  */
 
-/** Des secondes en mm:ss, toujours sur deux chiffres. */
+/**
+ * Des secondes en mm:ss, toujours sur deux chiffres -- et en h:mm:ss passé
+ * l'heure : « 95:00 » demandait de refaire la division pour lire une séance.
+ */
 export function formatClock(totalSeconds: number): string {
-  const minutes = Math.floor(Math.max(totalSeconds, 0) / 60);
-  const seconds = Math.max(totalSeconds, 0) % 60;
+  const total = Math.floor(Math.max(totalSeconds, 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) return `${hours}:${pad(minutes)}:${pad(seconds)}`;
   return `${pad(minutes)}:${pad(seconds)}`;
 }
 

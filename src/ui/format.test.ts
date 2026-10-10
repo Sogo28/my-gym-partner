@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLongDate, formatMinutes, lastDoneLabel } from './format';
+import { formatClock, formatLongDate, formatMinutes, lastDoneLabel } from './format';
 
 // Un mardi.
 const now = new Date(2026, 9, 6, 9, 0);
@@ -48,5 +48,17 @@ describe('La durée d une séance', () => {
 
   it('ne dit jamais zéro minute pour une séance qui a eu lieu', () => {
     expect(formatMinutes(20)).toBe('1 min');
+  });
+});
+
+describe('formatClock', () => {
+  it('garde mm:ss sous l\'heure', () => {
+    expect(formatClock(0)).toBe('00:00');
+    expect(formatClock(3599)).toBe('59:59');
+  });
+
+  it('passe en heures au-delà', () => {
+    expect(formatClock(3600)).toBe('1:00:00');
+    expect(formatClock(5700)).toBe('1:35:00');
   });
 });
