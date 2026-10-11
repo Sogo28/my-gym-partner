@@ -1,7 +1,16 @@
+import Constants from 'expo-constants';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { pushBackupIfWorthwhile } from '../use-cases/cloud-backup-actions';
 import { useAccount } from './account';
+
+/**
+ * L'app de TEST (`APP_VARIANT=development`) ne dépose rien toute seule : sa
+ * base est souvent vide ou d'une version plus récente, et ses copies
+ * passaient devant les bonnes (décidé le 2026-10-11). Sauvegarder à la main
+ * y reste possible.
+ */
+const IS_TEST_APP = Constants.expoConfig?.extra?.variant === 'development';
 
 /**
  * La sauvegarde qui se fait toute seule, quand l'application revient.
@@ -26,7 +35,7 @@ export function AutoBackup() {
   const userId = account?.id;
 
   useEffect(() => {
-    if (userId === undefined) return;
+    if (userId === undefined || IS_TEST_APP) return;
 
     // Au démarrage, l'application est DÉJÀ active : aucun changement d'état
     // ne viendra le dire, et sans cet appel la première sauvegarde

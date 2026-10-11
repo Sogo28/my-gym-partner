@@ -21,12 +21,33 @@ import {
   applyCloudBackup,
   cloudState,
   forgetPushHistory,
-  latestCloudBackup,
+  listCloudCopies,
   pushBackup,
+  type CloudCopy,
   type CloudState,
 } from '../src/use-cases/cloud-backup-actions';
 import { usePalette } from '../src/ui/palette';
 import { ListContent, ListLayout } from '../src/ui/list-layout';
+
+/**
+ * « 11/10/2026 · 09:52 · 12 séances · 1 média », ou « … · vide ».
+ *
+ * Les secondes ne s'ajoutent que si une autre copie tombe dans la même
+ * minute : deux lignes identiques ne se distingueraient pas -- ni à l'oeil,
+ * ni pour la liste, qui s'en sert comme clé.
+ */
+function describeCopy(copy: CloudCopy, all: readonly CloudCopy[]): string {
+  const minute = (date: Date) => Math.floor(date.getTime() / 60_000);
+  const crowded = all.some(
+    (other) => other !== copy && minute(other.savedAt) === minute(copy.savedAt),
+  );
+  const when = crowded
+    ? `${formatDateTime(copy.savedAt)}:${String(copy.savedAt.getSeconds()).padStart(2, '0')}`
+    : formatDateTime(copy.savedAt);
+  if (copy.sessions === 0 && copy.exercises === 0) return `${when} · vide`;
+  const media = copy.mediaFiles ?? 0;
+  return `${when} · ${copy.sessions} séance${copy.sessions > 1 ? 's' : ''} · ${media} média${media > 1 ? 's' : ''}`;
+}
 
 /** « 2,1 Mo » : une taille se lit, elle ne se compte pas en octets. */
 function formatSize(bytes: number): string {
@@ -70,6 +91,8 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState<number | null>(null);
   const [fetching, setFetching] = useState(false);
+  /** Les copies en ligne, le temps d'en choisir une. */
+  const [copies, setCopies] = useState<CloudCopy[] | null>(null);
   /** La sauvegarde en ligne téléchargée, en attente de confirmation. */
   const [restoring, setRestoring] = useState<BackupPreview | null>(null);
   /** Les vidéos des séries partent-elles avec la sauvegarde en ligne ? */
@@ -117,12 +140,16 @@ export default function ProfileScreen() {
           ? ` ${result.excludedMedia} vidéo(s) de séries laissée(s) de côté, comme demandé.`
           : '';
       notify(
-        (result.failedMedia > 0
-          ? `Données sauvegardées, mais ${result.failedMedia} média(s) ont été refusés, sans doute trop lourds. Ils seront retentés à la prochaine sauvegarde.`
+        (result.tooLargeMedia > 0
+          ? `Données sauvegardées. ${result.tooLargeMedia} vidéo(s) dépassent les 50 Mo du stockage en ligne gratuit : garde-les dans ta galerie, depuis leur lecteur.`
+          : result.failedMedia > 0
+          ? `Données sauvegardées, mais ${result.failedMedia} média(s) n'ont pas pu partir. Ils seront retentés à la prochaine sauvegarde.`
           : result.missingMedia > 0
             ? `Données sauvegardées, mais ${result.missingMedia} média(s) manquent déjà sur ce téléphone.`
             : `Données et ${result.mediaFiles} média(s) sauvegardés en ligne.`) + excluded,
-        result.failedMedia > 0 || result.missingMedia > 0 ? 'info' : 'success',
+        result.tooLargeMedia > 0 || result.failedMedia > 0 || result.missingMedia > 0
+          ? 'info'
+          : 'success',
       );
     } catch (e) {
       notify(messageOf(e));
@@ -132,13 +159,17 @@ export default function ProfileScreen() {
     }
   }
 
-  async function fetchLatest() {
+  /**
+   * Les dix copies, pour choisir : la plus récente n'est pas forcément la
+   * bonne -- une app réinstallée y avait déposé une base vide.
+   */
+  async function fetchCopies() {
     if (userId === undefined) return;
     setFetching(true);
     try {
-      const preview = await latestCloudBackup(userId);
-      if (preview === null) notify('Aucune sauvegarde en ligne à restaurer.');
-      else setRestoring(preview);
+      const found = await listCloudCopies(userId);
+      if (found.length === 0) notify('Aucune sauvegarde en ligne à restaurer.');
+      else setCopies(found);
     } catch (e) {
       notify(messageOf(e));
     } finally {
@@ -152,10 +183,10 @@ export default function ProfileScreen() {
     setRestoring(null);
     setFetching(true);
     try {
+      // Le téléphone se sait désormais à jour : pas de renvoi immédiat d'une
+      // copie de plus.
       const result = await applyCloudBackup(userId, chosen.backup);
-      // Ce qui vient d'être écrit n'est PAS ce qu'on avait envoyé : oublier
-      // l'empreinte évite que la sauvegarde automatique se croie à jour.
-      await forgetPushHistory();
+      setCloud(await cloudState(userId));
       if (!result.includedMedia) {
         notify('Données restaurées. Cette ancienne sauvegarde ne contenait pas les médias.');
       } else if (result.missingMedia > 0) {
@@ -269,16 +300,20 @@ export default function ProfileScreen() {
                         : 'Sauvegarder maintenant'
                     }
                     size="md"
-                    disabled={saving}
+                    // Une seule opération à la fois : sauvegarder pendant une
+                    // restauration enverrait une base à moitié remplacée.
+                    busy={saving}
+                    disabled={fetching}
                     onPress={saveNow}
                   />
                   {cloud !== null && cloud.lastSavedAt !== null && (
                     <Button
-                      label={fetching ? 'Téléchargement…' : 'Restaurer la dernière'}
+                      label={fetching ? 'Téléchargement…' : 'Restaurer une copie'}
                       variant="secondary"
                       size="md"
-                      disabled={fetching}
-                      onPress={fetchLatest}
+                      busy={fetching}
+                      disabled={saving}
+                      onPress={fetchCopies}
                     />
                   )}
                 </Card>
@@ -357,6 +392,20 @@ export default function ProfileScreen() {
           },
         ]}
         onClose={() => setLeaving(false)}
+      />
+
+      {/* Chaque copie dit ce qu'elle contient : une copie vide se voit avant
+          d'avoir tout remplacé par elle. */}
+      <Sheet
+        visible={copies !== null}
+        title="Restaurer une copie"
+        description="Les plus récentes d'abord. Choisis celle qui contient tes données."
+        actions={(copies ?? []).map((copy) => ({
+          label: describeCopy(copy, copies ?? []),
+          icon: copy.sessions === 0 && copy.exercises === 0 ? ('alert-circle-outline' as const) : ('cloud-download-outline' as const),
+          onPress: () => setRestoring(copy),
+        }))}
+        onClose={() => setCopies(null)}
       />
 
       <Sheet

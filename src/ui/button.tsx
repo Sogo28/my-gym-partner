@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Pressable, Text, useColorScheme, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, Text, useColorScheme, type PressableProps } from 'react-native';
 import { cn } from './cn';
 
 /**
@@ -81,6 +81,12 @@ type ButtonProps = Omit<PressableProps, 'disabled'> &
     icon?: keyof typeof Ionicons.glyphMap;
     className?: string;
     disabled?: boolean;
+    /**
+     * Une opération en cours, lancée par CE bouton : il ne répond plus, mais
+     * garde ses couleurs et tourne -- éteint, il aurait dit « impossible »
+     * plutôt que « j'y suis ».
+     */
+    busy?: boolean;
   };
 
 export function Button({
@@ -89,23 +95,27 @@ export function Button({
   variant,
   size,
   disabled = false,
+  busy = false,
   className,
   ...props
 }: ButtonProps) {
   const dark = useColorScheme() === 'dark';
+  const ink = ICON_COLORS[dark ? 'dark' : 'light'][variant ?? 'primary'];
 
   return (
     <Pressable
-      disabled={disabled}
+      disabled={disabled || busy}
       accessibilityLabel={icon ? text : undefined}
-      className={cn(button({ variant, size, disabled }), className)}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      className={cn(button({ variant, size, disabled }), busy && 'gap-2', className)}
       {...props}
     >
+      {busy && <ActivityIndicator size="small" color={disabled ? '#A8AD9E' : ink} />}
       {icon ? (
         <Ionicons
           name={icon}
           size={ICON_SIZES[size ?? 'lg'] ?? 22}
-          color={disabled ? '#A8AD9E' : ICON_COLORS[dark ? 'dark' : 'light'][variant ?? 'primary']}
+          color={disabled ? '#A8AD9E' : ink}
         />
       ) : (
         // Une ligne, toujours : un nom d'exercice long se coupe plutôt que de

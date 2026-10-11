@@ -186,6 +186,12 @@ export default function RecordScreen() {
           style={StyleSheet.absoluteFill}
           facing="back"
           mode="video"
+          // 720p à 2 Mbit/s : une minute pèse environ 15 Mo. Dans la
+          // meilleure qualité du téléphone, une série en pesait 95, au-delà
+          // des 50 Mo que la sauvegarde en ligne accepte (décidé le
+          // 2026-10-11) -- et c'est bien assez pour juger d'une exécution.
+          videoQuality="720p"
+          videoBitrate={2_000_000}
           mute
           onCameraReady={() => setReady(true)}
         />

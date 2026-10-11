@@ -23,6 +23,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: `${config.name} (dev)`,
     slug: config.slug ?? 'my-gym-partner',
     scheme: 'mygympartner-dev',
+    // Lu par l'app : la version de test ne sauvegarde jamais toute seule.
+    extra: { ...config.extra, variant: 'development' },
     android: {
       ...config.android,
       package: `${config.android?.package}.dev`,

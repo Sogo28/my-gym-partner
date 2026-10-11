@@ -31,14 +31,22 @@ import {
   type LocalBackupMedia,
 } from '../infra/local-media';
 import { readSetting, writeSetting } from '../infra/settings-repository';
-import { previewOf, type BackupPreview } from './backup-actions';
+import { previewOf, type BackupPreview } from './backup-preview';
 import {
   backupStatePayload,
   CLOUD_GENERATIONS_KEY,
   CLOUD_HASH_KEY,
+  CLOUD_LINKED_KEY,
   CLOUD_MEDIA_MD5_KEY,
   CLOUD_PUSHED_AT_KEY,
 } from './cloud-backup-state';
+
+/**
+ * Le plus gros fichier que le stockage en ligne accepte : 50 Mo sur l'offre
+ * gratuite de Supabase, sans moyen de le relever. Au-delà, l'envoi était
+ * tenté puis refusé (« Maximum size exceeded »), à chaque sauvegarde.
+ */
+export const MAX_CLOUD_MEDIA_BYTES = 50 * 1000 * 1000;
 
 /**
  * La sauvegarde en ligne, rattachée au compte connecté.
@@ -68,21 +76,26 @@ export type CloudState = {
   readonly generations: number;
   /** La taille de la plus récente, en octets. */
   readonly size: number;
-  /** Les fichiers mutualisés entre les générations. */
+  /**
+   * Les médias que la plus récente contient -- et non tous ceux stockés en
+   * ligne pour les dix : le profil annonçait deux médias quand la dernière
+   * copie n'en avait aucun.
+   */
   readonly mediaFiles: number;
   readonly mediaSize: number;
 };
 
 export async function cloudState(userId: string): Promise<CloudState> {
-  const [backups, media] = await Promise.all([listCloudBackups(userId), listCloudMedia(userId)]);
+  const backups = await listCloudBackups(userId);
   const latest = backups[0];
+  const files = latest ? ((await downloadBackup(latest.path)).media?.files ?? []) : [];
 
   return {
     lastSavedAt: latest?.savedAt ?? null,
     generations: backups.length,
     size: latest?.size ?? 0,
-    mediaFiles: media.length,
-    mediaSize: media.reduce((total, file) => total + file.size, 0),
+    mediaFiles: files.length,
+    mediaSize: files.reduce((total, file) => total + file.size, 0),
   };
 }
 
@@ -94,10 +107,15 @@ export type CloudPushResult = {
   /** Les vidéos de séries laissées de côté, par choix. */
   readonly excludedMedia: number;
   /**
-   * Présents, mais refusés à l'envoi -- trop lourds pour le projet, le plus
-   * souvent. La copie part sans eux, et le prochain envoi les retentera.
+   * Présents, mais refusés à l'envoi -- une coupure, le plus souvent. La
+   * copie part sans eux, et le prochain envoi les retentera.
    */
   readonly failedMedia: number;
+  /**
+   * Plus lourds que ce que le stockage en ligne accepte : pas même tentés.
+   * Ils restent sur le téléphone, et la galerie est leur place.
+   */
+  readonly tooLargeMedia: number;
 };
 
 export type CloudPushProgress = {
@@ -116,7 +134,11 @@ export async function pushBackup(
   userId: string,
   onProgress?: (progress: CloudPushProgress) => void,
 ): Promise<CloudPushResult> {
-  return send(userId, await prepareBackup(), onProgress);
+  const result = await send(userId, await prepareBackup(), onProgress);
+  // Un envoi demandé à la main relie le téléphone au compte : c'est dire que
+  // CE contenu est celui qu'on veut garder.
+  await writeSetting(CLOUD_LINKED_KEY, userId);
+  return result;
 }
 
 /**
@@ -134,6 +156,10 @@ export async function pushBackup(
 export async function pushBackupIfWorthwhile(userId: string): Promise<Date | null> {
   try {
     if (await pushedRecently()) return null;
+    // Un téléphone que rien ne relie encore au compte ne dépose rien tant
+    // que le compte a déjà des copies : il faut d'abord en restaurer une, ou
+    // sauvegarder à la main.
+    if (!(await isLinked(userId)) && (await listCloudBackups(userId)).length > 0) return null;
 
     const { backup, localMedia } = await prepareBackup();
     const payload = backupStatePayload(backup);
@@ -144,7 +170,11 @@ export async function pushBackupIfWorthwhile(userId: string): Promise<Date | nul
       return null;
     }
 
-    return (await send(userId, { backup, localMedia })).savedAt;
+    const { savedAt } = await send(userId, { backup, localMedia });
+    // Le premier téléphone d'un compte vide s'y relie en y déposant la
+    // première copie.
+    await writeSetting(CLOUD_LINKED_KEY, userId);
+    return savedAt;
   } catch (error) {
     console.warn('Sauvegarde automatique échouée, sans conséquence :', error);
     return null;
@@ -184,6 +214,7 @@ export type CloudRestoreResult = {
 export async function applyCloudBackup(userId: string, backup: Backup): Promise<CloudRestoreResult> {
   if (backup.media === undefined) {
     await restoreAsDomainError(backup);
+    await adoptRestored(userId);
     return { includedMedia: false, restoredMedia: 0, missingMedia: 0, excludedMedia: 0 };
   }
 
@@ -199,6 +230,7 @@ export async function applyCloudBackup(userId: string, backup: Backup): Promise<
 
     await installStagedMedia(stage);
     await restoreAsDomainError(backup);
+    await adoptRestored(userId);
     return {
       includedMedia: true,
       restoredMedia: manifest.files.length,
@@ -220,6 +252,60 @@ export async function applyCloudBackup(userId: string, backup: Backup): Promise<
 export async function forgetPushHistory(): Promise<void> {
   await writeSetting(CLOUD_HASH_KEY, '');
   await writeSetting(CLOUD_PUSHED_AT_KEY, '');
+  await writeSetting(CLOUD_LINKED_KEY, '');
+}
+
+/**
+ * Relié au compte : par le lien posé à la restauration ou à un envoi --
+ * ou, pour un téléphone d'avant ce lien, par une copie qu'il a déjà
+ * déposée lui-même (une empreinte retenue).
+ */
+async function isLinked(userId: string): Promise<boolean> {
+  const linked = await readSetting(CLOUD_LINKED_KEY);
+  if (linked) return linked === userId;
+  return Boolean(await readSetting(CLOUD_HASH_KEY));
+}
+
+/**
+ * Après une restauration : le téléphone est relié au compte, et SE SAIT à
+ * jour -- il contient exactement la copie qu'il vient de lire.
+ *
+ * Avant, l'empreinte était oubliée : la sauvegarde automatique se croyait en
+ * retard et renvoyait aussitôt une copie de plus, qui poussait une bonne
+ * copie hors des dix gardées.
+ */
+async function adoptRestored(userId: string): Promise<void> {
+  const { backup } = await prepareBackup();
+  await remember(backupStatePayload(backup), new Date());
+  await writeSetting(CLOUD_LINKED_KEY, userId);
+}
+
+/** Une copie en ligne, telle qu'on la présente avant d'en choisir une. */
+export type CloudCopy = BackupPreview & {
+  readonly path: string;
+  readonly savedAt: Date;
+  readonly size: number;
+};
+
+/**
+ * Toutes les copies en ligne, de la plus récente à la plus ancienne, avec ce
+ * qu'elles contiennent : on choisit laquelle restaurer au lieu de prendre
+ * d'office la dernière -- qui peut être vide. Une copie illisible est
+ * écartée plutôt que de faire échouer la liste.
+ */
+export async function listCloudCopies(userId: string): Promise<CloudCopy[]> {
+  const backups = await listCloudBackups(userId);
+  const copies = await Promise.all(
+    backups.map(async (entry) => {
+      try {
+        const preview = previewOf(await downloadBackup(entry.path));
+        return [{ ...preview, path: entry.path, savedAt: entry.savedAt, size: entry.size }];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  return copies.flat();
 }
 
 async function remember(payload: string, at: Date): Promise<void> {
@@ -256,17 +342,25 @@ async function send(
   { backup, localMedia }: { backup: Backup; localMedia: readonly LocalBackupMedia[] },
   onProgress?: (progress: CloudPushProgress) => void,
 ): Promise<CloudPushResult> {
-  const failed = await uploadMissingMedia(userId, localMedia, onProgress);
+  const tooLarge = new Set(
+    localMedia.filter((media) => media.size > MAX_CLOUD_MEDIA_BYTES).map((media) => media.name),
+  );
+  const failed = await uploadMissingMedia(
+    userId,
+    localMedia.filter((media) => !tooLarge.has(media.name)),
+    onProgress,
+  );
+  const left = new Set([...failed, ...tooLarge]);
   const manifest = backup.media ?? { files: [], missing: [] };
   const sent: Backup =
-    failed.size === 0
+    left.size === 0
       ? backup
       : {
           ...backup,
           media: {
             ...manifest,
-            files: manifest.files.filter((media) => !failed.has(media.name)),
-            missing: [...manifest.missing, ...failed].sort(),
+            files: manifest.files.filter((media) => !left.has(media.name)),
+            missing: [...manifest.missing, ...left].sort(),
           },
         };
 
@@ -275,10 +369,7 @@ async function send(
   // L'empreinte de ce qui est PARTI : avec des médias refusés, elle diffère
   // de l'état du téléphone, et le prochain envoi automatique réessaiera.
   await remember(backupStatePayload(sent), at);
-  await pruneOldGenerations(userId, {
-    path: uploaded.path,
-    names: sent.media?.files.map((media) => media.name) ?? [],
-  });
+  await pruneOldGenerations(userId, { path: uploaded.path, names: citedBy(sent) });
 
   return {
     savedAt: at,
@@ -286,7 +377,23 @@ async function send(
     missingMedia: manifest.missing.length,
     excludedMedia: manifest.excluded?.length ?? 0,
     failedMedia: failed.size,
+    tooLargeMedia: tooLarge.size,
   };
+}
+
+/**
+ * Tous les médias qu'une copie NOMME : présents, manquants ou exclus. Un
+ * fichier qu'elle cite ne s'efface pas en ligne -- même absent de la copie,
+ * il peut être le seul exemplaire qui reste.
+ */
+function citedBy(backup: Backup): string[] {
+  const media = backup.media;
+  if (!media) return [];
+  return [
+    ...media.files.map((file) => file.name),
+    ...media.missing,
+    ...(media.excluded ?? []),
+  ];
 }
 
 /**
@@ -322,10 +429,7 @@ async function pruneOldGenerations(
     const kept = backups.slice(0, KEPT_GENERATIONS);
     const registry: Record<string, string[]> = {};
     for (const entry of kept) {
-      registry[entry.path] =
-        known[entry.path] ??
-        (await downloadBackup(entry.path)).media?.files.map((file) => file.name) ??
-        [];
+      registry[entry.path] = known[entry.path] ?? citedBy(await downloadBackup(entry.path));
     }
     await writeSetting(CLOUD_GENERATIONS_KEY, JSON.stringify(registry));
 
