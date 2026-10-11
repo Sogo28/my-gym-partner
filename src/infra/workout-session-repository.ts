@@ -21,6 +21,7 @@ type ActivityRow = {
   exercise_id: string;
   performance_id: string | null;
   planned_position: number | null;
+  interval_seconds?: number | null;
   started_at: string;
   finished_at: string | null;
 };
@@ -33,58 +34,81 @@ type RestRow = {
 
 export async function save(session: WorkoutSession): Promise<void> {
   const db = await getDatabase();
+  await inTransaction(db, () => write(db, session));
+}
 
+/**
+ * Enregistrer une séance fusionnée et retirer celle qu'elle a absorbée, d'un
+ * seul tenant.
+ *
+ * Seules la séance absorbée et ses lignes partent : ses performances, elles,
+ * sont désormais portées par la fusionnée. L'effacement ordinaire d'une
+ * séance (`deleteSession`) les emporterait avec elle.
+ */
+export async function saveMerged(merged: WorkoutSession, absorbedId: string): Promise<void> {
+  const db = await getDatabase();
   await inTransaction(db, async () => {
-    await db.runAsync(
-      `INSERT INTO workout_sessions
-         (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       -- started_at se réécrit aussi : une séance peut être DÉPLACÉE, et
-       -- l'omettre laissait la correction sans effet. Chaque champ mutable
-       -- doit figurer ici -- is_unilateral en a payé le prix avant lui.
-       ON CONFLICT(id) DO UPDATE SET
-         started_at = excluded.started_at,
-         ended_at = excluded.ended_at,
-         status = excluded.status,
-         photo_uri = excluded.photo_uri;`,
-      session.id,
-      session.plannedWorkoutId,
-      session.scheduledWorkoutId,
-      session.startedAt.toISOString(),
-      session.endedAt?.toISOString() ?? null,
-      session.status,
-      session.photoUri,
-    );
-
-    await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', session.id);
-    await db.runAsync('DELETE FROM session_rests WHERE session_id = ?;', session.id);
-
-    for (const [position, rest] of session.rests.entries()) {
-      await db.runAsync(
-        'INSERT INTO session_rests (session_id, position, started_at, ended_at) VALUES (?, ?, ?, ?);',
-        session.id,
-        position,
-        rest.startedAt.toISOString(),
-        rest.endedAt?.toISOString() ?? null,
-      );
-    }
-
-    for (const [position, activity] of session.activities.entries()) {
-      await db.runAsync(
-        `INSERT INTO session_activities
-           (session_id, position, exercise_id, performance_id, planned_position,
-            started_at, finished_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        session.id,
-        position,
-        activity.exerciseId,
-        activity.performanceId,
-        activity.plannedPosition,
-        activity.startedAt.toISOString(),
-        activity.finishedAt?.toISOString() ?? null,
-      );
-    }
+    await db.runAsync('DELETE FROM session_rests WHERE session_id = ?;', absorbedId);
+    await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', absorbedId);
+    await db.runAsync('DELETE FROM workout_sessions WHERE id = ?;', absorbedId);
+    await write(db, merged);
   });
+}
+
+async function write(
+  db: Awaited<ReturnType<typeof getDatabase>>,
+  session: WorkoutSession,
+): Promise<void> {
+  await db.runAsync(
+    `INSERT INTO workout_sessions
+       (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     -- started_at se réécrit aussi : une séance peut être DÉPLACÉE, et
+     -- l'omettre laissait la correction sans effet. Chaque champ mutable
+     -- doit figurer ici -- is_unilateral en a payé le prix avant lui.
+     ON CONFLICT(id) DO UPDATE SET
+       started_at = excluded.started_at,
+       ended_at = excluded.ended_at,
+       status = excluded.status,
+       photo_uri = excluded.photo_uri;`,
+    session.id,
+    session.plannedWorkoutId,
+    session.scheduledWorkoutId,
+    session.startedAt.toISOString(),
+    session.endedAt?.toISOString() ?? null,
+    session.status,
+    session.photoUri,
+  );
+
+  await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', session.id);
+  await db.runAsync('DELETE FROM session_rests WHERE session_id = ?;', session.id);
+
+  for (const [position, rest] of session.rests.entries()) {
+    await db.runAsync(
+      'INSERT INTO session_rests (session_id, position, started_at, ended_at) VALUES (?, ?, ?, ?);',
+      session.id,
+      position,
+      rest.startedAt.toISOString(),
+      rest.endedAt?.toISOString() ?? null,
+    );
+  }
+
+  for (const [position, activity] of session.activities.entries()) {
+    await db.runAsync(
+      `INSERT INTO session_activities
+         (session_id, position, exercise_id, performance_id, planned_position,
+          started_at, finished_at, interval_seconds)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+      session.id,
+      position,
+      activity.exerciseId,
+      activity.performanceId,
+      activity.plannedPosition,
+      activity.startedAt.toISOString(),
+      activity.finishedAt?.toISOString() ?? null,
+      activity.intervalSeconds ?? null,
+    );
+  }
 }
 
 /** Les photos que des séances réclament encore, par leur nom de fichier. */
@@ -157,6 +181,7 @@ function toActivity(row: ActivityRow): Activity {
     plannedPosition: row.planned_position,
     startedAt: new Date(row.started_at),
     finishedAt: row.finished_at ? new Date(row.finished_at) : null,
+    intervalSeconds: row.interval_seconds ?? null,
   };
 }
 

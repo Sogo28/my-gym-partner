@@ -35,6 +35,13 @@ export type Activity = {
   readonly plannedPosition: number | null;
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
+  /**
+   * Le rythme suivi, si l'exercice s'est fait en EMOM : un round toutes les
+   * `intervalSeconds`. Retenu par la SÉANCE, et non lu dans le plan : un
+   * EMOM lancé en séance libre n'a pas de plan pour s'en souvenir (décidé le
+   * 2026-10-10). Absent pour les séances d'avant -- l'information manque.
+   */
+  readonly intervalSeconds?: number | null;
 };
 
 /**
@@ -267,6 +274,19 @@ export class WorkoutSession {
       startedAt: at,
       finishedAt: null,
     });
+  }
+
+  /** L'exercice en cours se fait désormais au rythme d'un EMOM. */
+  markCurrentActivityAsEmom(intervalSeconds: number): void {
+    this.requireActive();
+    if (!Number.isInteger(intervalSeconds) || intervalSeconds < 1) {
+      throw new DomainError("L'intervalle d'un EMOM doit être d'au moins une seconde.");
+    }
+    const index = this._activities.length - 1;
+    if (!this.currentActivity) {
+      throw new DomainError("Aucun exercice n'est en cours.");
+    }
+    this._activities[index] = { ...this._activities[index], intervalSeconds };
   }
 
   finishCurrentActivity(at: Date): void {

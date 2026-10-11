@@ -1,17 +1,18 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Image, Pressable, Text, TextInput, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { PlannedWorkout } from '../src/domain/planned-workout/planned-workout';
+import type { WorkoutSession } from '../src/domain/workout-session/workout-session';
 import { findAll as findAllExercises, findAllMeasurements } from '../src/infra/exercise-repository';
 import { findAll as findAllPlans } from '../src/infra/planned-workout-repository';
 import { BodyMap } from '../src/ui/body-map';
 import { highlight } from '../src/ui/body-slugs';
 import { Button } from '../src/ui/button';
 import { Card } from '../src/ui/card';
-import { formatClock, formatDateTime, formatDuration } from '../src/ui/format';
+import { formatClock, formatDateTime, formatDuration, formatTime } from '../src/ui/format';
 import { GoalChecklist } from '../src/ui/goal-checklist';
 import { messageOf } from '../src/ui/message';
 import { useNotifications } from '../src/ui/notifications';
@@ -19,6 +20,7 @@ import { Sheet } from '../src/ui/sheet';
 import { cn } from '../src/ui/cn';
 import {
   compareToPlan,
+  formatEmomPace,
   formatMeasure,
   formatSetValues,
   formatTargets,
@@ -30,6 +32,8 @@ import { detachSetVideo } from '../src/use-cases/set-video';
 import { attachSessionPhoto, detachSessionPhoto } from '../src/use-cases/session-photo';
 import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use-cases/goal-actions';
 import { eraseSession } from '../src/use-cases/erase-history';
+import { findMergeCandidates, mergeSessions } from '../src/use-cases/merge-sessions';
+import { createWorkoutFromSession } from '../src/use-cases/workout-from-session';
 import {
   findSessionRecords,
   findSessionSummary,
@@ -66,7 +70,15 @@ export default function SessionSummaryScreen() {
   const [plans, setPlans] = useState<PlannedWorkout[]>([]);
   const [reached, setReached] = useState<ReachedGoal[]>([]);
   const [records, setRecords] = useState<SessionRecord[]>([]);
-  const [sheet, setSheet] = useState<'none' | 'menu' | 'confirm' | 'photo'>('none');
+  const [sheet, setSheet] = useState<
+    'none' | 'menu' | 'confirm' | 'photo' | 'merge' | 'confirm-merge' | 'to-workout'
+  >('none');
+  /** Les autres séances terminées du même jour, avec lesquelles fusionner. */
+  const [candidates, setCandidates] = useState<WorkoutSession[]>([]);
+  /** Celle qu'on s'apprête à fusionner avec celle-ci, en attente de confirmation. */
+  const [mergingWith, setMergingWith] = useState<WorkoutSession | null>(null);
+  const [workoutName, setWorkoutName] = useState('');
+  const [creatingWorkout, setCreatingWorkout] = useState(false);
   /** La photo de la séance, ouverte en plein écran. */
   const [viewingPhoto, setViewingPhoto] = useState(false);
   /** La captation ouverte, et la série d'où elle vient. */
@@ -93,6 +105,7 @@ export default function SessionSummaryScreen() {
     const worked = [...new Set((found?.activities ?? []).map((entry) => entry.exerciseId))];
     setReached(await goalsReachedBy(worked));
     setRecords(found ? await findSessionRecords(found) : []);
+    setCandidates(await findMergeCandidates(id));
   }, [id]);
 
   /**
@@ -134,8 +147,44 @@ export default function SessionSummaryScreen() {
       .catch((e) => notify(messageOf(e)));
   }
 
+  /**
+   * Fusionner, puis afficher la séance qui reste : celle qui a commencé la
+   * première, qui n'est pas forcément celle qu'on regardait.
+   */
+  function merge() {
+    const other = mergingWith;
+    setMergingWith(null);
+    if (!other) return;
+    mergeSessions(id, other.id)
+      .then((kept) => {
+        notify("Les deux séances n'en font plus qu'une.", 'success');
+        if (kept === id) return reload();
+        router.replace({ pathname: '/session-summary', params: { id: kept } });
+      })
+      .catch((e) => notify(messageOf(e)));
+  }
+
+  /** L'entraînement créé s'ouvre aussitôt : c'est là qu'on le retouche. */
+  async function createWorkout() {
+    setCreatingWorkout(true);
+    try {
+      const workout = await createWorkoutFromSession({ sessionId: id, name: workoutName });
+      setSheet('none');
+      router.push({ pathname: '/workout', params: { id: workout.id } });
+    } catch (e) {
+      notify(messageOf(e));
+    } finally {
+      setCreatingWorkout(false);
+    }
+  }
+
   const exerciseOf = (exerciseId: string) => exercises.find((e) => e.id === exerciseId);
   const nameOf = (exerciseId: string) => exerciseOf(exerciseId)?.name ?? exerciseId;
+  /** Une séance par son heure et ce qu'on y a fait : « 18:42 · Tractions, Dips ». */
+  const describeSession = (session: WorkoutSession) => {
+    const names = [...new Set(session.activities.map((activity) => nameOf(activity.exerciseId)))];
+    return `${formatTime(session.startedAt)} · ${names.join(', ') || 'Aucun exercice'}`;
+  };
   /** Le volume n'a pas d'unité : un indice, arrondi comme sur la fiche. */
   const showRecord = (measurementId: string | null, value: number) =>
     measurementId === null
@@ -379,6 +428,11 @@ export default function SessionSummaryScreen() {
                         </View>
                       )}
                     </View>
+                    {activity.intervalSeconds !== null && (
+                      <Text className="-mt-2 pb-3 text-caption text-muted dark:text-muted-dark">
+                        {formatEmomPace(activity.intervalSeconds)}
+                      </Text>
+                    )}
 
                     {rows === 0 ? (
                       <Text className="text-caption text-muted dark:text-muted-dark">
@@ -511,6 +565,26 @@ export default function SessionSummaryScreen() {
             icon: 'create-outline',
             onPress: () => router.push({ pathname: '/edit-session', params: { id } }),
           },
+          // Seulement s'il y a de quoi : une autre séance terminée le même jour.
+          ...(candidates.length > 0
+            ? [
+                {
+                  label: 'Fusionner avec une autre séance',
+                  icon: 'git-merge-outline' as const,
+                  onPress: () => setSheet('merge'),
+                },
+              ]
+            : []),
+          {
+            label: 'Créer un entraînement',
+            icon: 'barbell-outline',
+            onPress: () => {
+              setWorkoutName(
+                plan ? `${plan.name} copie` : `Séance du ${summary.session.startedAt.toLocaleDateString('fr-FR')}`,
+              );
+              setSheet('to-workout');
+            },
+          },
           {
             label: 'Effacer cette séance',
             icon: 'trash-outline',
@@ -520,6 +594,63 @@ export default function SessionSummaryScreen() {
         ]}
         onClose={() => setSheet('none')}
       />
+
+      <Sheet
+        visible={sheet === 'merge'}
+        title="Fusionner avec"
+        description="Les séances terminées le même jour."
+        actions={candidates.map((candidate) => ({
+          label: describeSession(candidate),
+          icon: 'time-outline' as const,
+          onPress: () => {
+            setMergingWith(candidate);
+            setSheet('confirm-merge');
+          },
+        }))}
+        onClose={() => setSheet('none')}
+      />
+
+      {/* Le temps entre les deux devient un repos (décidé le 2026-10-10) :
+          c'est ce qui s'est passé, et le dire évite de s'étonner de la
+          durée. */}
+      <Sheet
+        visible={sheet === 'confirm-merge' && mergingWith !== null}
+        title="Fusionner ces deux séances ?"
+        description={
+          mergingWith
+            ? `Avec ${describeSession(mergingWith)}. Elles deviennent une seule séance, et le temps entre les deux compte comme du repos.`
+            : undefined
+        }
+        actions={[{ label: 'Fusionner', icon: 'git-merge-outline' as const, onPress: merge }]}
+        onClose={() => {
+          setSheet('none');
+          setMergingWith(null);
+        }}
+      />
+
+      <Sheet
+        visible={sheet === 'to-workout'}
+        title="Créer un entraînement"
+        description="Chaque série faite devient une série prévue, avec ce que tu as fait pour cible. Tout se retouche ensuite."
+        onClose={() => setSheet('none')}
+      >
+        <View className="gap-3 pb-2">
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Nom de l'entraînement"
+            placeholderTextColor="#A8AD9E"
+            value={workoutName}
+            onChangeText={setWorkoutName}
+            autoFocus
+          />
+          <Button
+            label="Créer"
+            size="md"
+            disabled={workoutName.trim() === '' || creatingWorkout}
+            onPress={createWorkout}
+          />
+        </View>
+      </Sheet>
 
       <Sheet
         visible={sheet === 'photo'}

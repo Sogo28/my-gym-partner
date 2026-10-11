@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (step(N))`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -876,6 +876,16 @@ export async function migrate(
       "UPDATE body_metrics SET name = ? WHERE id = 'tourdepaules' AND name = 'Tour d épaules';",
       "Tour d'épaules",
     );
+  }
+
+  // Migration 30 : le rythme suivi par un exercice d'une séance (EMOM).
+  //
+  // Sur l'activité, et non lu dans le plan : un EMOM lancé en séance libre
+  // n'avait aucun endroit où laisser une trace, et un entraînement tiré de
+  // la séance le perdait. Null pour tout l'existant -- on ne sait pas.
+  // Gardée par `hasColumn`, pour la même raison que la migration 28.
+  if (step(30) && !(await hasColumn(db, 'session_activities', 'interval_seconds'))) {
+    await db.execAsync('ALTER TABLE session_activities ADD COLUMN interval_seconds INTEGER;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${target};`);

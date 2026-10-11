@@ -89,6 +89,7 @@ import {
   cancelWorkoutSession,
   completePerformanceSet,
   finishActivity,
+  markActivityAsEmom,
   correctSet,
   finishWorkoutSession,
   goToNextExercise,
@@ -507,12 +508,26 @@ export default function SessionScreen() {
   const activityExercise = activity
     ? exercises.find((exercise) => exercise.id === activity.exerciseId)
     : undefined;
+  /**
+   * Ce que vise une série : le plan (ou la cible du jour), et pour un
+   * exercice hors programme, ce qu'on a réglé avant de commencer -- comme le
+   * premier exercice d'une séance libre. Seul le premier avait ce réglage :
+   * un exercice ajouté ensuite proposait une série qu'on ne pouvait pas
+   * changer.
+   */
+  const targetsAt = (index: number): TargetValues | undefined =>
+    plannedExercise
+      ? plannedTargetsAt(index)
+      : (freeTargets ?? (activityExercise ? defaultTargets(activityExercise.measurementIds) : undefined));
+  /** Une série dont la cible se règle encore en tapant sa ligne. */
+  const retargetable = (index: number): boolean =>
+    !emom && (plannedExercise ? Boolean(plannedExercise.sets[index]) : index === 0);
   const upcoming: readonly { targets: TargetValues }[] = plannedExercise
     ? plannedExercise.sets
         .slice(nextSetIndex)
         .map((set, offset) => ({ targets: plannedTargetsAt(nextSetIndex + offset) ?? set.targets }))
     : sets.length === 0 && activityExercise
-      ? [{ targets: defaultTargets(activityExercise.measurementIds) }]
+      ? [{ targets: targetsAt(0) ?? {} }]
       : [];
   const totalSets = Math.max(
     sets.length,
@@ -1193,7 +1208,13 @@ export default function SessionScreen() {
 
   function retarget(measurementId: string, value: number) {
     if (retargeting === null) return;
-    const current = plannedTargetsAt(retargeting) ?? {};
+    const current = targetsAt(retargeting) ?? {};
+    // Hors programme, rien à garder pour la suite : la cible réglée est celle
+    // que prendra la série, comme avant le premier exercice.
+    if (!plannedExercise) {
+      setFreeTargets({ ...current, [measurementId]: value });
+      return;
+    }
     setTodayTargets((all) => ({
       ...all,
       [targetKey(retargeting)]: { ...current, [measurementId]: value },
@@ -1203,7 +1224,7 @@ export default function SessionScreen() {
   /** Les champs de la cible ouverte : un seul côté, le plan ne les distingue pas. */
   function retargetControls() {
     if (retargeting === null) return null;
-    const targets = plannedTargetsAt(retargeting) ?? {};
+    const targets = targetsAt(retargeting) ?? {};
     return (
       <View className="gap-1">
         <Text className="font-bold uppercase text-label text-muted dark:text-muted-dark">
@@ -1247,6 +1268,7 @@ export default function SessionScreen() {
       return;
     }
     setComingFrom('right');
+    setFreeTargets(null);
     setEmom(null);
     run(async () => {
       closeEditing();
@@ -1286,6 +1308,24 @@ export default function SessionScreen() {
   }
 
   /**
+   * Un EMOM sur un exercice hors programme, en pleine séance : le même
+   * départ qu'un rythme prévu -- décompte, puis premier round --, mais le
+   * nombre de rounds vient de la durée réglée. Avant, seul le premier
+   * exercice d'une séance libre pouvait partir en EMOM.
+   */
+  function startFreeEmomHere(totalSeconds: number) {
+    setConfiguringEmom(false);
+    ensureAlerts();
+    setArming({
+      armedAt: new Date(),
+      seconds: setupSeconds,
+      intervalSeconds: EMOM_INTERVAL_SECONDS,
+      totalRounds: Math.max(1, Math.round(totalSeconds / EMOM_INTERVAL_SECONDS)),
+      exerciseId: null,
+    });
+  }
+
+  /**
    * Le rythme prévu part pour de bon, décompte de mise en place écoulé.
    *
    * La série « qui traîne » se juge ICI et non au moment d'armer : le
@@ -1304,6 +1344,7 @@ export default function SessionScreen() {
       closeEditing();
       if (stale) await abandonPerformanceSet();
       if (!performance?.currentSet || stale) await startPerformanceSet(at);
+      await markActivityAsEmom(interval);
       setEmom({ intervalSeconds: interval, totalRounds, pausedAt: null, windowStartedAt: null });
     });
   }
@@ -1333,6 +1374,7 @@ export default function SessionScreen() {
    */
   function previousExercise() {
     setComingFrom('left');
+    setFreeTargets(null);
     setEmom(null);
     run(async () => {
       closeEditing();
@@ -1447,6 +1489,7 @@ export default function SessionScreen() {
     return startWorkoutSession(null, null, at)
       .then(() => startActivity(exerciseId, null, at))
       .then(() => startPerformanceSet(at))
+      .then(() => markActivityAsEmom(EMOM_INTERVAL_SECONDS))
       .then(reload)
       .then(() => {
         setPending(null);
@@ -1509,6 +1552,11 @@ export default function SessionScreen() {
             onPress: nextExercise,
           },
         ]
+      : []),
+    // Hors programme et avant toute série : les rounds se comptent à partir
+    // de la première, et des séries déjà faites en mangeraient le début.
+    ...(activity && !plannedExercise && !emom && !arming && sets.length === 0
+      ? [{ label: 'Démarrer en EMOM', icon: 'repeat-outline' as const, onPress: () => setConfiguringEmom(true) }]
       : []),
     // À tout moment, programme ou pas (décidé le 2026-10-07) : il se fait
     // tout de suite, et le programme reprend ensuite où on l'a laissé.
@@ -1581,6 +1629,39 @@ export default function SessionScreen() {
    * et un bouton pour s'y mettre. Rien n'est écrit tant qu'on ne l'a pas
    * tapé, donc revenir en arrière n'a rien à annuler.
    */
+  /**
+   * Le réglage d'un EMOM libre : un rythme imposé plutôt qu'un chrono. La
+   * cible vaut pour chaque round, seule la durée totale se règle ici -- le
+   * nombre de rounds s'en déduit (une minute chacun). Le même avant le
+   * premier exercice d'une séance libre et pour un exercice ajouté ensuite.
+   */
+  function emomSheet(name: string, targets: TargetValues, onStart: (totalSeconds: number) => void) {
+    return (
+      <Sheet
+        visible={configuringEmom}
+        title="Démarrer en EMOM"
+        description={`${name} · cible ${formatPlanned(targets)}`}
+        onClose={() => setConfiguringEmom(false)}
+      >
+        <View className="gap-4 pb-2">
+          {/* flex-row : MeasureField (et sa variante durée) porte flex-1
+              pour se PARTAGER une ligne avec d'autres champs -- posé seul
+              dans une colonne, il s'étirait en hauteur et écrasait le
+              bouton en dessous. */}
+          <View className="flex-row gap-3">
+            <MeasureField
+              unit="s"
+              measurementId="duration"
+              value={emomTotalSeconds}
+              onChange={setEmomTotalSeconds}
+            />
+          </View>
+          <Button label="Démarrer" size="lg" onPress={() => onStart(emomTotalSeconds)} />
+        </View>
+      </Sheet>
+    );
+  }
+
   const pendingExercise = pending ? exercises.find((e) => e.id === pending) : undefined;
 
   if (!session && pendingExercise) {
@@ -1658,46 +1739,11 @@ export default function SessionScreen() {
                   )
                 }
               />
-              {/* La cible réglée juste au-dessus vaut pour chaque round : rien
-                  d'autre à répéter ici. */}
-              <Pressable onPress={() => setConfiguringEmom(true)} className="py-2">
-                <Text className="text-center text-lead text-primary-ink dark:text-primary-ink-dark">
-                  Démarrer en EMOM
-                </Text>
-              </Pressable>
             </>
           )}
         </View>
 
-        {/* Un rythme imposé plutôt qu'un chrono : la cible ci-dessus vaut
-            pour chaque round, seule la durée totale se règle ici -- le
-            nombre de rounds s'en déduit (une minute chacun). */}
-        <Sheet
-          visible={configuringEmom}
-          title="Démarrer en EMOM"
-          description={`${pendingExercise.name} · cible ${formatPlanned(targets)}`}
-          onClose={() => setConfiguringEmom(false)}
-        >
-          <View className="gap-4 pb-2">
-            {/* flex-row : MeasureField (et sa variante durée) porte flex-1
-                pour se PARTAGER une ligne avec d'autres champs -- posé seul
-                dans une colonne, il s'étirait en hauteur et écrasait le
-                bouton en dessous. */}
-            <View className="flex-row gap-3">
-              <MeasureField
-                unit="s"
-                measurementId="duration"
-                value={emomTotalSeconds}
-                onChange={setEmomTotalSeconds}
-              />
-            </View>
-            <Button
-              label="Démarrer"
-              size="lg"
-              onPress={() => beginFreeEmom(pendingExercise.id, emomTotalSeconds)}
-            />
-          </View>
-        </Sheet>
+        {emomSheet(pendingExercise.name, targets, (total) => beginFreeEmom(pendingExercise.id, total))}
 
         {/* Le menu ne propose que ce qui existe à ce stade : rien n'a été
             écrit, donc rien à abandonner ni à terminer. */}
@@ -1706,6 +1752,9 @@ export default function SessionScreen() {
           title="Avant de commencer"
           actions={[
             { label: "Changer d'exercice", icon: 'swap-horizontal-outline' as const, onPress: () => setSheet('pick-exercise') },
+            // Dans le menu, comme pour les exercices ajoutés ensuite : une
+            // seule place pour un même geste (décidé le 2026-10-10).
+            { label: 'Démarrer en EMOM', icon: 'repeat-outline' as const, onPress: () => setConfiguringEmom(true) },
             {
               label: 'Ne pas commencer',
               icon: 'close-outline' as const,
@@ -2198,7 +2247,7 @@ export default function SessionScreen() {
                     set.status === 'IN_PROGRESS'
                       ? // En cours, elle n'a encore rien noté : c'est sa
                         // CIBLE qui se règle, comme pour une série à venir.
-                        plannedExercise?.sets[index] && !emom
+                        retargetable(index)
                         ? () => toggleRetarget(index)
                         : undefined
                       : () => toggleEditing(index)
@@ -2225,7 +2274,7 @@ export default function SessionScreen() {
                   // La cible d'une série à venir se change comme on corrige
                   // une série faite : en tapant sa ligne.
                   onPress={
-                    plannedExercise && !emom ? () => toggleRetarget(nextSetIndex + index) : undefined
+                    retargetable(nextSetIndex + index) ? () => toggleRetarget(nextSetIndex + index) : undefined
                   }
                   selected={retargeting === nextSetIndex + index}
                 />
@@ -2257,7 +2306,7 @@ export default function SessionScreen() {
                   // autres se corrigent en les tapant.
                   onPress={
                     set.status === 'IN_PROGRESS'
-                      ? plannedExercise?.sets[index] && !emom
+                      ? retargetable(index)
                         ? () => toggleRetarget(index)
                         : undefined
                       : () => toggleEditing(index)
@@ -2275,7 +2324,7 @@ export default function SessionScreen() {
                   status="planned"
                   values={formatPlannedShort(set.targets)}
                   onPress={
-                    plannedExercise && !emom ? () => toggleRetarget(nextSetIndex + index) : undefined
+                    retargetable(nextSetIndex + index) ? () => toggleRetarget(nextSetIndex + index) : undefined
                   }
                   selected={retargeting === nextSetIndex + index}
                 />
@@ -2633,6 +2682,7 @@ export default function SessionScreen() {
         onClose={() => setSheet('none')}
       />
       {exercisePicker(addExercise)}
+      {activity && emomSheet(nameOf(activity.exerciseId), targetsAt(0) ?? {}, startFreeEmomHere)}
       {/* Demandé à chaque fois (décidé le 2026-10-08) : ni l'un ni l'autre
           n'est toujours le bon -- un jour sans ne doit pas réécrire le
           programme, un vrai progrès doit pouvoir y rester. Refermer sans

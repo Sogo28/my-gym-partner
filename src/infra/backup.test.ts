@@ -86,6 +86,9 @@ describe('Sauvegarde', () => {
       schemaVersion: 28,
       tables: {
         ...current.tables,
+        session_activities: current.tables.session_activities.map(
+          ({ interval_seconds: _dropped, ...row }) => row,
+        ),
         body_metrics: current.tables.body_metrics.map((row) =>
           row.id === 'tourdepaules' ? { ...row, name: 'Tour d épaules' } : row,
         ),
@@ -106,6 +109,29 @@ describe('Sauvegarde', () => {
     expect(metric?.name).toBe("Tour d'épaules");
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
     expect(version?.user_version).toBe(SCHEMA_VERSION);
+  });
+
+  it('restaure une sauvegarde d avant le rythme des séances (version 29)', async () => {
+    await someHistory();
+    const current = await exportBackup();
+    // Telle qu'une app en version 29 l'écrivait : sans la colonne du rythme.
+    const v29 = {
+      ...current,
+      schemaVersion: 29,
+      tables: {
+        ...current.tables,
+        session_activities: current.tables.session_activities.map(
+          ({ interval_seconds: _dropped, ...row }) => row,
+        ),
+      },
+    };
+    __clearData();
+
+    await restoreBackup(v29);
+
+    const [summary] = await listSessionSummaries();
+    expect(summary.completedSetCount).toBe(1);
+    expect(summary.activities[0].intervalSeconds).toBeNull();
   });
 
   it('laisse la base intacte si la restauration échoue en route', async () => {

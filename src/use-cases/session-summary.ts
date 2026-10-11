@@ -34,6 +34,8 @@ export type ActivitySummary = {
   readonly measurementIds: readonly string[];
   /** Seules les séries validées : les autres ne sont pas des performances. */
   readonly completedSets: readonly CompletedSetSummary[];
+  /** Le rythme suivi, si l'exercice s'est fait en EMOM. */
+  readonly intervalSeconds: number | null;
 };
 
 export type SessionSummary = {
@@ -120,6 +122,7 @@ function summarize(
       performanceId: activity.performanceId,
       measurementIds: performance?.measurementIds ?? [],
       completedSets,
+      intervalSeconds: activity.intervalSeconds ?? null,
     };
   });
 

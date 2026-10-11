@@ -173,3 +173,22 @@ describe('WorkoutSession', () => {
     expect(session.photoUri).toBeNull();
   });
 });
+
+describe('Le rythme d un exercice', () => {
+  it('se retient sur l exercice en cours', () => {
+    const session = WorkoutSession.start({ id: 'ws-1', at: new Date(2026, 9, 10, 18, 0) });
+    session.startActivity('pull-up', 'perf-1', new Date(2026, 9, 10, 18, 1));
+
+    session.markCurrentActivityAsEmom(60);
+
+    expect(session.activities[0].intervalSeconds).toBe(60);
+  });
+
+  it('demande un exercice en cours et un intervalle valable', () => {
+    const session = WorkoutSession.start({ id: 'ws-1', at: new Date(2026, 9, 10, 18, 0) });
+    expect(() => session.markCurrentActivityAsEmom(60)).toThrow(/Aucun exercice/);
+
+    session.startActivity('pull-up', 'perf-1', new Date(2026, 9, 10, 18, 1));
+    expect(() => session.markCurrentActivityAsEmom(0)).toThrow(/au moins une seconde/);
+  });
+});

@@ -163,6 +163,14 @@ export async function startActivity(
  * comme ABANDONNÉES : l'historique garde la trace de ce qui était prévu et
  * n'a pas été exécuté, sans jamais les compter comme des performances (n°18).
  */
+/**
+ * L'exercice en cours part en EMOM : la séance le retient, pour le montrer
+ * dans sa fiche et le garder dans un entraînement qu'on en tirerait.
+ */
+export async function markActivityAsEmom(intervalSeconds: number): Promise<WorkoutSession> {
+  return onActiveSession((current) => current.markCurrentActivityAsEmom(intervalSeconds));
+}
+
 export async function finishActivity(): Promise<WorkoutSession> {
   await abandonRemainingSets();
   return onActiveSession((current, now) => current.finishCurrentActivity(now));
