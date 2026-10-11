@@ -1,4 +1,4 @@
-import { getDatabase, inTransaction, SCHEMA_VERSION } from './db';
+import { getDatabase, inTransaction, migrate, SCHEMA_VERSION } from './db';
 
 /**
  * Copie et restauration de toute la base.
@@ -84,20 +84,36 @@ export async function exportBackup(): Promise<Backup> {
  * Opération destructrice, et volontairement sans fusion : mélanger deux
  * historiques produirait des séances en double sans qu'on sache lesquelles
  * sont vraies.
+ *
+ * Une sauvegarde PLUS ANCIENNE que l'application se restaure aussi : la base
+ * est recréée telle qu'elle était à sa version, remplie, puis menée jusqu'à
+ * la version actuelle par les migrations habituelles -- exactement ce qu'aurait
+ * vécu un téléphone jamais réinstallé. Sans cela, chaque évolution du schéma
+ * rendait toutes les sauvegardes existantes impossibles à restaurer.
+ *
+ * Une sauvegarde PLUS RÉCENTE reste refusée : l'application ne sait pas ce
+ * que ses colonnes veulent dire.
+ *
+ * Tout se joue dans UNE transaction : si une étape échoue, la base d'avant
+ * reste intacte -- SQLite annule aussi les créations et suppressions de
+ * tables.
  */
 export async function restoreBackup(backup: Backup): Promise<void> {
   if (backup.app !== 'my-gym-partner') {
     throw new Error("Ce fichier n'est pas une sauvegarde de l'application.");
   }
-  if (backup.schemaVersion !== SCHEMA_VERSION) {
+  if (!Number.isInteger(backup.schemaVersion) || backup.schemaVersion < 1) {
+    throw new Error("Cette sauvegarde ne dit pas de quelle version de l'application elle vient.");
+  }
+  if (backup.schemaVersion > SCHEMA_VERSION) {
     throw new Error(
-      `Cette sauvegarde vient d'une version différente de l'application ` +
-        `(${backup.schemaVersion} au lieu de ${SCHEMA_VERSION}).`,
+      "Cette sauvegarde vient d'une version plus récente de l'application : " +
+        "mets l'application à jour avant de la restaurer.",
     );
   }
 
   const db = await getDatabase();
-  const names = await tableNames();
+  const upgrading = backup.schemaVersion < SCHEMA_VERSION;
 
   // Les contraintes sont relâchées le temps du remplacement : les tables se
   // vident et se remplissent dans un ordre qui violerait forcément une clé
@@ -106,6 +122,16 @@ export async function restoreBackup(backup: Backup): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
     await inTransaction(db, async () => {
+      if (upgrading) {
+        // Repartir de rien, puis reconstruire le schéma de la sauvegarde.
+        for (const name of [...(await tableNames())].reverse()) {
+          await db.execAsync(`DROP TABLE ${name};`);
+        }
+        await db.execAsync('PRAGMA user_version = 0;');
+        await migrate(db, backup.schemaVersion);
+      }
+
+      const names = await tableNames();
       for (const name of [...names].reverse()) {
         await db.runAsync(`DELETE FROM ${name};`);
       }
@@ -122,6 +148,8 @@ export async function restoreBackup(backup: Backup): Promise<void> {
           );
         }
       }
+
+      if (upgrading) await migrate(db);
     });
   } finally {
     await db.execAsync('PRAGMA foreign_keys = ON;');

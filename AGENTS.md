@@ -51,4 +51,4 @@ chaque test repart d'une base migrée et vide.
 - Les agrégats se référencent par identifiant, jamais en se tenant l'un l'autre.
 - Le domaine ne génère pas d'identifiants et ne lit pas l'horloge : les use cases les lui passent.
 - Identifiants : UUID générés côté client (contrainte d'une future synchronisation).
-- Migrations : incrémenter `SCHEMA_VERSION` dans `src/infra/db.ts` et ajouter un bloc `if (version < N)`.
+- Migrations : incrémenter `SCHEMA_VERSION` dans `src/infra/db.ts` et ajouter un bloc `if (step(N))`.

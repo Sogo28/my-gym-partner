@@ -65,12 +65,62 @@ describe('Sauvegarde', () => {
     expect(restored.secondaryMuscleIds).toEqual(['abdominaux']);
   });
 
-  it('refuse une sauvegarde d une autre version du schéma', async () => {
+  it('refuse une sauvegarde d une version plus récente', async () => {
+    await someHistory();
     const backup = await exportBackup();
 
     await expect(
       restoreBackup({ ...backup, schemaVersion: backup.schemaVersion + 1 }),
-    ).rejects.toThrow(/version différente/);
+    ).rejects.toThrow(/plus récente/);
+    // Rien n'a bougé.
+    expect(await listSessionSummaries()).toHaveLength(1);
+  });
+
+  it('restaure une sauvegarde plus ancienne en rejouant les migrations', async () => {
+    await someHistory();
+    const current = await exportBackup();
+    // Une copie faite avant la migration 29 : la mensuration y porte encore
+    // son nom sans apostrophe, que la 29 corrige.
+    const old = {
+      ...current,
+      schemaVersion: 28,
+      tables: {
+        ...current.tables,
+        body_metrics: current.tables.body_metrics.map((row) =>
+          row.id === 'tourdepaules' ? { ...row, name: 'Tour d épaules' } : row,
+        ),
+      },
+    };
+    __clearData();
+
+    await restoreBackup(old);
+
+    const summaries = await listSessionSummaries();
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].activities[0].completedSets[0].set.values).toEqual({ BOTH: { duration: 12 } });
+    const { getDatabase, SCHEMA_VERSION } = await import('./db');
+    const db = await getDatabase();
+    const metric = await db.getFirstAsync<{ name: string }>(
+      "SELECT name FROM body_metrics WHERE id = 'tourdepaules';",
+    );
+    expect(metric?.name).toBe("Tour d'épaules");
+    const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
+    expect(version?.user_version).toBe(SCHEMA_VERSION);
+  });
+
+  it('laisse la base intacte si la restauration échoue en route', async () => {
+    await someHistory();
+    const current = await exportBackup();
+    const broken = {
+      ...current,
+      schemaVersion: 28,
+      tables: { ...current.tables, exercises: [{ colonne_inconnue: 1 }] },
+    };
+
+    await expect(restoreBackup(broken)).rejects.toThrow();
+
+    expect(await listSessionSummaries()).toHaveLength(1);
+    expect(await findAllExercises()).toHaveLength(1);
   });
 
   it('refuse un fichier qui n est pas une sauvegarde', async () => {

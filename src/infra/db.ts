@@ -5,7 +5,7 @@ import * as SQLite from 'expo-sqlite';
  *
  * `user_version` est un compteur fourni par SQLite lui-même : on l'utilise
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
- * `if (version < N)`, ce qui nous donne des migrations sans outil externe.
+ * `if (step(N))`, ce qui nous donne des migrations sans outil externe.
  */
 export const SCHEMA_VERSION = 29;
 
@@ -142,10 +142,26 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // Les clés étrangères sont désactivées par défaut dans SQLite.
   await db.execAsync('PRAGMA foreign_keys = ON;');
 
+  await migrate(db);
+  return db;
+}
+
+/**
+ * Amène la base de sa version actuelle jusqu'à `target` -- la dernière, sauf
+ * pour restaurer une sauvegarde plus ancienne : la base est alors recréée
+ * telle qu'elle était à SA version, remplie, puis menée jusqu'au bout par les
+ * mêmes migrations qu'un téléphone qui n'aurait jamais été réinstallé.
+ */
+export async function migrate(
+  db: SQLite.SQLiteDatabase,
+  target: number = SCHEMA_VERSION,
+): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
   const version = row?.user_version ?? 0;
+  /** La migration `n` est-elle à jouer : pas encore faite, et pas au-delà de la cible ? */
+  const step = (n: number) => version < n && n <= target;
 
-  if (version < 1) {
+  if (step(1)) {
     await db.execAsync(`
       CREATE TABLE measurements (
         id TEXT PRIMARY KEY NOT NULL,
@@ -177,7 +193,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // contient déjà tes exercices. Le bloc précédent, lui, ne rejouera pas :
   // c'est tout l'intérêt du compteur, faire évoluer le schéma sans effacer
   // les données existantes.
-  if (version < 2) {
+  if (step(2)) {
     await db.execAsync(`
       CREATE TABLE planned_workouts (
         id TEXT PRIMARY KEY NOT NULL,
@@ -210,7 +226,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 3 : séances réelles (Slice 3).
-  if (version < 3) {
+  if (step(3)) {
     await db.execAsync(`
       -- SQLite n'a pas de type date : on stocke les instants en ISO 8601
       -- ('2026-09-05T18:00:00.000Z'), qui a la bonne propriété de se trier
@@ -237,7 +253,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 4 : performances réelles (Slice 4).
-  if (version < 4) {
+  if (step(4)) {
     await db.execAsync(`
       -- ALTER TABLE plutôt que recréation : les séances déjà enregistrées
       -- restent en place, leur performance_id vaut simplement NULL.
@@ -280,7 +296,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 5 : périodes de repos (§13).
-  if (version < 5) {
+  if (step(5)) {
     await db.execAsync(`
       CREATE TABLE session_rests (
         session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
@@ -293,14 +309,14 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 6 : lien entre une activité et l'exercice planifié dont elle vient.
-  if (version < 6) {
+  if (step(6)) {
     await db.execAsync(`
       ALTER TABLE session_activities ADD COLUMN planned_position INTEGER;
     `);
   }
 
   // Migration 7 : objectifs et progressions (Slice 6).
-  if (version < 7) {
+  if (step(7)) {
     await db.execAsync(`
       CREATE TABLE goals (
         id TEXT PRIMARY KEY NOT NULL,
@@ -339,7 +355,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // un objectif simple porte son requirement directement, sans étape.
   // Les tables de la migration 7 sont recréées ; les objectifs déjà saisis
   // sont perdus, ce qui est assumé (fonctionnalité du jour même).
-  if (version < 8) {
+  if (step(8)) {
     await db.execAsync(`
       DROP TABLE IF EXISTS goal_conditions;
       DROP TABLE IF EXISTS goal_steps;
@@ -381,7 +397,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
 
   // Migration 9 : une étape peut porter plusieurs Requirements, il faut donc
   // savoir de quel requirement chaque condition relève.
-  if (version < 9) {
+  if (step(9)) {
     await db.execAsync(`
       DROP TABLE IF EXISTS goal_conditions;
       CREATE TABLE goal_conditions (
@@ -402,7 +418,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
 
   // Migration 10 : archivage. On n'efface pas ce qui a produit de
   // l'historique, on le retire des listes de choix.
-  if (version < 10) {
+  if (step(10)) {
     await db.execAsync(`
       ALTER TABLE exercises ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE planned_workouts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
@@ -410,7 +426,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 11 : programmation des entraînements (Slice 5).
-  if (version < 11) {
+  if (step(11)) {
     await db.execAsync(`
       CREATE TABLE scheduled_workouts (
         id TEXT PRIMARY KEY NOT NULL,
@@ -432,7 +448,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // table. On RECOPIE les conditions existantes au lieu de les effacer --
   // contrairement aux migrations 8 et 9, des objectifs sont maintenant en
   // service.
-  if (version < 12) {
+  if (step(12)) {
     await db.execAsync(`
       CREATE TABLE goal_conditions_v12 (
         goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
@@ -464,7 +480,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // porter de clé étrangère : rien n'empêchait donc une activité de désigner
   // une performance inexistante. Recréer la table est le seul moyen de
   // l'ajouter -- les lignes sont recopiées, pas effacées.
-  if (version < 13) {
+  if (step(13)) {
     // Les contraintes sont relâchées le temps de la manoeuvre, sinon le DROP
     // ferait tomber les lignes qui référencent la table en cours de
     // remplacement.
@@ -495,7 +511,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   }
 
   // Migration 14 : groupes musculaires, pour retrouver un exercice.
-  if (version < 14) {
+  if (step(14)) {
     await db.execAsync(`
       CREATE TABLE muscles (
         id TEXT PRIMARY KEY NOT NULL,
@@ -520,7 +536,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // Le côté n'est pas une mesure (n°22) mais une propriété de l'exécution :
   // il entre donc dans la clé des valeurs, pas dans le catalogue. Les séries
   // déjà enregistrées sont bilatérales, d'où le défaut 'BOTH'.
-  if (version < 15) {
+  if (step(15)) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     await db.execAsync(`
       CREATE TABLE performance_set_values_v15 (
@@ -549,7 +565,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   //
   // Une seconde source de données, à côté des performances : un tour de
   // cuisse ne sort d'aucune série, il se relève à la main.
-  if (version < 16) {
+  if (step(16)) {
     await db.execAsync(`
       CREATE TABLE body_metrics (
         id TEXT PRIMARY KEY NOT NULL,
@@ -580,7 +596,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
 
   // Migration 17 : un objectif peut viser une mensuration, pas seulement un
   // exercice. Le sujet devient explicite plutôt qu'un exercice sous-entendu.
-  if (version < 17) {
+  if (step(17)) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     await db.execAsync(`
       ALTER TABLE goals ADD COLUMN subject_kind TEXT NOT NULL DEFAULT 'exercise';
@@ -635,7 +651,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // qu'un, il ne peut être que le principal ; dès qu'il en avait plusieurs,
   // rien ne permet de trancher -- les deviner en inventerait le sens, donc ils
   // passent en secondaires et attendent une décision.
-  if (version < 18) {
+  if (step(18)) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     await db.execAsync(`
       CREATE TABLE exercise_muscles_v18 (
@@ -672,7 +688,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // leur ordre est celui de l'ajout. Le genre est explicite dès maintenant,
   // même si seul le lien est proposé -- un fichier ne se sauvegarde pas comme
   // une adresse, et deviner plus tard ce qu'une chaîne désigne serait pire.
-  if (version < 19) {
+  if (step(19)) {
     await db.execAsync(`
       CREATE TABLE exercise_media (
         exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
@@ -690,7 +706,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // Deux colonnes nullables plutôt qu'un découpage du fichier : on garde la
   // vidéo entière et on choisit ce qu'on en montre. Le rognage réel demande de
   // ré-encoder -- irréversible, et hors de portée sans module natif.
-  if (version < 20) {
+  if (step(20)) {
     await db.execAsync(`
       ALTER TABLE exercise_media ADD COLUMN trim_from REAL;
       ALTER TABLE exercise_media ADD COLUMN trim_to REAL;
@@ -702,7 +718,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // SQLite ne sait pas modifier une contrainte CHECK : la table se reconstruit
   // pour que `kind` accepte 'image' -- le motif habituel, déjà employé pour les
   // séries et les objectifs.
-  if (version < 21) {
+  if (step(21)) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     await db.execAsync(`
       CREATE TABLE exercise_media_v21 (
@@ -731,7 +747,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // Une colonne nullable : les tiens n'ont pas d'origine, et n'en auront
   // jamais. Elle sert à ne pas reproposer ce qui est déjà là -- une fois
   // l'exercice renommé en français, plus rien d'autre ne permet de le savoir.
-  if (version < 22) {
+  if (step(22)) {
     await db.execAsync('ALTER TABLE exercises ADD COLUMN origin TEXT;');
   }
 
@@ -745,7 +761,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // Les liens externes disparaissent : plus rien dans l'application ne sait
   // les ouvrir, et une ligne qu'on ne peut plus afficher vaut moins que pas
   // de ligne du tout.
-  if (version < 23) {
+  if (step(23)) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     await db.execAsync(`
       CREATE TABLE exercise_media_v23 (
@@ -779,7 +795,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   //
   // Rien à reprendre des objectifs existants : leurs conditions comptaient
   // toutes les séries, ce qu'une absence de clause dit déjà.
-  if (version < 24) {
+  if (step(24)) {
     await db.execAsync(`
       CREATE TABLE goal_condition_clauses (
         goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
@@ -801,7 +817,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // meurt avec une décision d'interface, et chacun ne vaudrait pas une
   // migration. Elle voyage avec les sauvegardes, qui exportent toutes les
   // tables -- une préférence fait partie de ce qu'on retrouve en restaurant.
-  if (version < 25) {
+  if (step(25)) {
     await db.execAsync(`
       CREATE TABLE settings (
         key TEXT PRIMARY KEY,
@@ -816,7 +832,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // mouvement se fait, une captation montre comment on l'a fait ce jour-là.
   // Le nom du fichier seulement -- le dossier de l'application change
   // d'adresse d'une installation à l'autre.
-  if (version < 26) {
+  if (step(26)) {
     await db.execAsync('ALTER TABLE performance_sets ADD COLUMN video_uri TEXT;');
   }
 
@@ -826,7 +842,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // de l'entraînement entier, pas l'exécution d'un exercice précis.
   // Optionnelle et sans effet sur rien d'autre -- le nom du fichier
   // seulement, comme toute captation gardée par l'application.
-  if (version < 27) {
+  if (step(27)) {
     await db.execAsync('ALTER TABLE workout_sessions ADD COLUMN photo_uri TEXT;');
   }
 
@@ -843,7 +859,7 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // nos pieds -- laisse donc la colonne posée et la version en arrière. Sans
   // cette garde, le démarrage suivant rejouerait l'ajout, échouerait sur une
   // colonne en double, et l'app ne s'ouvrirait plus jamais.
-  if (version < 28 && !(await hasColumn(db, 'planned_workout_exercises', 'interval_seconds'))) {
+  if (step(28) && !(await hasColumn(db, 'planned_workout_exercises', 'interval_seconds'))) {
     await db.execAsync(
       'ALTER TABLE planned_workout_exercises ADD COLUMN interval_seconds INTEGER;',
     );
@@ -855,15 +871,14 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   // la graine ne corrige pas les installations qui l'ont déjà avalée. On vise
   // l'identifiant, pas le libellé -- s'il a été renommé à la main entre-temps,
   // c'est ce nom-là qui doit rester.
-  if (version < 29) {
+  if (step(29)) {
     await db.runAsync(
       "UPDATE body_metrics SET name = ? WHERE id = 'tourdepaules' AND name = 'Tour d épaules';",
       "Tour d'épaules",
     );
   }
 
-  await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
-  return db;
+  await db.execAsync(`PRAGMA user_version = ${target};`);
 }
 
 /** La table porte-t-elle déjà cette colonne ? C'est SQLite qui le dit. */
