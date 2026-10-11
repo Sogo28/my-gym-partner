@@ -15,6 +15,7 @@ import { BackHeader } from './screen-header';
 import { Tag } from './tag';
 import { useNotifications, ToastHost } from './notifications';
 import { messageOf } from './message';
+import { KeyboardSpacer } from './keyboard-spacer';
 
 /**
  * Le sélecteur d'exercices, partagé par tous les écrans qui en demandent un :
@@ -342,6 +343,7 @@ export function ExercisePicker({
               onPress={create}
             />
           )}
+          <KeyboardSpacer />
         </ScrollView>
 
         {/* Les actions restent en bas, sous le pouce : cette liste se parcourt

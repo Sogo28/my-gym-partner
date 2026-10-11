@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cn } from './cn';
+import { KeyboardSpacer } from './keyboard-spacer';
 import { CenteredHeader } from './detail-layout';
 
 /**
@@ -65,6 +66,7 @@ export function ListContent({
       keyboardShouldPersistTaps="handled"
     >
       {children}
+      <KeyboardSpacer />
     </ScrollView>
   );
 }

@@ -17,6 +17,7 @@ import { SectionHeader } from '../../src/ui/screen-header';
 import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
 import { MetaLine } from '../../src/ui/meta-line';
+import { KeyboardSpacer } from '../../src/ui/keyboard-spacer';
 
 export default function WorkoutsScreen() {
   const { notify } = useNotifications();
@@ -98,6 +99,7 @@ export default function WorkoutsScreen() {
         keyExtractor={(item) => item.id}
         // La liste s'arrête au-dessus de la pastille d'ajout.
         contentContainerClassName="grow gap-3 pb-28"
+        ListFooterComponent={<KeyboardSpacer />}
         ListEmptyComponent={
           workouts.length === 0 ? (
             <EmptyState

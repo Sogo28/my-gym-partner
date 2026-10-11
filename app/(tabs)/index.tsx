@@ -20,6 +20,7 @@ import { SearchField } from '../../src/ui/search';
 import { fold } from '../../src/text';
 import { catalogueSource } from '../../src/use-cases/repdb-actions';
 import type { CatalogueSuggestion } from '../../src/ui/exercise-picker';
+import { KeyboardSpacer } from '../../src/ui/keyboard-spacer';
 
 export default function ExercisesScreen() {
   const { notify } = useNotifications();
@@ -210,6 +211,7 @@ export default function ExercisesScreen() {
                 </Text>
               </Pressable>
             )}
+            <KeyboardSpacer />
           </>
         }
         renderItem={({ item }) => (
