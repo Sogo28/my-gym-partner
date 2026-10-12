@@ -79,6 +79,12 @@ export default function HomeScreen() {
   const [done, setDone] = useState<Date[]>([]);
   /** Le jour regardé seul, ou null pour la semaine entière. */
   const [day, setDay] = useState<Date | null>(null);
+  /**
+   * Un jour choisi dans le calendrier : c'est SA semaine qui s'affiche. Null,
+   * c'est celle d'aujourd'hui (décidé le 2026-10-12).
+   */
+  const [anchor, setAnchor] = useState<Date | null>(null);
+  const [picking, setPicking] = useState(false);
   const [dayWork, setDayWork] = useState<MuscleSummary>(EMPTY);
   /** Les séances réellement FAITES le jour regardé. */
   const [daySessions, setDaySessions] = useState<DaySession[]>([]);
@@ -101,11 +107,11 @@ export default function HomeScreen() {
     useCallback(() => {
       Promise.all([
         findActive(),
-        summarizeWeek(new Date()),
+        summarizeWeek(anchor ?? new Date()),
         listSchedule(),
         findAllPlans(),
         listGoals(),
-        workedDays(new Date()),
+        workedDays(anchor ?? new Date()),
         findAllMeasurements(),
         listMetrics(),
         findAllExercises(),
@@ -141,7 +147,7 @@ export default function HomeScreen() {
           },
         )
         .catch((e) => notify(messageOf(e)));
-    }, []),
+    }, [anchor]),
   );
 
   /**
@@ -152,7 +158,7 @@ export default function HomeScreen() {
    */
   useFocusEffect(
     useCallback(() => {
-      findSessionsOn(day ?? new Date())
+      findSessionsOn(day ?? anchor ?? new Date())
         .then(async (sessions) => {
           setDaySessions(sessions);
           // Toutes, désormais : une journée en compte rarement plus de deux,
@@ -165,7 +171,7 @@ export default function HomeScreen() {
           setDayBilans(bilans);
         })
         .catch((e) => notify(messageOf(e)));
-    }, [day]),
+    }, [day, anchor]),
   );
 
   const planNameOf = (id: string) => plans.find((plan) => plan.id === id)?.name ?? id;
@@ -236,14 +242,16 @@ export default function HomeScreen() {
         metrics.find((m) => m.id === id)?.unit ??
         '');
 
-  // La semaine en cours seulement : ce qui vient après appartient à la
-  // suivante, et l'accueil ne raconte qu'aujourd'hui.
-  const monday = startOfWeek(new Date());
+  // La semaine regardée seulement : ce qui vient après appartient à la
+  // suivante. Celle d'aujourd'hui garde aussi ce qui traîne d'avant ; une
+  // autre, choisie au calendrier, ne montre que ses sept jours.
+  const monday = startOfWeek(anchor ?? new Date());
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 7);
   const thisWeek = schedule
     .filter((entry) => entry.status !== 'CANCELLED')
     .filter((entry) => entry.scheduledAt < sunday)
+    .filter((entry) => anchor === null || entry.scheduledAt >= monday)
     .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
   /**
@@ -260,6 +268,18 @@ export default function HomeScreen() {
       .catch((e) => notify(messageOf(e)));
   }
 
+  /**
+   * Afficher la semaine d'un jour choisi au calendrier, ce jour sélectionné ;
+   * null revient à aujourd'hui. Un jour de la semaine en cours n'ancre rien :
+   * c'est déjà elle.
+   */
+  function goTo(chosen: Date | null) {
+    const inThisWeek =
+      chosen !== null && startOfWeek(chosen).getTime() === startOfWeek(new Date()).getTime();
+    setAnchor(chosen === null || inThisWeek ? null : startOfDay(chosen));
+    select(chosen === null ? null : startOfDay(chosen));
+  }
+
   const shown = day ? dayWork : week;
   const worked = highlight(shown.primaryMuscleIds, shown.secondaryMuscleIds);
 
@@ -271,7 +291,7 @@ export default function HomeScreen() {
    * aujourd'hui. Le bloc suit la sélection, sinon taper mardi montrerait les
    * muscles de mardi au-dessus de la séance d'aujourd'hui.
    */
-  const shownDay = day ?? today;
+  const shownDay = day ?? (anchor ? startOfDay(anchor) : today);
   /** Un jour passé ne se planifie plus : il se lit. */
   const past = shownDay.getTime() < today.getTime();
   /**
@@ -285,7 +305,7 @@ export default function HomeScreen() {
       entry.status !== 'EXECUTED' &&
       startOfDay(entry.scheduledAt).getTime() === shownDay.getTime(),
   );
-  const strip = weekDays(new Date()).map((date) => ({
+  const strip = weekDays(anchor ?? new Date()).map((date) => ({
     date,
     worked: done.some((entry) => entry.getTime() === date.getTime()),
     scheduled: thisWeek.some(
@@ -337,7 +357,22 @@ export default function HomeScreen() {
           title="Accueil"
           // La date et non un décompte d'exercices : le schéma juste dessous
           // montre mieux ce qui a été travaillé.
-          subtitle={formatLongDate(new Date())}
+          subtitle={
+            anchor
+              ? `Semaine du ${formatLongDate(monday).toLowerCase()}`
+              : formatLongDate(new Date())
+          }
+          // La date ouvre le calendrier : aller voir une autre semaine.
+          onSubtitlePress={() => setPicking(true)}
+          subtitleAside={
+            anchor && (
+              <Pressable onPress={() => goTo(null)} hitSlop={8} className="active:opacity-60">
+                <Text className="font-bold text-small text-primary-ink dark:text-primary-ink-dark">
+                  Aujourd'hui
+                </Text>
+              </Pressable>
+            )
+          }
           // Le profil s'atteint depuis l'accueil, et de nulle part ailleurs :
           // c'est le premier écran, et rien de ce qu'il contient ne se fait
           // au milieu d'une série.
@@ -463,9 +498,10 @@ export default function HomeScreen() {
                             className="shrink font-extrabold text-body text-ink dark:text-ink-dark"
                             numberOfLines={1}
                           >
-                            {entry.plannedWorkoutId
-                              ? planNameOf(entry.plannedWorkoutId)
-                              : 'Séance libre'}
+                            {dayBilans.get(entry.id)?.summary.session.name ??
+                              (entry.plannedWorkoutId
+                                ? planNameOf(entry.plannedWorkoutId)
+                                : 'Séance libre')}
                           </Text>
                           <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                             {formatTime(entry.startedAt)}
@@ -608,6 +644,19 @@ export default function HomeScreen() {
           setPlanning('none');
           setChosen(null);
         }}
+      />
+
+      <DatePickerSheet
+        visible={picking}
+        title="Aller à un jour"
+        confirmLabel="Afficher sa semaine"
+        withTime={false}
+        initial={day ?? anchor ?? new Date()}
+        onConfirm={(date) => {
+          setPicking(false);
+          goTo(date);
+        }}
+        onClose={() => setPicking(false)}
       />
     </SafeAreaView>
   );

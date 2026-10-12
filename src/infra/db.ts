@@ -7,7 +7,7 @@ import * as SQLite from 'expo-sqlite';
  * comme numéro de version du schéma. Chaque future évolution ajoutera un bloc
  * `if (step(N))`, ce qui nous donne des migrations sans outil externe.
  */
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 31;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -886,6 +886,12 @@ export async function migrate(
   // Gardée par `hasColumn`, pour la même raison que la migration 28.
   if (step(30) && !(await hasColumn(db, 'session_activities', 'interval_seconds'))) {
     await db.execAsync('ALTER TABLE session_activities ADD COLUMN interval_seconds INTEGER;');
+  }
+
+  // Migration 31 : le nom qu'on donne à une séance. Null pour l'existant --
+  // elle garde alors celui de son entraînement, ou « Séance libre ».
+  if (step(31) && !(await hasColumn(db, 'workout_sessions', 'name'))) {
+    await db.execAsync('ALTER TABLE workout_sessions ADD COLUMN name TEXT;');
   }
 
   await db.execAsync(`PRAGMA user_version = ${target};`);

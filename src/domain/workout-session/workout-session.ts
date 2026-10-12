@@ -79,6 +79,7 @@ export class WorkoutSession {
     private _activities: Activity[],
     private _rests: Rest[],
     private _photoUri: string | null,
+    private _name: string | null = null,
   ) {}
 
   static start(input: {
@@ -111,6 +112,7 @@ export class WorkoutSession {
     activities: readonly Activity[];
     rests?: readonly Rest[];
     photoUri?: string | null;
+    name?: string | null;
   }): WorkoutSession {
     return new WorkoutSession(
       input.id,
@@ -122,6 +124,7 @@ export class WorkoutSession {
       [...input.activities],
       [...(input.rests ?? [])],
       input.photoUri ?? null,
+      input.name ?? null,
     );
   }
 
@@ -157,6 +160,7 @@ export class WorkoutSession {
         endedAt: rest.endedAt ? moved(rest.endedAt) : null,
       })),
       this._photoUri,
+      this._name,
     );
   }
 
@@ -181,6 +185,20 @@ export class WorkoutSession {
    */
   attachPhoto(uri: string | null): void {
     this._photoUri = uri;
+  }
+
+  /**
+   * Le nom que tu lui donnes, ou null : elle porte alors celui de son
+   * entraînement, sinon « Séance libre ». Comme la photo, il se donne même
+   * après coup (décidé le 2026-10-12).
+   */
+  get name(): string | null {
+    return this._name;
+  }
+
+  rename(name: string | null): void {
+    const trimmed = name?.trim() ?? '';
+    this._name = trimmed === '' ? null : trimmed;
   }
 
   get activities(): readonly Activity[] {

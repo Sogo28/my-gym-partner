@@ -62,5 +62,6 @@ export function mergeSessions(a: WorkoutSession, b: WorkoutSession): WorkoutSess
     activities: [...activitiesOf(first), ...activitiesOf(second)],
     rests: [...first.rests, ...gap, ...second.rests],
     photoUri: first.photoUri ?? second.photoUri,
+    name: first.name ?? second.name,
   });
 }

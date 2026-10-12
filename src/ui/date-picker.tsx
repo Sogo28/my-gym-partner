@@ -38,6 +38,8 @@ type DatePickerSheetProps = {
   /** La date proposée à l'ouverture. */
   initial?: Date;
   confirmLabel?: string;
+  /** Faux : un jour seulement, sans heure à régler. */
+  withTime?: boolean;
   onConfirm: (date: Date) => void;
   onClose: () => void;
 };
@@ -53,6 +55,7 @@ export function DatePickerSheet({
   title,
   initial,
   confirmLabel = 'Confirmer',
+  withTime = true,
   onConfirm,
   onClose,
 }: DatePickerSheetProps) {
@@ -168,22 +171,24 @@ export function DatePickerSheet({
         </View>
 
         {/* L'heure, réglée par pas comme les valeurs de séries. */}
-        <View className="flex-row items-center justify-center gap-4 rounded-xl bg-surface-alt p-3 dark:bg-surface-alt-dark">
-          <TimeUnit
-            value={selected.getHours()}
-            onChange={(by) => shiftTime('hours', by)}
-            color={muted}
-          />
-          <Text className="font-mono-bold text-title text-ink dark:text-ink-dark">:</Text>
-          <TimeUnit
-            value={selected.getMinutes()}
-            // Une minute par tap : le pas de quinze supposait qu'on ne
-            // programme qu'aux quarts d'heure. L'appui long couvre la
-            // distance quand elle est longue.
-            onChange={(by) => shiftTime('minutes', by)}
-            color={muted}
-          />
-        </View>
+        {withTime && (
+          <View className="flex-row items-center justify-center gap-4 rounded-xl bg-surface-alt p-3 dark:bg-surface-alt-dark">
+            <TimeUnit
+              value={selected.getHours()}
+              onChange={(by) => shiftTime('hours', by)}
+              color={muted}
+            />
+            <Text className="font-mono-bold text-title text-ink dark:text-ink-dark">:</Text>
+            <TimeUnit
+              value={selected.getMinutes()}
+              // Une minute par tap : le pas de quinze supposait qu'on ne
+              // programme qu'aux quarts d'heure. L'appui long couvre la
+              // distance quand elle est longue.
+              onChange={(by) => shiftTime('minutes', by)}
+              color={muted}
+            />
+          </View>
+        )}
 
         {/* Pas de bouton « Annuler » : le panneau se referme comme tous les
             autres, en tapant le fond ou en tirant sa poignée. */}

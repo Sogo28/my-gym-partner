@@ -14,6 +14,7 @@ type SessionRow = {
   ended_at: string | null;
   status: WorkoutSessionStatus;
   photo_uri: string | null;
+  name?: string | null;
 };
 
 type ActivityRow = {
@@ -61,8 +62,8 @@ async function write(
 ): Promise<void> {
   await db.runAsync(
     `INSERT INTO workout_sessions
-       (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+       (id, planned_workout_id, scheduled_workout_id, started_at, ended_at, status, photo_uri, name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      -- started_at se réécrit aussi : une séance peut être DÉPLACÉE, et
      -- l'omettre laissait la correction sans effet. Chaque champ mutable
      -- doit figurer ici -- is_unilateral en a payé le prix avant lui.
@@ -70,7 +71,8 @@ async function write(
        started_at = excluded.started_at,
        ended_at = excluded.ended_at,
        status = excluded.status,
-       photo_uri = excluded.photo_uri;`,
+       photo_uri = excluded.photo_uri,
+       name = excluded.name;`,
     session.id,
     session.plannedWorkoutId,
     session.scheduledWorkoutId,
@@ -78,6 +80,7 @@ async function write(
     session.endedAt?.toISOString() ?? null,
     session.status,
     session.photoUri,
+    session.name,
   );
 
   await db.runAsync('DELETE FROM session_activities WHERE session_id = ?;', session.id);
@@ -208,6 +211,7 @@ function restore(row: SessionRow, activities: Activity[], rests: Rest[]): Workou
     activities,
     rests,
     photoUri: row.photo_uri,
+    name: row.name ?? null,
   });
 }
 

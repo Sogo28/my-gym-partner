@@ -4,6 +4,7 @@ import { findById as findPerformance } from '../infra/performance-repository';
 import { findAll, findById } from '../infra/workout-session-repository';
 import { findMergeCandidates, mergeSessions } from './merge-sessions';
 import { moveSession } from './move-session';
+import { renameSession } from './rename-session';
 import {
   completePerformanceSet,
   finishWorkoutSession,
@@ -57,6 +58,19 @@ describe('Fusionner des séances', () => {
     // Les séries ont suivi, intactes.
     const performance = await findPerformance(merged.activities[1].performanceId!);
     expect(performance?.sets[0].values).toEqual({ BOTH: { duration: 12 } });
+  });
+
+  it('garde le nom donné à l une des deux', async () => {
+    const exercise = await anExercise();
+    const first = await aSession(exercise.id, 10);
+    const second = await aSession(exercise.id, 12);
+    const end = (await findById(first))!.endedAt!;
+    await moveSession(second, new Date(end.getTime() + 60_000));
+    await renameSession(second, 'Jambes');
+
+    await mergeSessions(first, second);
+
+    expect((await findById(first))!.name).toBe('Jambes');
   });
 
   it('refuse deux séances de jours différents', async () => {

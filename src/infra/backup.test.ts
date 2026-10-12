@@ -89,6 +89,7 @@ describe('Sauvegarde', () => {
         session_activities: current.tables.session_activities.map(
           ({ interval_seconds: _dropped, ...row }) => row,
         ),
+        workout_sessions: current.tables.workout_sessions.map(({ name: _dropped, ...row }) => row),
         body_metrics: current.tables.body_metrics.map((row) =>
           row.id === 'tourdepaules' ? { ...row, name: 'Tour d épaules' } : row,
         ),
@@ -123,6 +124,7 @@ describe('Sauvegarde', () => {
         session_activities: current.tables.session_activities.map(
           ({ interval_seconds: _dropped, ...row }) => row,
         ),
+        workout_sessions: current.tables.workout_sessions.map(({ name: _dropped, ...row }) => row),
       },
     };
     __clearData();

@@ -16,14 +16,20 @@ export function SectionHeader({
   action,
   onMenu,
   right,
+  onSubtitlePress,
+  subtitleAside,
 }: SectionHeaderProps & {
+  /** Le sous-titre s'ouvre : l'accueil y ouvre le calendrier. */
+  onSubtitlePress?: () => void;
+  /** Ce qui suit le sous-titre sur sa ligne : un lien de retour, par exemple. */
+  subtitleAside?: ReactNode;
   action?: HeaderAction;
   onMenu?: () => void;
   /** Ce que la page a de particulier à poser à droite du titre, quand ni un
       raccourci textuel ni un menu ne conviennent -- l'avatar, par exemple. */
   right?: ReactNode;
 }) {
-  const { ink } = usePalette();
+  const { ink, muted } = usePalette();
 
   return (
     <View className="flex-row items-start justify-between gap-3 pb-2">
@@ -31,9 +37,25 @@ export function SectionHeader({
         <Text className="font-extrabold text-title tracking-tight text-ink dark:text-ink-dark">
           {title}
         </Text>
-        {subtitle && (
-          <Text className="font-mono text-small text-muted dark:text-muted-dark">{subtitle}</Text>
-        )}
+        {subtitle &&
+          (onSubtitlePress || subtitleAside ? (
+            <View className="flex-row flex-wrap items-center gap-x-3">
+              <Pressable
+                onPress={onSubtitlePress}
+                disabled={!onSubtitlePress}
+                hitSlop={8}
+                className="flex-row items-center gap-1.5 active:opacity-60"
+              >
+                <Text className="font-mono text-small text-muted dark:text-muted-dark">
+                  {subtitle}
+                </Text>
+                {onSubtitlePress && <Ionicons name="calendar-outline" size={13} color={muted} />}
+              </Pressable>
+              {subtitleAside}
+            </View>
+          ) : (
+            <Text className="font-mono text-small text-muted dark:text-muted-dark">{subtitle}</Text>
+          ))}
       </View>
       {action && (
         <Pressable onPress={action.onPress} hitSlop={8} className="shrink-0 pt-1">

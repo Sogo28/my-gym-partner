@@ -47,6 +47,8 @@ export async function logPastSession(input: {
   exercises: readonly LoggedExercise[];
   /** L'entraînement dont elle est partie, si elle en suivait un. */
   plannedWorkoutId?: string | null;
+  /** Le nom qu'on lui donne, facultatif. */
+  name?: string | null;
 }): Promise<WorkoutSession> {
   if (input.at.getTime() > Date.now()) {
     throw new DomainError("Une séance ne peut pas avoir eu lieu dans le futur.");
@@ -105,6 +107,7 @@ export async function logPastSession(input: {
     session.finishCurrentActivity(instant(rank - 1));
   }
 
+  session.rename(input.name ?? null);
   session.finish(new Date(input.at.getTime() + input.durationSeconds * 1000));
 
   // Les performances d'abord, la séance ensuite : dans l'autre ordre, une

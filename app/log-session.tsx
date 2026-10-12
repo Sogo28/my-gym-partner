@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useColorScheme } from 'react-native';
 import type { Exercise } from '../src/domain/exercise/exercise';
 import type { Measurement } from '../src/domain/exercise/measurement';
 import type { Muscle } from '../src/domain/exercise/muscle';
@@ -23,7 +23,7 @@ import { useNotifications } from '../src/ui/notifications';
 import { defaultTargets } from '../src/ui/set-defaults';
 import { formatSetValues } from '../src/ui/set-values';
 import { Sheet } from '../src/ui/sheet';
-import { ladder, Wheel } from '../src/ui/wheel';
+import { DurationSheet } from '../src/ui/duration-field';
 import { listActiveExercises, listActiveWorkouts } from '../src/use-cases/edit-catalogue';
 import { logPastSession } from '../src/use-cases/log-session';
 import { catalogueSource } from '../src/use-cases/repdb-actions';
@@ -64,11 +64,13 @@ export default function LogSessionScreen() {
    */
   const [at, setAt] = useState(() => new Date(Date.now() - DEFAULT_DURATION * 1000));
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_DURATION);
+  /** Le nom qu'on lui donne ; vide, elle prend celui de l'entraînement suivi. */
+  const [name, setName] = useState('');
   const [draft, setDraft] = useState<Done[]>([]);
   /** L'entraînement dont on est parti, s'il y en a un. */
   const [from, setFrom] = useState<PlannedWorkout | null>(null);
 
-  const [sheet, setSheet] = useState<'none' | 'when' | 'duration' | 'plans'>('none');
+  const [sheet, setSheet] = useState<'none' | 'when' | 'duration' | 'plans' | 'name'>('none');
   const [picking, setPicking] = useState(false);
   const [editingSet, setEditingSet] = useState<{ key: string; setIndex: number } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -240,6 +242,7 @@ export default function LogSessionScreen() {
         at,
         durationSeconds,
         plannedWorkoutId: from?.id ?? null,
+        name,
         exercises: draft.map((entry) => ({ exerciseId: entry.exerciseId, sets: entry.sets })),
       });
       // La séance enregistrée s'ouvre sur son bilan, comme celle qu'on vient
@@ -272,6 +275,11 @@ export default function LogSessionScreen() {
             label="Entraînement suivi"
             value={from ? from.name : 'Séance libre'}
             onPress={() => setSheet('plans')}
+          />
+          <Row
+            label="Nom"
+            value={name.trim() || 'Facultatif'}
+            onPress={() => setSheet('name')}
           />
 
           {draft.length === 0 && (
@@ -348,13 +356,34 @@ export default function LogSessionScreen() {
         onClose={() => setSheet('none')}
       />
 
-      <Sheet
+      <DurationSheet
         visible={sheet === 'duration'}
         title="Combien de temps"
-        description="Ce que tu déclares avoir passé à la salle, du premier au dernier exercice."
+        withHours
+        value={durationSeconds}
+        onChange={setDurationSeconds}
+        onClose={() => setSheet('none')}
+      />
+
+      <Sheet
+        visible={sheet === 'name'}
+        title="Nom de la séance"
+        description="Facultatif. Sans nom, elle porte celui de l'entraînement suivi, ou « Séance libre »."
         onClose={() => setSheet('none')}
       >
-        <SessionDurationWheels value={durationSeconds} onChange={setDurationSeconds} />
+        <View className="gap-3 pb-2">
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Par exemple : Dos et biceps"
+            placeholderTextColor="#A8AD9E"
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => setSheet('none')}
+          />
+          <Button label="OK" size="md" onPress={() => setSheet('none')} />
+        </View>
       </Sheet>
 
       {/* Partir d'un entraînement REMPLACE ce qui est saisi : la feuille le
@@ -534,56 +563,17 @@ function SetLine({
   );
 }
 
-/** Les crans d'une séance : jusqu'à cinq heures, par quarts de cinq minutes. */
-const HOURS = ladder(1, 5);
-const MINUTES = ladder(5, 55);
-
-/**
- * La durée d'une SÉANCE, en heures et minutes.
- *
- * Pas le champ des autres durées, qui se règle en minutes et secondes : une
- * série tient en trente secondes, une séance en une heure et quart, et la
- * même roulette ne peut pas servir les deux sans que l'une devienne
- * interminable à faire défiler.
- */
-function SessionDurationWheels({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (seconds: number) => void;
-}) {
-  const hours = Math.floor(value / 3600);
-  const minutes = Math.round((value % 3600) / 60);
-
-  return (
-    <View className="items-center gap-2 pb-2">
-      <Text className="font-mono-bold text-heading text-ink dark:text-ink-dark">
-        {formatSessionDuration(value)}
-      </Text>
-      <View className="flex-row items-center justify-center gap-2">
-        <Wheel
-          values={HOURS}
-          unit="h"
-          value={hours}
-          onChange={(h) => onChange(h * 3600 + minutes * 60)}
-        />
-        <Wheel
-          values={MINUTES}
-          unit="min"
-          value={minutes}
-          onChange={(m) => onChange(hours * 3600 + m * 60)}
-        />
-      </View>
-    </View>
-  );
-}
-
-/** « 1 h 15 », « 45 min » : une durée de séance telle qu'on la dit. */
+/** « 1 h 15 », « 45 min », « 1 h 15 min 30 s » : une durée de séance telle qu'on la dit. */
 function formatSessionDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
-  const minutes = Math.round((seconds % 3600) / 60);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
 
+  if (rest > 0) {
+    return [hours > 0 && `${hours} h`, (hours > 0 || minutes > 0) && `${minutes} min`, `${rest} s`]
+      .filter(Boolean)
+      .join(' ');
+  }
   if (hours === 0) return `${minutes} min`;
   return minutes === 0 ? `${hours} h` : `${hours} h ${String(minutes).padStart(2, '0')}`;
 }

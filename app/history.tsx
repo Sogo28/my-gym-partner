@@ -22,6 +22,7 @@ import { EmptyState } from '../src/ui/empty-state';
 import { SearchField } from '../src/ui/search';
 import { fold } from '../src/text';
 import { formatClock, formatDateTime } from '../src/ui/format';
+import { sessionTitle } from '../src/ui/session-title';
 import { ListContent, ListLayout } from '../src/ui/list-layout';
 
 /** Par pages de dix : de quoi remonter deux semaines d'un coup, pas trois mois. */
@@ -130,7 +131,7 @@ export default function HistoryScreen() {
     if (needle === '') return true;
     const plan = plans.find((candidate) => candidate.id === session.plannedWorkoutId);
     return (
-      fold(plan?.name ?? 'Séance libre').includes(needle) ||
+      fold(sessionTitle(session, plan)).includes(needle) ||
       activities.some((activity) => fold(nameOf(activity.exerciseId)).includes(needle))
     );
   });
@@ -222,7 +223,7 @@ export default function HistoryScreen() {
                       className="font-extrabold text-body text-ink dark:text-ink-dark"
                       numberOfLines={1}
                     >
-                      {plan ? plan.name : 'Séance libre'}
+                      {sessionTitle(session, plan)}
                     </Text>
                     <Text className="font-mono text-caption text-muted dark:text-muted-dark">
                       {formatDateTime(date)}

@@ -192,3 +192,16 @@ describe('Le rythme d un exercice', () => {
     expect(() => session.markCurrentActivityAsEmom(0)).toThrow(/au moins une seconde/);
   });
 });
+
+describe('Le nom d une séance', () => {
+  it('se donne même terminée, et se retire en le vidant', () => {
+    const session = WorkoutSession.start({ id: 'ws-1', at: new Date(2026, 9, 12, 18, 0) });
+    session.finish(new Date(2026, 9, 12, 19, 0));
+
+    session.rename('  Dos et biceps ');
+    expect(session.name).toBe('Dos et biceps');
+
+    session.rename('   ');
+    expect(session.name).toBeNull();
+  });
+});

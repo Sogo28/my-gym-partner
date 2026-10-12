@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cn } from './cn';
-import { formatDuration } from './format';
+import { formatClock, formatDuration } from './format';
 import { fieldBox, StepButton, TAPPABLE } from './number-field';
 import { Sheet } from './sheet';
 import { ladder, Wheel } from './wheel';
@@ -109,31 +109,66 @@ export function DurationField({
   );
 }
 
-function DurationSheet({
+/** Les heures d'une séance : on n'en passe pas plus de cinq à la salle. */
+const HOURS = ladder(1, 5);
+
+/**
+ * La feuille d'une durée : minutes et secondes, et les heures en tête quand
+ * elle sert à une séance (`withHours`). La même partout, pour les séries
+ * comme pour la durée d'une séance enregistrée après coup (décidé le
+ * 2026-10-12) : une seule roulette à connaître, et à corriger.
+ */
+export function DurationSheet({
   visible,
   value,
   onChange,
   onClose,
+  title = 'Durée',
+  withHours = false,
 }: {
   visible: boolean;
   value: number;
   onChange: (seconds: number) => void;
   onClose: () => void;
+  title?: string;
+  withHours?: boolean;
 }) {
-  const minutes = Math.floor(value / 60);
+  const hours = withHours ? Math.floor(value / 3600) : 0;
+  const minutes = Math.floor((value - hours * 3600) / 60);
   const seconds = value % 60;
+  const total = (h: number, m: number, sec: number) => h * 3600 + m * 60 + sec;
 
   return (
-    <Sheet visible={visible} title="Durée" description={formatDuration(value)} onClose={onClose}>
+    <Sheet
+      visible={visible}
+      title={title}
+      description={withHours ? formatClock(value) : formatDuration(value)}
+      onClose={onClose}
+    >
       <View className="flex-row items-center justify-center gap-2 pb-2">
-        <Wheel values={SIXTY} unit="min" value={minutes} onChange={(m) => onChange(m * 60 + seconds)} />
+        {withHours && (
+          <>
+            <Wheel
+              values={HOURS}
+              unit="h"
+              value={hours}
+              onChange={(h) => onChange(total(h, minutes, seconds))}
+            />
+            <Text className="font-mono-bold text-heading text-muted dark:text-muted-dark">:</Text>
+          </>
+        )}
+        <Wheel
+          values={SIXTY}
+          unit="min"
+          value={minutes}
+          onChange={(m) => onChange(total(hours, m, seconds))}
+        />
         <Text className="font-mono-bold text-heading text-muted dark:text-muted-dark">:</Text>
         <Wheel
           values={SIXTY}
           unit="s"
           value={seconds}
-          onChange={(s) => onChange(minutes * 60 + s)}
-
+          onChange={(sec) => onChange(total(hours, minutes, sec))}
         />
       </View>
     </Sheet>

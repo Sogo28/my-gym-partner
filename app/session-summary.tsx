@@ -34,6 +34,8 @@ import { advanceProgression, goalsReachedBy, type ReachedGoal } from '../src/use
 import { eraseSession } from '../src/use-cases/erase-history';
 import { findMergeCandidates, mergeSessions } from '../src/use-cases/merge-sessions';
 import { createWorkoutFromSession } from '../src/use-cases/workout-from-session';
+import { renameSession } from '../src/use-cases/rename-session';
+import { sessionTitle } from '../src/ui/session-title';
 import {
   findSessionRecords,
   findSessionSummary,
@@ -71,8 +73,9 @@ export default function SessionSummaryScreen() {
   const [reached, setReached] = useState<ReachedGoal[]>([]);
   const [records, setRecords] = useState<SessionRecord[]>([]);
   const [sheet, setSheet] = useState<
-    'none' | 'menu' | 'confirm' | 'photo' | 'merge' | 'confirm-merge' | 'to-workout'
+    'none' | 'menu' | 'confirm' | 'photo' | 'merge' | 'confirm-merge' | 'to-workout' | 'rename'
   >('none');
+  const [newName, setNewName] = useState('');
   /** Les autres séances terminées du même jour, avec lesquelles fusionner. */
   const [candidates, setCandidates] = useState<WorkoutSession[]>([]);
   /** Celle qu'on s'apprête à fusionner avec celle-ci, en attente de confirmation. */
@@ -224,10 +227,10 @@ export default function SessionSummaryScreen() {
 
   return (
     <DetailLayout
-      title={fresh ? 'Séance terminée' : plan ? plan.name : 'Séance libre'}
+      title={fresh ? 'Séance terminée' : sessionTitle(summary.session, plan)}
       subtitle={
         fresh
-          ? `${plan ? plan.name : 'Séance libre'} · ${formatDateTime(summary.session.startedAt)}`
+          ? `${sessionTitle(summary.session, plan)} · ${formatDateTime(summary.session.startedAt)}`
           : formatDateTime(summary.session.startedAt)
       }
       // La même page sert deux moments : le bilan d'une séance qu'on vient de
@@ -558,8 +561,16 @@ export default function SessionSummaryScreen() {
 
       <Sheet
         visible={sheet === 'menu'}
-        title={plan ? plan.name : 'Séance libre'}
+        title={sessionTitle(summary.session, plan)}
         actions={[
+          {
+            label: summary.session.name ? 'Renommer la séance' : 'Nommer la séance',
+            icon: 'pencil-outline',
+            onPress: () => {
+              setNewName(summary.session.name ?? '');
+              setSheet('rename');
+            },
+          },
           {
             label: 'Modifier cette séance',
             icon: 'create-outline',
@@ -580,7 +591,10 @@ export default function SessionSummaryScreen() {
             icon: 'barbell-outline',
             onPress: () => {
               setWorkoutName(
-                plan ? `${plan.name} copie` : `Séance du ${summary.session.startedAt.toLocaleDateString('fr-FR')}`,
+                summary.session.name ??
+                  (plan
+                    ? `${plan.name} copie`
+                    : `Séance du ${summary.session.startedAt.toLocaleDateString('fr-FR')}`),
               );
               setSheet('to-workout');
             },
@@ -627,6 +641,34 @@ export default function SessionSummaryScreen() {
           setMergingWith(null);
         }}
       />
+
+      <Sheet
+        visible={sheet === 'rename'}
+        title="Nom de la séance"
+        description={`Vide, elle reprend « ${plan ? plan.name : 'Séance libre'} ».`}
+        onClose={() => setSheet('none')}
+      >
+        <View className="gap-3 pb-2">
+          <TextInput
+            className="h-14 rounded-lg border-[1.5px] border-border bg-surface px-4 text-strong text-ink dark:border-border-dark dark:bg-surface-dark dark:text-ink-dark"
+            placeholder="Par exemple : Dos et biceps"
+            placeholderTextColor="#A8AD9E"
+            value={newName}
+            onChangeText={setNewName}
+            autoFocus
+          />
+          <Button
+            label="Enregistrer"
+            size="md"
+            onPress={() => {
+              setSheet('none');
+              renameSession(id, newName)
+                .then(reload)
+                .catch((e) => notify(messageOf(e)));
+            }}
+          />
+        </View>
+      </Sheet>
 
       <Sheet
         visible={sheet === 'to-workout'}
