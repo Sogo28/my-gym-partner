@@ -108,6 +108,7 @@ import { takeCreated } from '../../src/ui/created-exercise';
 import { SetVideoViewer } from '../../src/ui/set-video';
 import { fileUri } from '../../src/use-cases/media-actions';
 import { detachSetVideo } from '../../src/use-cases/set-video';
+import { removePastSet } from '../../src/use-cases/correct-past-set';
 import { SetIndex } from '../../src/ui/set-index';
 
 /**
@@ -1257,6 +1258,52 @@ export default function SessionScreen() {
   }
 
   /**
+   * Le premier des abandons qui terminent la liste : deux séries abandonnées
+   * de suite, la 2 et la 3, se reprennent à la 2. Null si la dernière série
+   * n'est pas un abandon.
+   */
+  let firstTrailingAbandon: number | null = null;
+  for (let index = lastSetIndex; index >= 0 && sets[index].status === 'ABANDONED'; index -= 1) {
+    firstTrailingAbandon = index;
+  }
+
+  /**
+   * Une série abandonnée qu'on peut refaire : la première des abandons qui
+   * terminent la liste, et rien d'autre ne tourne. Un abandon suivi d'une
+   * série FAITE ne se refait pas : la retirer décalerait la cible de celle-ci.
+   */
+  const redoable = (index: number) =>
+    index === firstTrailingAbandon && !performance?.currentSet && !emom && !arming && !getReady;
+
+  /**
+   * Refaire la série abandonnée (décidé le 2026-10-13) : les abandons qui
+   * la suivent s'effacent avec elle, et la série repart -- décompte compris
+   * -- sur la MÊME cible du programme. L'effacement attend le départ :
+   * renoncer pendant le décompte laisse les abandons tels quels.
+   */
+  function redoSet(index: number) {
+    const performanceId = activity?.performanceId;
+    if (!performanceId) return;
+    afterCountdown(
+      `${nameOf(activity.exerciseId)} · série ${index + 1}${
+        plannedExercise ? ` sur ${plannedExercise.sets.length}` : ''
+      }`,
+      (at) => {
+        feelOnTime(at);
+        return run(async () => {
+          closeEditing();
+          // De la fin vers elle : chaque retrait laisse les rangs d'avant
+          // intacts.
+          for (let rank = lastSetIndex; rank >= index; rank -= 1) {
+            await removePastSet({ performanceId, setIndex: rank });
+          }
+          await startPerformanceSet(at);
+        });
+      },
+    );
+  }
+
+  /**
    * Passer à l'exercice suivant enchaîne directement sur sa première série :
    * le repos en cours est interrompu par le démarrage de la série (§13).
    */
@@ -2254,6 +2301,7 @@ export default function SessionScreen() {
                   }
                   selected={editing === index || retargeting === index}
                   onPlay={set.videoUri ? () => setWatching(set.videoUri) : undefined}
+                  onRedo={redoable(index) ? () => redoSet(index) : undefined}
                   values={
                     format(
                       editing === index

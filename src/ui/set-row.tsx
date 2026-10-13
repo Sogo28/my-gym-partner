@@ -82,6 +82,8 @@ type SetRowProps = {
   selected?: boolean;
   /** Fourni : la série a été filmée, et la pastille ouvre sa vidéo. */
   onPlay?: () => void;
+  /** Fourni : la série abandonnée peut se refaire, d'un bouton au bout de sa ligne. */
+  onRedo?: () => void;
 };
 
 /**
@@ -96,6 +98,7 @@ export function SetRow({
   onPress,
   selected = false,
   onPlay,
+  onRedo,
 }: SetRowProps) {
   const accents = ACCENTS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   // Ouvrir une série à l'ajustement, c'est y revenir : elle se montre comme
@@ -145,6 +148,7 @@ export function SetRow({
         </Text>
 
         {onPlay && <VideoBadge onPress={onPlay} />}
+        {onRedo && <RedoBadge onPress={onRedo} />}
 
         {/* Faite : une coche au bout de la ligne, là où les autres états
             disent leur nom. */}
@@ -229,5 +233,25 @@ function Badge({
         {index}
       </Text>
     </View>
+  );
+}
+
+/**
+ * Refaire une série abandonnée : la même pastille que la vidéo, une flèche
+ * qui revient sur elle-même. On rate, on souffle, on retente -- la même
+ * cible, sans passer par un menu (décidé le 2026-10-13).
+ */
+function RedoBadge({ onPress }: { onPress: () => void }) {
+  const dark = useColorScheme() === 'dark';
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityLabel="Refaire cette série"
+      className="h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft dark:bg-primary-soft-dark"
+    >
+      <Ionicons name="refresh" size={18} color={dark ? '#F2F4EF' : '#14160F'} />
+    </Pressable>
   );
 }
